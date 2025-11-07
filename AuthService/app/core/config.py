@@ -1,9 +1,10 @@
 from pydantic_settings import BaseSettings
 from datetime import timedelta
 
+
 class Settings(BaseSettings):
     # DB / Redis
-    DATABASE_URL: str = "postgresql://elib:elib@localhost:5432/elib_auth"
+    DATABASE_URL: str = "sqlite:///./elib_auth.db"  # SQLite файл в текущей директории
     REDIS_URL: str = "redis://localhost:6379/0"
 
     # JWT
@@ -13,8 +14,12 @@ class Settings(BaseSettings):
     REFRESH_EXPIRES_DAYS: int = 30
 
     @property
-    def access_delta(self): return timedelta(minutes=self.ACCESS_EXPIRES_MIN)
+    def access_delta(self):
+        return timedelta(minutes=self.ACCESS_EXPIRES_MIN)
+
     @property
-    def refresh_delta(self): return timedelta(days=self.REFRESH_EXPIRES_DAYS)
+    def refresh_delta(self):
+        return timedelta(days=self.REFRESH_EXPIRES_DAYS)
+
 
 settings = Settings()

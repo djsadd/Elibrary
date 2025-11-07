@@ -6,4 +6,6 @@ from app.core.config import settings
 engine = create_engine(settings.DATABASE_URL, future=True)
 SessionLocal = sessionmaker(engine, autoflush=False, autocommit=False)
 
-class Base(DeclarativeBase): pass
+
+class Base(DeclarativeBase):
+    pass
