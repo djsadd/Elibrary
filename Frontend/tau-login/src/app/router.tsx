@@ -17,6 +17,8 @@ import CreateBookPage from "../pages/admin/CreateBookPage";
 import CreatePlaylistPage from "../pages/admin/CreatePlaylistPage";
 import BooksListPage from "../pages/admin/sections/BooksListPage";
 import PlaylistsListPage from "../pages/admin/sections/PlaylistsListPage";
+import EditBookPage from "../pages/admin/EditBookPage";
+import EditPlaylistPage from "../pages/admin/EditPlaylistPage";
 import UsersPage from "../pages/admin/sections/UsersPage";
 import AuthorsPage from "../pages/admin/sections/AuthorsPage";
 import SubjectsPage from "../pages/admin/sections/SubjectsPage";
@@ -51,8 +53,10 @@ const router = createBrowserRouter([
             { index: true, element: <AdminHome /> },
             { path: "books", element: <BooksListPage /> },
             { path: "books/new", element: <CreateBookPage /> },
+            { path: "books/:id/edit", element: <EditBookPage /> },
             { path: "playlists", element: <PlaylistsListPage /> },
             { path: "playlists/new", element: <CreatePlaylistPage /> },
+            { path: "playlists/:id/edit", element: <EditPlaylistPage /> },
             { path: "users", element: <UsersPage /> },
             { path: "authors", element: <AuthorsPage /> },
             { path: "subjects", element: <SubjectsPage /> },
