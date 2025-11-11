@@ -15,6 +15,15 @@ import AdminLayout from "../pages/admin/AdminLayout";
 import AdminHome from "../pages/admin/AdminHome";
 import CreateBookPage from "../pages/admin/CreateBookPage";
 import CreatePlaylistPage from "../pages/admin/CreatePlaylistPage";
+import BooksListPage from "../pages/admin/sections/BooksListPage";
+import PlaylistsListPage from "../pages/admin/sections/PlaylistsListPage";
+import UsersPage from "../pages/admin/sections/UsersPage";
+import AuthorsPage from "../pages/admin/sections/AuthorsPage";
+import SubjectsPage from "../pages/admin/sections/SubjectsPage";
+import FilesPage from "../pages/admin/sections/FilesPage";
+import SettingsPage from "../pages/admin/sections/SettingsPage";
+import ReportsPage from "../pages/admin/sections/ReportsPage";
+import RolesPage from "../pages/admin/sections/RolesPage";
 
 const router = createBrowserRouter([
   { path: "/login", element: <PublicRouteSync><LoginPage /></PublicRouteSync> },
@@ -40,8 +49,17 @@ const router = createBrowserRouter([
           element: <AdminLayout />,
           children: [
             { index: true, element: <AdminHome /> },
+            { path: "books", element: <BooksListPage /> },
             { path: "books/new", element: <CreateBookPage /> },
+            { path: "playlists", element: <PlaylistsListPage /> },
             { path: "playlists/new", element: <CreatePlaylistPage /> },
+            { path: "users", element: <UsersPage /> },
+            { path: "authors", element: <AuthorsPage /> },
+            { path: "subjects", element: <SubjectsPage /> },
+            { path: "files", element: <FilesPage /> },
+            { path: "roles", element: <RolesPage /> },
+            { path: "reports", element: <ReportsPage /> },
+            { path: "settings", element: <SettingsPage /> },
           ],
         },
     ],
