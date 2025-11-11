@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import MultiSelect from "@/components/ui/MultiSelect";
 
 
 function readAsDataUrl(file: File): Promise<string> {
@@ -38,10 +39,17 @@ export default function CreateBookPage() {
   const [newAuthor, setNewAuthor] = useState("");
   const [newSubject, setNewSubject] = useState("");
 
+  // Users selection (restored)
+  const [users, setUsers] = useState<string[]>(() => {
+    try { return JSON.parse(localStorage.getItem("ui_users") || "[]"); } catch { return []; }
+  });
+  const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
+
   const navigate = useNavigate();
 
   useEffect(() => { localStorage.setItem("local_authors", JSON.stringify(localAuthors)); }, [localAuthors]);
   useEffect(() => { localStorage.setItem("local_subjects", JSON.stringify(localSubjects)); }, [localSubjects]);
+  useEffect(() => { try { localStorage.setItem("ui_users", JSON.stringify(users)); } catch {} }, [users]);
 
   // fetch server lists on mount and whenever local additions change
   useEffect(() => {
@@ -202,7 +210,7 @@ export default function CreateBookPage() {
   return (
     <div>
       <h3 className="text-lg font-semibold mb-4">Create Book</h3>
-      <form onSubmit={onSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <form onSubmit={onSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-white rounded-md p-4 border">
         <div>
           <label className="block text-sm font-medium">Title</label>
           <input required value={title} onChange={(e) => setTitle(e.target.value)} className="mt-1 w-full border rounded-md px-3 py-2" />
@@ -213,31 +221,44 @@ export default function CreateBookPage() {
           <label className="block text-sm font-medium mt-3">Language</label>
           {langs.length > 0 ? (
             <select value={lang} onChange={(e) => setLang(e.target.value)} className="mt-1 w-full border rounded-md px-3 py-2">
-              <option value="">— select —</option>
+              <option value="">Select language</option>
               {langs.map(l => <option key={l} value={l}>{l}</option>)}
             </select>
           ) : (
             <input value={lang} onChange={(e) => setLang(e.target.value)} className="mt-1 w-full border rounded-md px-3 py-2" />
           )}
 
-          <label className="block text-sm font-medium mt-3">Publication Info</label>
-          <input value={pubInfo} onChange={(e) => setPubInfo(e.target.value)} className="mt-1 w-full border rounded-md px-3 py-2" />
-
-          <label className="block text-sm font-medium mt-3">Summary</label>
-          <textarea value={summary} onChange={(e) => setSummary(e.target.value)} className="mt-1 w-full border rounded-md px-3 py-2" rows={6} />
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium">Authors (select)</label>
-          <select multiple value={selectedAuthors} onChange={(e) => setSelectedAuthors(Array.from(e.target.selectedOptions).map(o => o.value))} className="mt-1 w-full border rounded-md px-3 py-2 h-32">
-            {authors.map((a) => <option key={a} value={a}>{a}</option>)}
-          </select>
-          <div className="flex gap-2 mt-2">
-            <input placeholder="Add author" value={newAuthor} onChange={(e) => setNewAuthor(e.target.value)} className="flex-1 border rounded-md px-3 py-2" />
-            <button type="button" onClick={addAuthor} className="px-3 py-2 bg-slate-700 text-white rounded-md">Add</button>
+          <div className="mb-4">
+            <MultiSelect
+              label="Authors"
+              options={authors}
+              selected={selectedAuthors}
+              onChange={setSelectedAuthors}
+              onCreate={(v)=>{ if (!authors.includes(v)) setAuthors(a=>[...a, v]); if (!localAuthors.includes(v)) setLocalAuthors(a=>[...a, v]); }}
+              placeholder="Search or add author"
+            />
           </div>
-
-          <label className="block text-sm font-medium mt-4">Subjects (select)</label>
+          <div className="mb-4">
+            <MultiSelect
+              label="Subjects"
+              options={subjects}
+              selected={selectedSubjects}
+              onChange={setSelectedSubjects}
+              onCreate={(v)=>{ if (!subjects.includes(v)) setSubjects(s=>[...s, v]); if (!localSubjects.includes(v)) setLocalSubjects(s=>[...s, v]); }}
+              placeholder="Search or add subject"
+            />
+          </div>
+          <div className="mb-4">
+            <MultiSelect
+              label="Users (optional)"
+              options={users}
+              selected={selectedUsers}
+              onChange={setSelectedUsers}
+              onCreate={(v)=>{ if (!users.includes(v)) setUsers(prev=>[...prev, v]); }}
+              placeholder="Search or add user (email/login)"
+            />
+          </div>
+          <div className="mb-4" id="authors-placeholder"></div><div className="mb-4" id="subjects-placeholder"></div>
           <select multiple value={selectedSubjects} onChange={(e) => setSelectedSubjects(Array.from(e.target.selectedOptions).map(o => o.value))} className="mt-1 w-full border rounded-md px-3 py-2 h-32">
             {subjects.map((s) => <option key={s} value={s}>{s}</option>)}
           </select>
@@ -263,3 +284,7 @@ export default function CreateBookPage() {
     </div>
   );
 }
+
+
+
+
