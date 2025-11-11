@@ -208,24 +208,27 @@ export default function CreateBookPage() {
   };
 
   return (
-    <div>
-      <h3 className="text-lg font-semibold mb-4">Create Book</h3>
-      <form onSubmit={onSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-white rounded-md p-4 border">
-        <div>
+    <div className="space-y-4">
+      <div className="rounded-lg p-5 bg-gradient-to-r from-[#7b0f2b] to-rose-600 text-white shadow">
+        <div className="text-xl font-semibold">Create Book</div>
+        <div className="text-sm opacity-90">Upload files and fill metadata to add a new book to the catalogue.</div>
+      </div>
+      <form onSubmit={onSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="bg-white rounded-md p-4 border shadow-sm">
           <label className="block text-sm font-medium">Title</label>
-          <input required value={title} onChange={(e) => setTitle(e.target.value)} className="mt-1 w-full border rounded-md px-3 py-2" />
+          <input required value={title} onChange={(e) => setTitle(e.target.value)} className="mt-1 w-full border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#7b0f2b]/30" />
 
           <label className="block text-sm font-medium mt-3">Year</label>
-          <input value={year} onChange={(e) => setYear(e.target.value)} className="mt-1 w-full border rounded-md px-3 py-2" />
+          <input value={year} onChange={(e) => setYear(e.target.value)} className="mt-1 w-full border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#7b0f2b]/30" />
 
           <label className="block text-sm font-medium mt-3">Language</label>
           {langs.length > 0 ? (
-            <select value={lang} onChange={(e) => setLang(e.target.value)} className="mt-1 w-full border rounded-md px-3 py-2">
+            <select value={lang} onChange={(e) => setLang(e.target.value)} className="mt-1 w-full border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#7b0f2b]/30">
               <option value="">Select language</option>
               {langs.map(l => <option key={l} value={l}>{l}</option>)}
             </select>
           ) : (
-            <input value={lang} onChange={(e) => setLang(e.target.value)} className="mt-1 w-full border rounded-md px-3 py-2" />
+            <input value={lang} onChange={(e) => setLang(e.target.value)} className="mt-1 w-full border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#7b0f2b]/30" />
           )}
 
           <div className="mb-4">
@@ -258,32 +261,35 @@ export default function CreateBookPage() {
               placeholder="Search or add user (email/login)"
             />
           </div>
-          <div className="mb-4" id="authors-placeholder"></div><div className="mb-4" id="subjects-placeholder"></div>
-          <select multiple value={selectedSubjects} onChange={(e) => setSelectedSubjects(Array.from(e.target.selectedOptions).map(o => o.value))} className="mt-1 w-full border rounded-md px-3 py-2 h-32">
-            {subjects.map((s) => <option key={s} value={s}>{s}</option>)}
-          </select>
-          <div className="flex gap-2 mt-2">
-            <input placeholder="Add subject" value={newSubject} onChange={(e) => setNewSubject(e.target.value)} className="flex-1 border rounded-md px-3 py-2" />
-            <button type="button" onClick={addSubject} className="px-3 py-2 bg-slate-700 text-white rounded-md">Add</button>
-          </div>
 
-          <label className="block text-sm font-medium mt-4">Cover image</label>
-          <input type="file" accept="image/*" onChange={(e) => setCoverFile(e.target.files?.[0] || null)} className="mt-1" />
-          <label className="block text-sm font-medium mt-4">Book file (PDF)</label>
-          <input type="file" accept="application/pdf" onChange={(e) => setPdfFile(e.target.files?.[0] || null)} className="mt-1" />
         </div>
 
-        <div className="md:col-span-2 flex items-center justify-between mt-4">
-          <div className="text-sm text-slate-500">Data saved locally (demo). To persist to server, integrate the backend API.</div>
+        <div className="bg-white rounded-md p-4 border shadow-sm">
+          <div className="text-sm font-semibold text-slate-700 mb-3">Files</div>
+          <label className="block text-sm font-medium">Cover image</label>
+          <input type="file" accept="image/*" onChange={(e) => { const f = e.target.files?.[0] || null; setCoverFile(f); }} className="mt-1 block w-full text-sm file:mr-3 file:py-2 file:px-3 file:rounded-md file:border-0 file:bg-[#7b0f2b]/10 file:text-[#7b0f2b] hover:file:bg-[#7b0f2b]/20" />
+          <label className="block text-sm font-medium mt-4">Book file (PDF)</label>
+          <input type="file" accept="application/pdf" onChange={(e) => setPdfFile(e.target.files?.[0] || null)} className="mt-1 block w-full text-sm file:mr-3 file:py-2 file:px-3 file:rounded-md file:border-0 file:bg-emerald-600/10 file:text-emerald-700 hover:file:bg-emerald-600/20" />
+          <div className="text-xs text-slate-500 mt-2">PDF is uploaded as RAW, then the book is created and linked.</div>
+
+        </div>
+
+        <div className="md:col-span-2 flex items-center justify-between mt-1">
+          <div className="text-sm text-slate-500">We first upload files, then create the book with metadata.</div>
           <div className="flex gap-2">
-            <button type="submit" className="px-4 py-2 bg-emerald-600 text-white rounded-md">Save Book</button>
-            <button type="button" onClick={() => { localStorage.removeItem('books'); alert('Cleared demo books'); }} className="px-4 py-2 border rounded-md">Clear demo</button>
+            <button type="submit" className="px-4 py-2 bg-[#7b0f2b] hover:bg-rose-800 text-white rounded-md shadow-sm transition-colors">Save Book</button>
+            <button type="button" onClick={() => { localStorage.removeItem('books'); alert('Cleared demo books'); }} className="px-4 py-2 border rounded-md hover:bg-slate-50">Clear demo</button>
           </div>
         </div>
       </form>
     </div>
   );
 }
+
+
+
+
+
 
 
 
