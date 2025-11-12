@@ -2,27 +2,15 @@
 import { api } from "@/shared/api/client";
 import type { LoginDto, LoginResp } from "./types";
 
-// Try a handful of common auth endpoints and return the first successful response.
+// Use only the canonical login endpoint
 export async function login(body: LoginDto) {
-  const paths = ["/api/auth", "/api/auth/login", "/api/auth/token", "/token"];
-  let lastErr: any = null;
-  for (const p of paths) {
-    try {
-      return await api<LoginResp>(p, {
-        method: "POST",
-        body: JSON.stringify(body),
-      });
-    } catch (err) {
-      lastErr = err;
-      // try next
-      console.debug(`login attempt ${p} failed:`, err);
-    }
-  }
-  // all attempts failed — throw the last error
-  throw lastErr;
+  return api<LoginResp>("/api/auth/login", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
 }
 
-// Registration helper: tries common endpoints
+// Registration helper: tries common endpoints (left unchanged)
 export type RegisterDto = { email: string; password: string; reg_no?: string };
 export async function register(body: RegisterDto) {
   const paths = [
@@ -42,3 +30,4 @@ export async function register(body: RegisterDto) {
   }
   throw lastErr;
 }
+

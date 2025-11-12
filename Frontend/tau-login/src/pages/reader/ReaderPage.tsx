@@ -2,6 +2,7 @@ import type React from "react";
 import { useEffect, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import DashboardHeader from "../../components/layout/DashboardHeader";
+import { api } from "@/shared/api/client";
 import bookPdf from "../../assets/books/book.pdf";
 
 // Using pdfjs-dist to render pages into canvases
@@ -28,6 +29,117 @@ export default function ReaderPage() {
   const [notes, setNotes] = useState("");
   const dragStartX = useRef<number | null>(null);
   const dragging = useRef(false);
+
+  const [userbookId, setUserbookId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const token = localStorage.getItem("token") || sessionStorage.getItem("token");
+    console.info("[ReaderPage] Bearer token:", token);
+  }, []);
+
+  // Load existing userbook id (created from detail page)
+  useEffect(() => {
+    if (!bookIdParam) return;
+    try {
+      const raw = localStorage.getItem(`userbook:${bookIdParam}`);
+      if (raw) {
+        const obj = JSON.parse(raw);
+        if (obj && obj.id != null) setUserbookId(String(obj.id));
+        if (obj && obj.current_page) setPage(Number(obj.current_page) || 1);
+      }
+    } catch {}
+  }, [bookIdParam]);
+
+  // Temporary: ensure userbook by book_id using shared API client.
+  useEffect(() => {
+    if (!bookIdParam) return;
+    let cancelled = false;
+    (async () => {
+      const token = localStorage.getItem("token") || sessionStorage.getItem("token");
+      console.info("[ReaderPage] Ensuring userbook via api(); token:", token);
+
+      try {
+        // 1) Try to get existing userbook by book id
+        const existing: any = await api<any>(`/api/catalog/userbook/by-book/${encodeURIComponent(String(bookIdParam))}`);
+        if (cancelled) return;
+        console.info("[ReaderPage] userbook exists (GET via api):", existing);
+        if (existing?.id != null) {
+          setUserbookId(String(existing.id));
+          const cp = Number(existing.current_page);
+          if (!Number.isNaN(cp) && cp > 0) setPage(cp);
+          try { localStorage.setItem(`userbook:${bookIdParam}`, JSON.stringify(existing)); } catch {}
+        }
+        return; // do not create new
+      } catch (err: any) {
+        if (cancelled) return;
+        const msg = err?.message ? String(err.message) : "";
+        const notFound = /404|not\s*found/i.test(msg);
+        if (!notFound) {
+          console.warn("[ReaderPage] userbook GET via api failed:", msg);
+          return; // do not attempt create on other errors
+        }
+        // 2) If not found, create a new one
+        const payload = {
+          book_id: Number(bookIdParam),
+          current_page: 0,
+          total_pages: null as any,
+          progress_percent: 0.0,
+          status: "reading",
+          reading_time: 0.0,
+        };
+        try {
+          const created = await api<any>("/api/catalog/userbook", {
+            method: "POST",
+            body: JSON.stringify(payload),
+          });
+          if (cancelled) return;
+          console.info("[ReaderPage] userbook created (POST via api):", created);
+          if (created?.id != null) {
+            setUserbookId(String(created.id));
+            const cp = Number(created.current_page);
+            if (!Number.isNaN(cp) && cp > 0) setPage(cp);
+            try { localStorage.setItem(`userbook:${bookIdParam}`, JSON.stringify(created)); } catch {}
+          }
+        } catch (e: any) {
+          if (cancelled) return;
+          console.warn("[ReaderPage] userbook POST via api failed:", e?.message || String(e));
+        }
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [bookIdParam, BASE]);
+
+  // Send progress update on page change (debounced)
+  useEffect(() => {
+    if (!userbookId || pageCount <= 0) return;
+    const payload = {
+      current_page: page,
+      total_pages: pageCount,
+      progress_percent: Math.max(0, Math.min(100, Math.round((page / pageCount) * 100))),
+      status: "reading",
+    } as any;
+    const t = setTimeout(async () => {
+      try {
+        await api(`/api/catalog/userbook/${userbookId}`, {
+          method: "PATCH",
+          body: JSON.stringify(payload),
+        });
+        try {
+          if (bookIdParam) {
+            const raw = localStorage.getItem(`userbook:${bookIdParam}`);
+            const base = raw ? JSON.parse(raw) : {};
+            localStorage.setItem(`userbook:${bookIdParam}`, JSON.stringify({ ...base, ...payload, id: userbookId }));
+          }
+        } catch {}
+      } catch (e) {
+        // ignore update errors
+        console.warn("[ReaderPage] progress PATCH failed:", (e as any)?.message || String(e));
+      }
+    }, 500);
+    return () => clearTimeout(t);
+  }, [page, pageCount, userbookId, bookIdParam]);
+
+  // Temporarily disabled: do not persist or update userbook from ReaderPage
 
   useEffect(() => {
     let cancelled = false;

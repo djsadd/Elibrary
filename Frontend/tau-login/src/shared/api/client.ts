@@ -37,33 +37,28 @@ async function tryRefresh(): Promise<string | null> {
   const store = getActiveStorage();
   const rt = store.getItem("refresh_token");
   if (!rt) return null;
-  const candidates = [
-    "/api/auth/refresh",
-    "/api/auth/token/refresh",
-    "/api/auth/refresh-token",
-    "/api/auth/refresh_token",
-    "/auth/refresh",
-    "/token/refresh",
-  ];
-  let lastErr: any = null;
-  for (const p of candidates) {
-    try {
-      const r = await fetch(`${BASE}${p}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ refresh_token: rt }),
-      });
-      if (!r.ok) { lastErr = await r.text().catch(() => `HTTP ${r.status}`); continue; }
-      const data = await r.json().catch(() => ({}));
-      const token = extractAccessToken(data);
-      const newRt = extractRefreshToken(data) || rt;
-      if (token) {
-        saveTokens(token, newRt);
-        return token;
-      }
-    } catch (e) { lastErr = e; }
+  try {
+    const r = await fetch(`${BASE}/api/auth/refresh`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      // Backend expects { token: <refresh_token> }
+      body: JSON.stringify({ token: rt }),
+    });
+    if (!r.ok) {
+      const txt = await r.text().catch(() => `HTTP ${r.status}`);
+      console.warn("refresh token failed", txt);
+      return null;
+    }
+    const data = await r.json().catch(() => ({}));
+    const token = extractAccessToken(data);
+    const newRt = extractRefreshToken(data) || rt;
+    if (token) {
+      saveTokens(token, newRt);
+      return token;
+    }
+  } catch (e) {
+    console.warn("refresh token exception", e);
   }
-  console.warn("refresh token failed", lastErr);
   return null;
 }
 
@@ -95,14 +90,17 @@ function extractRefreshToken(obj: any): string | null {
 
 export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
   const token = localStorage.getItem("token") || sessionStorage.getItem("token");
-  const doFetch = async (auth?: string) => fetch(`${BASE}${path}`, {
-    headers: {
+  const doFetch = async (auth?: string) => {
+    const mergedHeaders = {
       "Content-Type": "application/json",
+      ...(init.headers || {} as any),
       ...(auth ? { Authorization: `Bearer ${auth}` } : (token ? { Authorization: `Bearer ${token}` } : {})),
-      ...(init.headers || {}),
-    },
-    ...init,
-  });
+    } as any;
+    return fetch(`${BASE}${path}`, {
+      ...init,
+      headers: mergedHeaders,
+    });
+  };
   let res = await doFetch();
   if (!res.ok) {
     const txt = await res.text().catch(() => "");

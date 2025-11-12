@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import DashboardHeader from "@/components/layout/DashboardHeader";
 import { api } from "@/shared/api/client";
 import placeholder from "@/assets/images/image.png";
@@ -23,6 +23,7 @@ type Review = { id: string; rating: number; text: string; author?: string; creat
 
 export default function CatalogDetailPage() {
   const { id } = useParams();
+  const navigate = useNavigate();
   const [book, setBook] = useState<Book | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -34,6 +35,11 @@ export default function CatalogDetailPage() {
   const [reviewText, setReviewText] = useState<string>("");
 
   const BASE = import.meta.env.VITE_API_URL ?? "http://localhost:8000";
+
+  useEffect(() => {
+    const token = localStorage.getItem("token") || sessionStorage.getItem("token");
+    console.info("[CatalogDetailPage] Bearer token:", token);
+  }, []);
 
   useEffect(() => {
     if (!id) return;
@@ -105,6 +111,12 @@ export default function CatalogDetailPage() {
 
   const authorNames = useMemo(() => namesFrom((book as any)?.authors), [book]);
   const subjectNames = useMemo(() => namesFrom((book as any)?.subjects), [book]);
+
+  async function startReading() {
+    if (!id) return;
+    // No userbook calls: just navigate to reader
+    navigate(`/reader?book=${encodeURIComponent(String(id))}`);
+  }
 
   return (
     <div className="space-y-4">
@@ -178,7 +190,7 @@ export default function CatalogDetailPage() {
 
               {/* Actions */}
               <div className="mt-4 flex flex-wrap gap-3">
-                <button className="px-4 py-2 bg-orange-500 text-white rounded-md">Read Online</button>
+                <button onClick={startReading} className="px-4 py-2 bg-orange-500 text-white rounded-md">Read Online</button>
                 <button
                   type="button"
                   onClick={toggleFavorite}
@@ -188,7 +200,7 @@ export default function CatalogDetailPage() {
                 </button>
                 {downloadHref && (
                   <>
-                    <Link to={`/reader?book=${encodeURIComponent(String(id))}`} className="px-4 py-2 bg-emerald-600 text-white rounded-md">Open Reader</Link>
+                    <button onClick={startReading} className="px-4 py-2 bg-emerald-600 text-white rounded-md">Open Reader</button>
                     <a href={downloadHref} target="_blank" rel="noreferrer" className="px-4 py-2 bg-slate-700 text-white rounded-md">Download PDF</a>
                   </>
                 )}
@@ -391,4 +403,3 @@ export default function CatalogDetailPage() {
     </div>
   );
 }
-

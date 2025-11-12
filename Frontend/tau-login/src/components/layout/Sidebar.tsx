@@ -1,15 +1,36 @@
 import { Link, useLocation } from "react-router-dom";
 import logo from "@/assets/images/Logo.svg";
 import { MobileDashboardHeader } from "./DashboardHeader";
+import { useAuth } from "@/shared/auth/AuthContext";
 
 export default function Sidebar() {
   const loc = useLocation();
+  const { token } = useAuth();
+
+  function rolesFromToken(t: string | null): string[] {
+    if (!t) return [];
+    try {
+      const parts = t.split(".");
+      if (parts.length < 2) return [];
+      const payload = JSON.parse(atob(parts[1].replace(/-/g, "+").replace(/_/g, "/")));
+      const r = payload?.roles;
+      if (!r) return [];
+      if (Array.isArray(r)) return r.map((x) => String(x));
+      if (typeof r === "string") return [r];
+      return [];
+    } catch {
+      return [];
+    }
+  }
+
+  const roles = rolesFromToken(token);
+  const isAdmin = roles.some((r) => /^(admin|librarian)$/i.test(String(r)));
 
   const items = [
     { to: "/", label: "Home", icon: HomeIcon },
     { to: "/catalog", label: "Catalog", icon: CatalogIcon },
     { to: "/shelf", label: "My Shelf", icon: ShelfIcon },
-    { to: "/admin", label: "Admin", icon: AdminIcon },
+    ...(isAdmin ? [{ to: "/admin", label: "Admin", icon: AdminIcon }] : [] as any),
     { to: "/profile", label: "Profile", icon: UserIcon },
     { to: "#", label: "Contribute", icon: ContributeIcon },
   ];
