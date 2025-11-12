@@ -70,21 +70,39 @@ export default function CatalogDetailPage() {
     }
   }, [id]);
 
+  // Do not cache reviews in localStorage anymore
+
+  // Also fetch reviews from backend and log the response (diagnostic) using shared api()
   useEffect(() => {
-    // load reviews by book
     if (!id) return;
-    try {
-      const raw = localStorage.getItem(`reviews:${id}`);
-      const arr = raw ? JSON.parse(raw) : [];
-      setReviews(Array.isArray(arr) ? arr : []);
-    } catch {
-      setReviews([]);
-    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const params = new URLSearchParams();
+        params.set("book_id", String(id));
+        const path = `/api/reviews${params.size ? `?${params.toString()}` : ""}`;
+        const data = await api<any>(path);
+        if (cancelled) return;
+        try { console.info("[CatalogDetail] GET /api/reviews response:", data); } catch {}
+        const arr = Array.isArray(data) ? data : [];
+        const mapped = arr.map((x: any) => ({
+          id: String(x?.id ?? (crypto as any)?.randomUUID?.() ?? Date.now()),
+          rating: Number(x?.rating ?? 0),
+          text: String(x?.comment ?? x?.text ?? ""),
+          author: x?.author || x?.user || x?.username || undefined,
+          created_at: x?.created_at || x?.createdAt || new Date().toISOString(),
+        }));
+        setReviews(mapped);
+      } catch (e: any) {
+        if (!cancelled) {
+          try { console.warn("[CatalogDetail] GET /api/reviews failed:", e?.message || String(e)); } catch {}
+        }
+      }
+    })();
+    return () => { cancelled = true; };
   }, [id]);
 
-  const saveReviews = (arr: Review[]) => {
-    try { localStorage.setItem(`reviews:${id}`, JSON.stringify(arr)); } catch {}
-  };
+  // no localStorage caching for reviews
 
   const toggleFavorite = () => {
     try {
@@ -329,7 +347,7 @@ export default function CatalogDetailPage() {
 
                   <form
                     className="border rounded-md p-4 bg-white"
-                    onSubmit={(e) => {
+                    onSubmit={async (e) => {
                       e.preventDefault();
                       const rt = Math.max(0, Math.min(5, rating));
                       const txt = reviewText.trim();
@@ -342,11 +360,22 @@ export default function CatalogDetailPage() {
                         author: 'You',
                         created_at: new Date().toISOString(),
                       };
+                      // Optimistic update locally
                       const arr = [next, ...reviews];
                       setReviews(arr);
-                      saveReviews(arr);
                       setRating(0);
                       setReviewText('');
+                      // Send to backend via shared api()
+                      try {
+                        const body = { rating: rt, comment: txt, book_id: Number(id) } as any;
+                        const resp = await api<any>(`/api/reviews`, {
+                          method: "POST",
+                          body: JSON.stringify(body),
+                        });
+                        try { console.info("[CatalogDetail] POST /api/reviews response:", resp); } catch {}
+                      } catch (err: any) {
+                        try { console.warn("[CatalogDetail] POST /api/reviews failed:", err?.message || String(err)); } catch {}
+                      }
                     }}
                   >
                     <div className="text-base font-medium text-slate-800 mb-3">Write a review</div>

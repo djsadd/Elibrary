@@ -90,6 +90,13 @@ function extractRefreshToken(obj: any): string | null {
 
 export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
   const token = localStorage.getItem("token") || sessionStorage.getItem("token");
+  const isAuthEndpoint = /^\/?api\/auth\/(login|register|refresh)/i.test(path);
+  if (!token && !isAuthEndpoint) {
+    // Immediately redirect unauthenticated users to login for protected calls
+    try { window.dispatchEvent(new CustomEvent("auth:logout")); } catch {}
+    try { if (typeof window !== "undefined") window.location.assign("/login"); } catch {}
+    throw new Error("No bearer token");
+  }
   const doFetch = async (auth?: string) => {
     const mergedHeaders = {
       "Content-Type": "application/json",
