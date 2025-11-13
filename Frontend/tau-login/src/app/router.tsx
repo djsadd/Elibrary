@@ -1,4 +1,5 @@
 import { createBrowserRouter, RouterProvider } from "react-router-dom";
+import { useEffect } from "react";
 import LoginPage from "../pages/auth/LoginPage";
 import RegisterPage from "../pages/auth/RegisterPage";
 import ForgotPasswordPage from "../pages/auth/ForgotPasswordPage";
@@ -27,11 +28,18 @@ import SettingsPage from "../pages/admin/sections/SettingsPage";
 import ReportsPage from "../pages/admin/sections/ReportsPage";
 import RolesPage from "../pages/admin/sections/RolesPage";
 
+function WithTitle({ title, children }: { title: string; children: JSX.Element }) {
+  useEffect(() => {
+    if (title) document.title = title;
+  }, [title]);
+  return children;
+}
+
 const router = createBrowserRouter([
-  { path: "/login", element: <PublicRouteSync><LoginPage /></PublicRouteSync> },
-  { path: "/auth/login", element: <PublicRouteSync><LoginPage /></PublicRouteSync> },
-  { path: "/auth/register", element: <PublicRouteSync><RegisterPage /></PublicRouteSync> },
-  { path: "/auth/forgot", element: <PublicRouteSync><ForgotPasswordPage /></PublicRouteSync> },
+  { path: "/login", element: <PublicRouteSync><WithTitle title="Login - TAU"><LoginPage /></WithTitle></PublicRouteSync> },
+  { path: "/auth/login", element: <PublicRouteSync><WithTitle title="Login - TAU"><LoginPage /></WithTitle></PublicRouteSync> },
+  { path: "/auth/register", element: <PublicRouteSync><WithTitle title="Register - TAU"><RegisterPage /></WithTitle></PublicRouteSync> },
+  { path: "/auth/forgot", element: <PublicRouteSync><WithTitle title="Forgot Password - TAU"><ForgotPasswordPage /></WithTitle></PublicRouteSync> },
   {
     path: "/",
     element: (
@@ -40,31 +48,31 @@ const router = createBrowserRouter([
       </ProtectedRouteSync>
     ),
       children: [
-      { index: true, element: <DashboardPage /> },
-  { path: "profile", element: <ProfilePage /> },
-      { path: "catalog", element: <CatalogListPage /> },
-      { path: "catalog/:id", element: <CatalogDetailPage /> },
-      { path: "catalog/books/:id", element: <CatalogDetailPage /> },
-      { path: "shelf", element: <MyShelfPage /> },
-      { path: "reader", element: <ReaderPage /> },
+      { index: true, element: <WithTitle title="Dashboard - TAU"><DashboardPage /></WithTitle> },
+      { path: "profile", element: <WithTitle title="Profile - TAU"><ProfilePage /></WithTitle> },
+      { path: "catalog", element: <WithTitle title="Catalog - TAU"><CatalogListPage /></WithTitle> },
+      { path: "catalog/:id", element: <WithTitle title="Book Details - TAU"><CatalogDetailPage /></WithTitle> },
+      { path: "catalog/books/:id", element: <WithTitle title="Book Details - TAU"><CatalogDetailPage /></WithTitle> },
+      { path: "shelf", element: <WithTitle title="My Shelf - TAU"><MyShelfPage /></WithTitle> },
+      { path: "reader", element: <WithTitle title="Reader - TAU"><ReaderPage /></WithTitle> },
         {
           path: "admin",
-          element: <AdminLayout />,
+          element: <WithTitle title="Admin - TAU"><AdminLayout /></WithTitle>,
           children: [
-            { index: true, element: <AdminHome /> },
-            { path: "books", element: <BooksListPage /> },
-            { path: "books/new", element: <CreateBookPage /> },
-            { path: "books/:id/edit", element: <EditBookPage /> },
-            { path: "playlists", element: <PlaylistsListPage /> },
-            { path: "playlists/new", element: <CreatePlaylistPage /> },
-            { path: "playlists/:id/edit", element: <EditPlaylistPage /> },
-            { path: "users", element: <UsersPage /> },
-            { path: "authors", element: <AuthorsPage /> },
-            { path: "subjects", element: <SubjectsPage /> },
-            { path: "files", element: <FilesPage /> },
-            { path: "roles", element: <RolesPage /> },
-            { path: "reports", element: <ReportsPage /> },
-            { path: "settings", element: <SettingsPage /> },
+            { index: true, element: <WithTitle title="Admin Home - TAU"><AdminHome /></WithTitle> },
+            { path: "books", element: <WithTitle title="Admin Books - TAU"><BooksListPage /></WithTitle> },
+            { path: "books/new", element: <WithTitle title="Add Book - TAU"><CreateBookPage /></WithTitle> },
+            { path: "books/:id/edit", element: <WithTitle title="Edit Book - TAU"><EditBookPage /></WithTitle> },
+            { path: "playlists", element: <WithTitle title="Admin Playlists - TAU"><PlaylistsListPage /></WithTitle> },
+            { path: "playlists/new", element: <WithTitle title="Add Playlist - TAU"><CreatePlaylistPage /></WithTitle> },
+            { path: "playlists/:id/edit", element: <WithTitle title="Edit Playlist - TAU"><EditPlaylistPage /></WithTitle> },
+            { path: "users", element: <WithTitle title="Admin Users - TAU"><UsersPage /></WithTitle> },
+            { path: "authors", element: <WithTitle title="Admin Authors - TAU"><AuthorsPage /></WithTitle> },
+            { path: "subjects", element: <WithTitle title="Admin Subjects - TAU"><SubjectsPage /></WithTitle> },
+            { path: "files", element: <WithTitle title="Admin Files - TAU"><FilesPage /></WithTitle> },
+            { path: "roles", element: <WithTitle title="Admin Roles - TAU"><RolesPage /></WithTitle> },
+            { path: "reports", element: <WithTitle title="Admin Reports - TAU"><ReportsPage /></WithTitle> },
+            { path: "settings", element: <WithTitle title="Admin Settings - TAU"><SettingsPage /></WithTitle> },
           ],
         },
     ],

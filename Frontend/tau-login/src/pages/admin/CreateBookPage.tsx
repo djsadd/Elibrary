@@ -18,12 +18,22 @@ export default function CreateBookPage() {
   const [lang, setLang] = useState("");
   const [pubInfo, setPubInfo] = useState("");
   const [summary, setSummary] = useState("");
+  // new metadata fields
+  const [isbn, setIsbn] = useState("");
+  const [edition, setEdition] = useState("");
+  const [pageCount, setPageCount] = useState<string>("");
+  const [availableCopies, setAvailableCopies] = useState<string>("");
+  const [source, setSource] = useState("LIBRARY");
+  const [formats, setFormats] = useState<string[]>([]);
+  const [isPublic, setIsPublic] = useState<boolean>(true);
   const [coverFile, setCoverFile] = useState<File | null>(null);
   const [pdfFile, setPdfFile] = useState<File | null>(null);
   // server-provided lists (combined with local additions)
   const [authors, setAuthors] = useState<string[]>([]);
   const [subjects, setSubjects] = useState<string[]>([]);
   const [langs, setLangs] = useState<string[]>([]);
+  const [formatOptions] = useState<string[]>(["EBOOK", "HARDCOPY", "AUDIOBOOK", "ARTICLE"]);
+  const [sourceOptions] = useState<string[]>(["KABIS", "LIBRARY", "RMEB", "OTHER"]);
 
   // locally persisted additions (kept separate so we don't overwrite server lists)
   const [localAuthors, setLocalAuthors] = useState<string[]>(() => {
@@ -171,10 +181,17 @@ export default function CreateBookPage() {
       if (lang) form.append("lang", lang);
       if (pubInfo) form.append("pub_info", pubInfo);
       if (summary) form.append("summary", summary);
+      if (isbn) form.append("isbn", isbn);
+      if (edition) form.append("edition", edition);
+      if (pageCount) form.append("page_count", pageCount);
+      if (availableCopies) form.append("available_copies", availableCopies);
+      if (source) form.append("source", String(source).trim().toUpperCase());
+      if (typeof isPublic === "boolean") form.append("is_public", String(isPublic));
       if (coverDataUrl) form.append("cover", coverDataUrl);
       // lists as repeated form fields
       selectedAuthors.forEach((a) => form.append("authors", a));
       selectedSubjects.forEach((s) => form.append("subjects", s));
+      formats.forEach((f) => form.append("formats", String(f).trim().toUpperCase()));
       if (fileMeta?.file_id || fileMeta?.id) form.append("file_id", fileMeta?.file_id ?? fileMeta?.id);
       if (fileMeta?.download_url || fileMeta?.url) form.append("download_url", fileMeta?.download_url ?? fileMeta?.url);
 
@@ -196,7 +213,9 @@ export default function CreateBookPage() {
       books.unshift(created);
       localStorage.setItem("books", JSON.stringify(books));
 
-    setTitle(""); setYear(""); setLang(""); setPubInfo(""); setSummary(""); setCoverFile(null); setPdfFile(null);
+    setTitle(""); setYear(""); setLang(""); setPubInfo(""); setSummary("");
+      setIsbn(""); setEdition(""); setPageCount(""); setAvailableCopies(""); setSource(""); setFormats([]); setIsPublic(true);
+      setCoverFile(null); setPdfFile(null);
       setSelectedAuthors([]); setSelectedSubjects([]);
 
       alert("Book created on server.");
@@ -231,6 +250,49 @@ export default function CreateBookPage() {
             <input value={lang} onChange={(e) => setLang(e.target.value)} className="mt-1 w-full border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#7b0f2b]/30" />
           )}
 
+          <label className="block text-sm font-medium mt-3">Publisher info</label>
+          <input value={pubInfo} onChange={(e) => setPubInfo(e.target.value)} className="mt-1 w-full border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#7b0f2b]/30" />
+
+          <label className="block text-sm font-medium mt-3">Summary</label>
+          <textarea value={summary} onChange={(e) => setSummary(e.target.value)} className="mt-1 w-full border rounded-md px-3 py-2 min-h-24 focus:outline-none focus:ring-2 focus:ring-[#7b0f2b]/30" />
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">
+            <div>
+              <label className="block text-sm font-medium">ISBN</label>
+              <input value={isbn} onChange={(e) => setIsbn(e.target.value)} placeholder="978-..." className="mt-1 w-full border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#7b0f2b]/30" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium">Edition</label>
+              <input value={edition} onChange={(e) => setEdition(e.target.value)} placeholder="3-е издание" className="mt-1 w-full border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#7b0f2b]/30" />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">
+            <div>
+              <label className="block text-sm font-medium">Page count</label>
+              <input type="number" min={0} value={pageCount} onChange={(e) => setPageCount(e.target.value)} className="mt-1 w-full border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#7b0f2b]/30" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium">Available copies</label>
+              <input type="number" min={0} value={availableCopies} onChange={(e) => setAvailableCopies(e.target.value)} className="mt-1 w-full border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#7b0f2b]/30" />
+            </div>
+          </div>
+
+          <label className="block text-sm font-medium mt-3">Source</label>
+          <select value={source} onChange={(e) => setSource(e.target.value)} className="mt-1 w-full border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#7b0f2b]/30">
+            {sourceOptions.map(s => <option key={s} value={s}>{s}</option>)}
+          </select>
+
+          <div className="mb-4 mt-3">
+            <MultiSelect
+              label="Formats"
+              options={formatOptions}
+              selected={formats}
+              onChange={setFormats}
+              placeholder="Select formats"
+            />
+          </div>
+
           <div className="mb-4">
             <MultiSelect
               label="Authors"
@@ -250,6 +312,10 @@ export default function CreateBookPage() {
               onCreate={(v)=>{ if (!subjects.includes(v)) setSubjects(s=>[...s, v]); if (!localSubjects.includes(v)) setLocalSubjects(s=>[...s, v]); }}
               placeholder="Search or add subject"
             />
+          </div>
+          <div className="flex items-center gap-2 mt-1">
+            <input id="is-public" type="checkbox" checked={isPublic} onChange={(e)=> setIsPublic(e.target.checked)} />
+            <label htmlFor="is-public" className="text-sm">Publicly visible</label>
           </div>
           <div className="mb-4">
             <MultiSelect
