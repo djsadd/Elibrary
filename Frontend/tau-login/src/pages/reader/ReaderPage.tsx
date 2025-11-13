@@ -27,6 +27,8 @@ export default function ReaderPage() {
   const [page, setPage] = useState(1);
   const [scale, setScale] = useState(1);
   const [twoPage, setTwoPage] = useState(true);
+  const [isMobile, setIsMobile] = useState(false);
+  const [notesOpen, setNotesOpen] = useState(false);
   const [fav, setFav] = useState(false);
   const [notes, setNotes] = useState("");
   const notesMapRef = useRef<Map<number, string>>(new Map());
@@ -35,6 +37,9 @@ export default function ReaderPage() {
   const [saving, setSaving] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const dragStartX = useRef<number | null>(null);
   const dragging = useRef(false);
+  const pinchStartDistRef = useRef<number | null>(null);
+  const pinchStartScaleRef = useRef<number>(1);
+  const lastTouchXRef = useRef<number | null>(null);
 
   const [userbookId, setUserbookId] = useState<string | null>(null);
   const [bookMeta, setBookMeta] = useState<any | null>(null);
@@ -43,6 +48,20 @@ export default function ReaderPage() {
     const token = localStorage.getItem("token") || sessionStorage.getItem("token");
     console.info("[ReaderPage] Bearer token:", token);
   }, []);
+
+  // detect mobile viewport and adapt layout (iPhone 13 target ~390px width)
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 640px)');
+    const handler = () => setIsMobile(mq.matches);
+    handler();
+    mq.addEventListener?.('change', handler);
+    return () => mq.removeEventListener?.('change', handler);
+  }, []);
+
+  // force single page layout on mobile
+  useEffect(() => {
+    if (isMobile) setTwoPage(false);
+  }, [isMobile]);
 
   // Fetch book metadata for header
   useEffect(() => {
@@ -362,9 +381,9 @@ export default function ReaderPage() {
     <div className="space-y-4 overflow-x-hidden">
       <DashboardHeader />
 
-      <div ref={containerRef} className="bg-slate-800 p-4 rounded-md overflow-hidden">
-        <div className="bg-slate-700 text-white rounded-t-md px-4 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-4">
+      <div ref={containerRef} className="bg-slate-800 p-3 sm:p-4 rounded-md overflow-hidden">
+        <div className="bg-slate-700 text-white rounded-t-md px-3 sm:px-4 py-3 flex items-center justify-between">
+          <div className="flex items-center gap-3 sm:gap-4">
             <Link to="/" className="text-sm hover:underline flex items-center gap-1">
               <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
                 <path d="M15 6l-6 6 6 6" strokeLinecap="round" strokeLinejoin="round" />
@@ -384,18 +403,17 @@ export default function ReaderPage() {
               </div>
             </div>
           </div>
-
-          <div className="flex items-center gap-3">
-            <button onClick={prevSpread} className="p-2 rounded-md hover:bg-slate-600"><svg className="w-4 h-4" viewBox="0 0 24 24" fill="none"><path d="M15 6l-6 6 6 6" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/></svg></button>
+          <div className="hidden sm:flex items-center gap-2 sm:gap-3">
+            <button onClick={prevSpread} className="p-2.5 rounded-md hover:bg-slate-600"><svg className="w-4 h-4" viewBox="0 0 24 24" fill="none"><path d="M15 6l-6 6 6 6" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/></svg></button>
             <div className="text-sm">{page}{twoPage ? ` & ${Math.min(page + 1, pageCount)}` : ''} of {pageCount}</div>
-            <button onClick={nextSpread} className="p-2 rounded-md hover:bg-slate-600"><svg className="w-4 h-4" viewBox="0 0 24 24" fill="none"><path d="M9 6l6 6-6 6" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/></svg></button>
+            <button onClick={nextSpread} className="p-2.5 rounded-md hover:bg-slate-600"><svg className="w-4 h-4" viewBox="0 0 24 24" fill="none"><path d="M9 6l6 6-6 6" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/></svg></button>
 
             <div className="flex items-center gap-1">
-              <button onClick={zoomOut} className="p-2 rounded-md hover:bg-slate-600">-</button>
+              <button onClick={zoomOut} className="p-2.5 rounded-md hover:bg-slate-600">-</button>
               <div className="text-sm">{Math.round(scale * 100)}%</div>
-              <button onClick={zoomIn} className="p-2 rounded-md hover:bg-slate-600">+</button>
+              <button onClick={zoomIn} className="p-2.5 rounded-md hover:bg-slate-600">+</button>
             </div>
-            <input type="range" min={0.5} max={2.5} step={0.05} value={scale} onChange={(e) => setScale(parseFloat(e.target.value))} className="w-28" />
+            <input type="range" min={0.5} max={2.5} step={0.05} value={scale} onChange={(e) => setScale(parseFloat(e.target.value))} className="w-32 sm:w-40" />
 
             <button onClick={() => setFav((v) => !v)} className={`p-2 rounded-md ${fav ? 'bg-red-600 text-white' : 'hover:bg-slate-600'}`}>вќ¤</button>
 
@@ -405,44 +423,78 @@ export default function ReaderPage() {
           </div>
         </div>
 
-        <div className="flex gap-4 bg-slate-800 p-6 max-w-full overflow-x-auto" onWheel={onWheel} onPointerDown={onPointerDown} onPointerUp={onPointerUp} onPointerMove={onPointerMove}>
+        <div className="flex flex-col md:flex-row gap-3 sm:gap-4 bg-slate-800 p-3 sm:p-6 max-w-full overflow-x-auto" onWheel={onWheel} onPointerDown={onPointerDown} onPointerUp={onPointerUp} onPointerMove={onPointerMove} onTouchStart={(e)=>{ if (e.touches.length===2){ const [a,b]=[e.touches[0],e.touches[1]]; const dx=a.clientX-b.clientX; const dy=a.clientY-b.clientY; pinchStartDistRef.current=Math.hypot(dx,dy); pinchStartScaleRef.current=scale; } else if (e.touches.length===1){ lastTouchXRef.current=e.touches[0].clientX; } }} onTouchMove={(e)=>{ if (e.touches.length===2 && pinchStartDistRef.current){ e.preventDefault(); const [a,b]=[e.touches[0],e.touches[1]]; const dx=a.clientX-b.clientX; const dy=a.clientY-b.clientY; const dist=Math.hypot(dx,dy); const ratio=dist/(pinchStartDistRef.current||1); const next=Math.max(0.5, Math.min(2.5, +(pinchStartScaleRef.current*ratio).toFixed(2))); setScale(next);} }} onTouchEnd={(e)=>{ if (pinchStartDistRef.current && e.touches.length<2){ pinchStartDistRef.current=null;} if (e.changedTouches && e.changedTouches.length===1 && lastTouchXRef.current!=null){ const dx=e.changedTouches[0].clientX - lastTouchXRef.current; const threshold=60; if (dx>threshold) prevSpread(); else if (dx<-threshold) nextSpread(); lastTouchXRef.current=null; } }}>
           <div className="flex-1 min-w-0 flex items-start justify-center">
-            <div className="bg-slate-100 p-4 rounded-md shadow-inner max-w-full overflow-x-auto">
-              <div className="flex gap-4 flex-wrap md:flex-nowrap items-start justify-center">
+            <div className="bg-slate-100 p-3 sm:p-4 rounded-md shadow-inner max-w-full overflow-x-auto mx-auto w-full sm:w-auto sm:max-w-full max-w-[420px]">
+              <div className="flex gap-3 sm:gap-4 flex-wrap md:flex-nowrap items-start justify-center">
                 <canvas ref={leftCanvasRef} className="bg-white max-w-full h-auto" />
                 {twoPage && <canvas ref={rightCanvasRef} className="bg-white max-w-full h-auto" />}
               </div>
             </div>
           </div>
 
-          <aside className="w-72 shrink-0 bg-white rounded-md p-4 flex flex-col">
+          {!isMobile && (<aside className="w-full md:w-72 shrink-0 bg-white rounded-md p-3 sm:p-4 flex flex-col">
             <div className="mb-2 text-sm text-slate-500 flex items-center justify-between">
               <span>Notes</span>
               <span className={`text-[11px] ${saving==='saving'?'text-amber-600': saving==='saved'?'text-emerald-600': saving==='error'?'text-red-600':'text-slate-400'}`}>
                 {saving === 'saving' ? 'SavingвЂ¦' : saving === 'saved' ? 'Saved' : saving === 'error' ? 'Error' : 'Auto-save'}
               </span>
             </div>
-            <textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Write your notes here (per page)" className="flex-1 border rounded-md p-2 text-sm" />
+            <textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Write your notes here (per page)" className="flex-1 border rounded-md p-2 text-sm min-h-[8rem] md:min-h-0" />
             <div className="text-xs text-slate-400 mt-2">Saved per page вЂў book {bookIdParam || '-'} вЂў page {page}</div>
-          </aside>
+          </aside>)}
         </div>
 
-        <div className="bg-slate-700 text-white rounded-b-md px-4 py-3 mt-0 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <button onClick={prevSpread} className="p-2 rounded-md hover:bg-slate-600"><svg className="w-4 h-4" viewBox="0 0 24 24" fill="none"><path d="M15 6l-6 6 6 6" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/></svg></button>
+        <div className="hidden sm:flex bg-slate-700 text-white rounded-b-md px-3 sm:px-4 py-3 mt-0 items-center justify-between">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <button onClick={prevSpread} className="p-2.5 rounded-md hover:bg-slate-600"><svg className="w-4 h-4" viewBox="0 0 24 24" fill="none"><path d="M15 6l-6 6 6 6" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/></svg></button>
             <div className="text-sm">{page}{twoPage ? ` & ${Math.min(page + 1, pageCount)}` : ''} of {pageCount}</div>
-            <button onClick={nextSpread} className="p-2 rounded-md hover:bg-slate-600"><svg className="w-4 h-4" viewBox="0 0 24 24" fill="none"><path d="M9 6l6 6-6 6" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/></svg></button>
+            <button onClick={nextSpread} className="p-2.5 rounded-md hover:bg-slate-600"><svg className="w-4 h-4" viewBox="0 0 24 24" fill="none"><path d="M9 6l6 6-6 6" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/></svg></button>
           </div>
           <div className="flex items-center gap-2">
-            <button onClick={zoomOut} className="p-2 rounded-md hover:bg-slate-600">-</button>
-            <input type="range" min={0.5} max={2.5} step={0.05} value={scale} onChange={(e) => setScale(parseFloat(e.target.value))} className="w-40" />
-            <button onClick={zoomIn} className="p-2 rounded-md hover:bg-slate-600">+</button>
+            <button onClick={zoomOut} className="p-2.5 rounded-md hover:bg-slate-600">-</button>
+            <input type="range" min={0.5} max={2.5} step={0.05} value={scale} onChange={(e) => setScale(parseFloat(e.target.value))} className="w-32 sm:w-40" />
+            <button onClick={zoomIn} className="p-2.5 rounded-md hover:bg-slate-600">+</button>
             <button onClick={() => setTwoPage((v) => !v)} className="ml-2 p-2 rounded-md hover:bg-slate-600">{twoPage ? '2-up' : '1-up'}</button>
           </div>
         </div>
+
+        {isMobile && (
+          <>
+            <button aria-label="Open notes" onClick={() => setNotesOpen(true)} className="fixed bottom-4 right-4 z-50 p-3 rounded-full bg-white shadow border text-slate-700">
+              <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6">
+                <path d="M4 4h16v12H7l-3 3V4z" />
+                <path d="M14 8l-4 4" />
+                <path d="M10 8l4 4" />
+              </svg>
+            </button>
+            <button aria-label="Toggle fullscreen" onClick={toggleFullscreen} className="fixed bottom-4 left-4 z-50 p-3 rounded-full bg-white shadow border text-slate-700">
+              <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6">
+                <path d="M9 3H5a2 2 0 0 0-2 2v4" />
+                <path d="M15 21h4a2 2 0 0 0 2-2v-4" />
+                <path d="M21 9V5a2 2 0 0 0-2-2h-4" />
+                <path d="M3 15v4a2 2 0 0 0 2 2h4" />
+              </svg>
+            </button>
+            {notesOpen && (
+              <div className="fixed inset-0 z-50">
+                <div className="absolute inset-0 bg-black/50" onClick={() => setNotesOpen(false)} />
+                <div className="absolute inset-x-4 top-16 bottom-16 bg-white rounded-lg shadow p-4 flex flex-col">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="text-sm font-medium text-slate-700">Notes (page {page})</div>
+                    <button onClick={() => setNotesOpen(false)} className="p-2 rounded hover:bg-slate-100" aria-label="Close">
+                      <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"><path d="M6 6l12 12M6 18L18 6"/></svg>
+                    </button>
+                  </div>
+                  <div className="text-[11px] text-slate-500 mb-2">{saving === 'saving' ? 'Saving…' : saving === 'saved' ? 'Saved' : saving === 'error' ? 'Error' : 'Auto-save'}</div>
+                  <textarea value={notes} onChange={(e)=>setNotes(e.target.value)} className="flex-1 border rounded-md p-2 text-sm" placeholder="Write your notes here (per page)" />
+                  <div className="mt-2 text-xs text-slate-400">book {bookIdParam || '-'} • page {page}</div>
+                </div>
+              </div>
+            )}
+          </>
+        )}
       </div>
     </div>
   );
 }
-
-

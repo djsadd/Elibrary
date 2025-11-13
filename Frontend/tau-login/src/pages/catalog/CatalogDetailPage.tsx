@@ -208,7 +208,12 @@ export default function CatalogDetailPage() {
 
               {/* Ratings and counters */}
               <div className="flex flex-wrap items-center gap-4 text-sm text-slate-600 mt-2">
-                <div className="flex items-center gap-1">★★★★★ <span className="ml-1">5.0 Ratings</span></div>
+                <div className="flex items-center gap-1">
+                  {Array.from({ length: 5 }).map((_, i) => (
+                    <svg key={i} viewBox="0 0 24 24" className="w-4 h-4 text-amber-500" fill="currentColor"><path d="M12 17.3l-5.2 3.1 1.4-5.9L3 9.8l6-.5L12 3l3 6.3 6 .5-5.2 4.7 1.4 5.9z"/></svg>
+                  ))}
+                  <span className="ml-1">5.0 Ratings</span>
+                </div>
                 <div>{readingCount.currently_reading} Currently reading</div>
                 <div>{readingCount.have_read} Have read</div>
               </div>
@@ -227,19 +232,19 @@ export default function CatalogDetailPage() {
               </div>
 
               {/* Actions */}
-              <div className="mt-4 flex flex-wrap gap-3">
-                <button onClick={startReading} className="px-4 py-2 bg-orange-500 text-white rounded-md">Read Online</button>
+              <div className="mt-4 flex flex-col sm:flex-row flex-wrap gap-2 sm:gap-3">
+                <button onClick={startReading} className="px-4 py-2.5 bg-orange-500 text-white rounded-md w-full sm:w-auto text-sm">Read Online</button>
                 <button
                   type="button"
                   onClick={toggleFavorite}
-                  className={`px-4 py-2 rounded-md border ${favorite ? 'bg-rose-50 text-rose-600 border-rose-300' : 'bg-white text-slate-700 border-slate-300'}`}
+                  className={`px-4 py-2.5 rounded-md border w-full sm:w-auto text-sm ${favorite ? 'bg-rose-50 text-rose-600 border-rose-300' : 'bg-white text-slate-700 border-slate-300'}`}
                 >
                   {favorite ? 'Remove from Favorites' : 'Add to Favorites'}
                 </button>
                 {downloadHref && (
                   <>
-                    <button onClick={startReading} className="px-4 py-2 bg-emerald-600 text-white rounded-md">Open Reader</button>
-                    <a href={downloadHref} target="_blank" rel="noreferrer" className="px-4 py-2 bg-slate-700 text-white rounded-md">Download PDF</a>
+                    <button onClick={startReading} className="px-4 py-2.5 bg-emerald-600 text-white rounded-md w-full sm:w-auto text-sm">Open Reader</button>
+                    <a href={downloadHref} target="_blank" rel="noreferrer" className="px-4 py-2.5 bg-slate-700 text-white rounded-md w-full sm:w-auto text-center text-sm">Download PDF</a>
                   </>
                 )}
               </div>
@@ -255,8 +260,8 @@ export default function CatalogDetailPage() {
 
           {/* Tabs */}
           <div className="bg-white rounded-md p-0">
-            <div className="px-6 pt-4 border-b">
-              <div className="flex items-center gap-6 text-sm">
+            <div className="px-4 sm:px-6 pt-4 border-b overflow-x-auto">
+              <div className="flex items-center gap-6 text-sm whitespace-nowrap">
                 {(([
                   ["overview","Overview"],
                   ["details","Details"],
@@ -273,10 +278,10 @@ export default function CatalogDetailPage() {
               </div>
             </div>
 
-            <div className="p-6">
+            <div className="p-4 sm:p-6">
               {tab === 'overview' && (
                 <div className="space-y-4">
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-2 sm:gap-3">
                     <div className="bg-white border rounded-md p-3">
                       <div className="text-xs text-slate-500 mb-1">Publish Date</div>
                       <div className="text-sm text-slate-800">{book.year || '-'}</div>
@@ -295,7 +300,7 @@ export default function CatalogDetailPage() {
                     </div>
                   </div>
                   {book.summary && (
-                    <div className="text-slate-700 whitespace-pre-line">{book.summary}</div>
+                    <div className="text-slate-700 whitespace-pre-line text-sm sm:text-base">{book.summary}</div>
                   )}
                 </div>
               )}
