@@ -30,6 +30,7 @@ export default function Sidebar() {
     { to: "/", label: "Home", icon: HomeIcon },
     { to: "/catalog", label: "Catalog", icon: CatalogIcon },
     { to: "/shelf", label: "My Shelf", icon: ShelfIcon },
+    { to: "/favorites", label: "Favorites", icon: HeartIcon },
     ...(isAdmin ? [{ to: "/admin", label: "Admin", icon: AdminIcon }] : [] as any),
     { to: "/profile", label: "Profile", icon: UserIcon },
     { to: "#", label: "Contribute", icon: ContributeIcon },
@@ -130,6 +131,14 @@ function UserIcon({ className = "", ...props }: any) {
     <svg {...props} className={`${className}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6}>
       <path d="M12 12c2.761 0 5-2.239 5-5s-2.239-5-5-5-5 2.239-5 5 2.239 5 5 5z" />
       <path d="M4 22c0-4.418 3.582-8 8-8s8 3.582 8 8" />
+    </svg>
+  );
+}
+
+function HeartIcon({ className = "", ...props }: any) {
+  return (
+    <svg {...props} className={`${className}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8}>
+      <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.41 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.41 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
     </svg>
   );
 }

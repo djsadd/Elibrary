@@ -15,8 +15,9 @@ type Book = {
   cover?: string | null;
   file_id?: string | null;
   download_url?: string | null;
-  authors?: string[];
-  subjects?: string[];
+  authors?: any[];
+  subjects?: any[];
+  formats?: string[] | null;
 };
 
 type Review = { id: string; rating: number; text: string; author?: string; created_at: string };
@@ -28,18 +29,33 @@ export default function CatalogDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [favorite, setFavorite] = useState(false);
-  const [tab, setTab] = useState<"overview" | "editions" | "details" | "reviews" | "lists" | "related">("overview");
+  const [tab, setTab] = useState<"overview" | "details" | "reviews" | "related" | "lists">("overview");
 
+  const [readingCount, setReadingCount] = useState<{ currently_reading: number; have_read: number }>({ currently_reading: 0, have_read: 0 });
   const [reviews, setReviews] = useState<Review[]>([]);
   const [rating, setRating] = useState<number>(0);
   const [reviewText, setReviewText] = useState<string>("");
 
   const BASE = import.meta.env.VITE_API_URL ?? "http://localhost:8000";
 
-  useEffect(() => {
-    const token = localStorage.getItem("token") || sessionStorage.getItem("token");
-    console.info("[CatalogDetailPage] Bearer token:", token);
-  }, []);
+  function humanizeFormat(val?: string | null): string {
+    const v = String(val || "").toUpperCase();
+    if (!v) return "-";
+    const map: Record<string, string> = {
+      EBOOK: "E-Book",
+      HARDCOPY: "Hardbook",
+      AUDIOBOOK: "Audio book",
+      ARTICLE: "Article",
+      VIDEOBOOK: "Video book",
+      INTERACTIVE: "Interactive",
+    };
+    return map[v] || (v.charAt(0) + v.slice(1).toLowerCase());
+  }
+  const humanizeFormatList = (vals?: any) => {
+    const arr: string[] = Array.isArray(vals) ? vals : (vals ? [vals] : []);
+    if (!arr.length) return "-";
+    return arr.map((v) => humanizeFormat(v)).join(", ");
+  };
 
   useEffect(() => {
     if (!id) return;
@@ -60,6 +76,25 @@ export default function CatalogDetailPage() {
   }, [id]);
 
   useEffect(() => {
+    if (!id) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const stats = await api<{ currently_reading?: number; have_read?: number }>(`/api/catalog/userbook/reading_count/${id}`);
+        if (!cancelled) setReadingCount({
+          currently_reading: Number(stats?.currently_reading ?? 0),
+          have_read: Number(stats?.have_read ?? 0),
+        });
+      } catch (e: any) {
+        if (!cancelled) {
+          try { console.warn("[CatalogDetail] reading_count failed:", e?.message || String(e)); } catch {}
+        }
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [id]);
+
+  useEffect(() => {
     // load favorites
     try {
       const favs = JSON.parse(localStorage.getItem("favorites") || "[]");
@@ -70,39 +105,14 @@ export default function CatalogDetailPage() {
     }
   }, [id]);
 
-  // Do not cache reviews in localStorage anymore
-
-  // Also fetch reviews from backend and log the response (diagnostic) using shared api()
-  useEffect(() => {
-    if (!id) return;
-    let cancelled = false;
-    (async () => {
-      try {
-        const params = new URLSearchParams();
-        params.set("book_id", String(id));
-        const path = `/api/reviews${params.size ? `?${params.toString()}` : ""}`;
-        const data = await api<any>(path);
-        if (cancelled) return;
-        try { console.info("[CatalogDetail] GET /api/reviews response:", data); } catch {}
-        const arr = Array.isArray(data) ? data : [];
-        const mapped = arr.map((x: any) => ({
-          id: String(x?.id ?? (crypto as any)?.randomUUID?.() ?? Date.now()),
-          rating: Number(x?.rating ?? 0),
-          text: String(x?.comment ?? x?.text ?? ""),
-          author: x?.author || x?.user || x?.username || undefined,
-          created_at: x?.created_at || x?.createdAt || new Date().toISOString(),
-        }));
-        setReviews(mapped);
-      } catch (e: any) {
-        if (!cancelled) {
-          try { console.warn("[CatalogDetail] GET /api/reviews failed:", e?.message || String(e)); } catch {}
-        }
-      }
-    })();
-    return () => { cancelled = true; };
-  }, [id]);
-
-  // no localStorage caching for reviews
+  const coverUrl = useMemo(() => (book?.cover ? book.cover : placeholder), [book]);
+  const authorNames = useMemo(() => namesFrom((book as any)?.authors), [book]);
+  const subjectNames = useMemo(() => namesFrom((book as any)?.subjects), [book]);
+  const downloadHref = useMemo(() => {
+    if (id) return `${BASE}/api/catalog/books/${id}/download`;
+    if (!book?.download_url) return null;
+    return book.download_url.startsWith("/") ? `${BASE}${book.download_url}` : book.download_url;
+  }, [book, BASE, id]);
 
   const toggleFavorite = () => {
     try {
@@ -116,68 +126,73 @@ export default function CatalogDetailPage() {
     } catch {}
   };
 
-  const coverUrl = useMemo(() => {
-    if (!book?.cover) return placeholder;
-    return book.cover;
-  }, [book]);
-
-  const downloadHref = useMemo(() => {
-    if (id) return `${BASE}/api/catalog/books/${id}/download`;
-    if (!book?.download_url) return null;
-    return book.download_url.startsWith("/") ? `${BASE}${book.download_url}` : book.download_url;
-  }, [book, BASE, id]);
-
-  const authorNames = useMemo(() => namesFrom((book as any)?.authors), [book]);
-  const subjectNames = useMemo(() => namesFrom((book as any)?.subjects), [book]);
-
   async function startReading() {
     if (!id) return;
-    // No userbook calls: just navigate to reader
     navigate(`/reader?book=${encodeURIComponent(String(id))}`);
   }
 
   return (
-    <div className="space-y-4">
+    <div>
       <DashboardHeader />
-      {loading && <div className="text-slate-500">Loading...</div>}
-      {error && <div className="text-red-600">Failed to load: {error}</div>}
-      {!loading && !error && book && (
+      {error ? (
+        <div className="text-red-600">Failed to load: {error}</div>
+      ) : loading ? (
+        <div className="text-slate-500">Loading…</div>
+      ) : book ? (
         <div className="space-y-4">
-          <div className="text-sm text-slate-500">
-            <Link to="/catalog" className="hover:underline">Back to results</Link>
-          </div>
-
-          <div className="bg-white rounded-md p-6 grid grid-cols-1 lg:grid-cols-12 gap-6">
-            {/* Left: cover and quick actions */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            {/* Left: cover */}
             <div className="lg:col-span-3">
-              <div className="bg-slate-100 rounded-md p-2 flex items-center justify-center">
-                <img src={coverUrl} alt={book.title} className="w-full max-w-xs object-contain" />
-              </div>
-              <div className="mt-3 grid grid-cols-3 gap-2 text-center text-xs text-slate-600">
-                <button type="button" className="border rounded-md py-3 flex flex-col items-center gap-1 hover:bg-slate-50">
-                  <svg viewBox="0 0 24 24" className="w-5 h-5 text-slate-600" fill="none" stroke="currentColor" strokeWidth="1.6">
-                    <path d="M4 5a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H8l-4 3V5z" />
-                    <path d="M8 7h7M8 10h7M8 13h5" />
-                  </svg>
-                  <span>Review</span>
-                </button>
-                <button type="button" className="border rounded-md py-3 flex flex-col items-center gap-1 hover:bg-slate-50">
-                  <svg viewBox="0 0 24 24" className="w-5 h-5 text-slate-600" fill="none" stroke="currentColor" strokeWidth="1.6">
-                    <path d="M4 5a2 2 0 0 1 2-2h8l4 4v10a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5z" />
-                    <path d="M9 14l6-6" />
-                    <path d="M13 14h-4v-4" />
-                  </svg>
-                  <span>Notes</span>
-                </button>
-                <button type="button" className="border rounded-md py-3 flex flex-col items-center gap-1 hover:bg-slate-50">
-                  <svg viewBox="0 0 24 24" className="w-5 h-5 text-slate-600" fill="none" stroke="currentColor" strokeWidth="1.6">
-                    <circle cx="6" cy="12" r="2" />
-                    <circle cx="18" cy="6" r="2" />
-                    <circle cx="18" cy="18" r="2" />
-                    <path d="M8 12l8-6M8 12l8 6" />
-                  </svg>
-                  <span>Share</span>
-                </button>
+              <div className="bg-white rounded-xl border shadow-sm p-4 flex flex-col items-center">
+                <div className="w-full flex justify-center">
+                  <img src={coverUrl} alt="cover" className="max-h-80 w-auto object-contain rounded-md bg-slate-100 p-2" />
+                </div>
+                <div className="mt-4 w-full border-t pt-3">
+                  <div className="grid grid-cols-3 gap-2 text-center">
+                    <button type="button" onClick={() => setTab('reviews')} className="group flex flex-col items-center py-2 hover:text-[#7b0f2b]">
+                      <svg className="w-7 h-7 text-slate-700 group-hover:text-[#7b0f2b]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6">
+                        <path d="M4 4h16v12H7l-3 3V4z" />
+                        <path d="M14 8l-4 4" />
+                        <path d="M10 8l4 4" />
+                      </svg>
+                      <div className="mt-1 text-xs text-slate-700">Review</div>
+                    </button>
+                    <button type="button" onClick={() => navigate(`/catalog/${id}/notes`)} className="group flex flex-col items-center py-2 hover:text-[#7b0f2b]">
+                      <svg className="w-7 h-7 text-slate-700 group-hover:text-[#7b0f2b]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6">
+                        <rect x="4" y="3" width="16" height="18" rx="2" />
+                        <path d="M8 7h8" />
+                        <path d="M8 11h8" />
+                      </svg>
+                      <div className="mt-1 text-xs text-slate-700">Notes</div>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        try {
+                          const url = window.location.href;
+                          const text = `${book?.title || 'Book'} — ${url}`;
+                          if (navigator.share) {
+                            await navigator.share({ title: book?.title || 'Book', url, text });
+                          } else {
+                            await navigator.clipboard.writeText(url);
+                            alert('Link copied');
+                          }
+                        } catch {}
+                      }}
+                      className="group flex flex-col items-center py-2 hover:text-[#7b0f2b]"
+                    >
+                      <svg className="w-7 h-7 text-slate-700 group-hover:text-[#7b0f2b]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6">
+                        <circle cx="18" cy="5" r="2" />
+                        <circle cx="6" cy="12" r="2" />
+                        <circle cx="18" cy="19" r="2" />
+                        <path d="M8 12h8" />
+                        <path d="M16 7l-8 4" />
+                        <path d="M8 16l8 3" />
+                      </svg>
+                      <div className="mt-1 text-xs text-slate-700">Share</div>
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -191,19 +206,24 @@ export default function CatalogDetailPage() {
               )}
               <div className="text-xs text-slate-500">Second Edition</div>
 
-              {/* Ratings and counters (placeholders) */}
+              {/* Ratings and counters */}
               <div className="flex flex-wrap items-center gap-4 text-sm text-slate-600 mt-2">
                 <div className="flex items-center gap-1">★★★★★ <span className="ml-1">5.0 Ratings</span></div>
-                <div>25 Currently reading</div>
-                <div>119 Have read</div>
+                <div>{readingCount.currently_reading} Currently reading</div>
+                <div>{readingCount.have_read} Have read</div>
               </div>
 
-              {/* Availability and status chips (UI only) */}
+              {/* Availability and status chips (from API formats) */}
               <div className="flex flex-wrap items-center gap-3 mt-3 text-sm">
-                <div className="flex items-center gap-2">
-                  <span className="inline-flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-emerald-500"/>E-Book</span>
-                  <span className="inline-flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-emerald-500"/>Audio book</span>
-                </div>
+                {Array.isArray(book.formats) && book.formats.length ? (
+                  <div className="flex items-center gap-2">
+                    {book.formats.map((f, i) => (
+                      <span key={`${f}-${i}`} className="inline-flex items-center gap-1">
+                        <span className="w-2 h-2 rounded-full bg-emerald-500" />{humanizeFormat(f)}
+                      </span>
+                    ))}
+                  </div>
+                ) : null}
               </div>
 
               {/* Actions */}
@@ -223,7 +243,6 @@ export default function CatalogDetailPage() {
                   </>
                 )}
               </div>
-
             </div>
 
             {/* Right: about author */}
@@ -234,13 +253,12 @@ export default function CatalogDetailPage() {
             </aside>
           </div>
 
-          {/* Full-width Tabs below hero */}
+          {/* Tabs */}
           <div className="bg-white rounded-md p-0">
             <div className="px-6 pt-4 border-b">
               <div className="flex items-center gap-6 text-sm">
                 {(([
                   ["overview","Overview"],
-                  ["editions","Editions"],
                   ["details","Details"],
                   ["reviews","Reviews"],
                   ["lists","Lists"],
@@ -272,34 +290,13 @@ export default function CatalogDetailPage() {
                       <div className="text-sm text-slate-800">{book.lang || '-'}</div>
                     </div>
                     <div className="bg-white border rounded-md p-3">
-                      <div className="text-xs text-slate-500 mb-1">Pages</div>
-                      <div className="text-sm text-slate-800">-</div>
+                      <div className="text-xs text-slate-500 mb-1">Formats</div>
+                      <div className="text-sm text-slate-800">{humanizeFormatList(book.formats)}</div>
                     </div>
                   </div>
                   {book.summary && (
                     <div className="text-slate-700 whitespace-pre-line">{book.summary}</div>
                   )}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="border rounded-md p-4">
-                      <div className="font-medium text-slate-800 mb-2">Book Details</div>
-                      <div className="text-sm text-slate-600">Published in -</div>
-                    </div>
-                    <div className="border rounded-md p-4">
-                      <div className="font-medium text-slate-800 mb-2">Community Reviews</div>
-                      <div className="text-sm text-slate-600">No reviews yet.</div>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {tab === 'editions' && (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {[1,2,3].map((i) => (
-                    <div key={i} className="border rounded-md p-3">
-                      <div className="text-sm font-medium text-slate-800">Edition #{i}</div>
-                      <div className="text-xs text-slate-500">Hardcover • 200{i} • English</div>
-                    </div>
-                  ))}
                 </div>
               )}
 
@@ -311,6 +308,7 @@ export default function CatalogDetailPage() {
                     <div><span className="text-slate-500">Year:</span> <span className="text-slate-800">{book.year || '-'}</span></div>
                     <div><span className="text-slate-500">Language:</span> <span className="text-slate-800">{book.lang || '-'}</span></div>
                     <div><span className="text-slate-500">Publisher:</span> <span className="text-slate-800">{book.pub_info || '-'}</span></div>
+                    <div><span className="text-slate-500">Formats:</span> <span className="text-slate-800">{humanizeFormatList(book.formats)}</span></div>
                     <div><span className="text-slate-500">Authors:</span> <span className="text-slate-800">{authorNames.join(', ') || '-'}</span></div>
                     <div><span className="text-slate-500">Subjects:</span> <span className="text-slate-800">{subjectNames.join(', ') || '-'}</span></div>
                     <div><span className="text-slate-500">File ID:</span> <span className="text-slate-800">{book.file_id || '-'}</span></div>
@@ -354,27 +352,22 @@ export default function CatalogDetailPage() {
                       if (!rt) return alert('Select rating');
                       if (!txt) return alert('Write a short review');
                       const next: Review = {
-                        id: (crypto as any)?.randomUUID ? (crypto as any).randomUUID() : String(Date.now()),
+                        id: crypto?.randomUUID ? crypto.randomUUID() : String(Date.now()),
                         rating: rt,
                         text: txt,
                         author: 'You',
                         created_at: new Date().toISOString(),
                       };
-                      // Optimistic update locally
                       const arr = [next, ...reviews];
                       setReviews(arr);
                       setRating(0);
                       setReviewText('');
-                      // Send to backend via shared api()
                       try {
                         const body = { rating: rt, comment: txt, book_id: Number(id) } as any;
-                        const resp = await api<any>(`/api/reviews`, {
-                          method: "POST",
-                          body: JSON.stringify(body),
-                        });
-                        try { console.info("[CatalogDetail] POST /api/reviews response:", resp); } catch {}
+                        const resp = await api<any>(`/api/reviews`, { method: 'POST', body: JSON.stringify(body) });
+                        try { console.info('[CatalogDetail] POST /api/reviews response:', resp); } catch {}
                       } catch (err: any) {
-                        try { console.warn("[CatalogDetail] POST /api/reviews failed:", err?.message || String(err)); } catch {}
+                        try { console.warn('[CatalogDetail] POST /api/reviews failed:', err?.message || String(err)); } catch {}
                       }
                     }}
                   >
@@ -398,12 +391,7 @@ export default function CatalogDetailPage() {
                         );
                       })}
                     </div>
-                    <textarea
-                      value={reviewText}
-                      onChange={(e)=>setReviewText(e.target.value)}
-                      placeholder="Share your thoughts about this book"
-                      className="w-full border rounded-md px-3 py-2 h-28"
-                    />
+                    <textarea value={reviewText} onChange={(e)=>setReviewText(e.target.value)} placeholder="Share your thoughts about this book" className="w-full border rounded-md px-3 py-2 h-28" />
                     <div className="mt-3">
                       <button type="submit" className="px-4 py-2 bg-[#7b0f2b] text-white rounded-md">Submit review</button>
                     </div>
@@ -428,7 +416,7 @@ export default function CatalogDetailPage() {
             </div>
           </div>
         </div>
-      )}
+      ) : null}
     </div>
   );
 }

@@ -174,34 +174,35 @@ export default function CreateBookPage() {
         try { coverDataUrl = await readAsDataUrl(coverFile); } catch {}
       }
 
-      // Build form-data as required by backend
-      const form = new FormData();
-      form.append("title", title);
-      if (year) form.append("year", year);
-      if (lang) form.append("lang", lang);
-      if (pubInfo) form.append("pub_info", pubInfo);
-      if (summary) form.append("summary", summary);
-      if (isbn) form.append("isbn", isbn);
-      if (edition) form.append("edition", edition);
-      if (pageCount) form.append("page_count", pageCount);
-      if (availableCopies) form.append("available_copies", availableCopies);
-      if (source) form.append("source", String(source).trim().toUpperCase());
-      if (typeof isPublic === "boolean") form.append("is_public", String(isPublic));
-      if (coverDataUrl) form.append("cover", coverDataUrl);
-      // lists as repeated form fields
-      selectedAuthors.forEach((a) => form.append("authors", a));
-      selectedSubjects.forEach((s) => form.append("subjects", s));
-      formats.forEach((f) => form.append("formats", String(f).trim().toUpperCase()));
-      if (fileMeta?.file_id || fileMeta?.id) form.append("file_id", fileMeta?.file_id ?? fileMeta?.id);
-      if (fileMeta?.download_url || fileMeta?.url) form.append("download_url", fileMeta?.download_url ?? fileMeta?.url);
+      // Build JSON payload as required by backend
+      const payload: any = {
+        title,
+        ...(year ? { year } : {}),
+        ...(lang ? { lang } : {}),
+        ...(pubInfo ? { pub_info: pubInfo } : {}),
+        ...(summary ? { summary } : {}),
+        ...(isbn ? { isbn } : {}),
+        ...(edition ? { edition } : {}),
+        ...(pageCount ? { page_count: Number(pageCount) } : {}),
+        ...(availableCopies ? { available_copies: Number(availableCopies) } : {}),
+        ...(typeof isPublic === "boolean" ? { is_public: isPublic } : {}),
+        ...(source ? { source: String(source).trim().toUpperCase() } : {}),
+        ...(coverDataUrl ? { cover: coverDataUrl } : {}),
+        ...(selectedAuthors.length ? { authors: selectedAuthors } : {}),
+        ...(selectedSubjects.length ? { subjects: selectedSubjects } : {}),
+        ...(formats.length ? { formats: formats.map(f => String(f).trim().toUpperCase()) } : {}),
+        ...((fileMeta?.file_id || fileMeta?.id) ? { file_id: fileMeta?.file_id ?? fileMeta?.id } : {}),
+        ...((fileMeta?.download_url || fileMeta?.url) ? { download_url: fileMeta?.download_url ?? fileMeta?.url } : {}),
+      };
 
       const tokenHdr = localStorage.getItem("token");
       const createdRes = await fetch(`${BASE}${apiBooksPath}`, {
         method: "POST",
         headers: {
+          "Content-Type": "application/json",
           ...(tokenHdr ? { Authorization: `Bearer ${tokenHdr}` } : {}),
         },
-        body: form,
+        body: JSON.stringify(payload),
       });
       if (!createdRes.ok) {
         const err = await createdRes.text();

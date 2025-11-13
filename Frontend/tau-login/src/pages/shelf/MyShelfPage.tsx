@@ -5,7 +5,7 @@ import { api } from "@/shared/api/client";
 import bookImg from "@/assets/images/image.png";
 
 type AuthorMin = { id: number | string; name: string };
-type BookMin = { id: number | string; title: string; cover?: string | null; authors?: AuthorMin[] };
+type BookMin = { id: number | string; title: string; cover?: string | null; authors?: AuthorMin[]; formats?: string[] | string | null };
 type UserBook = {
   id: number | string;
   current_page?: number | null;
@@ -20,8 +20,8 @@ export default function MyShelfPage() {
   const [items, setItems] = useState<UserBook[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [tab, setTab] = useState<"all" | "fav" | "borrowed" | "ebooks" | "audio" | "articles">("all");
-  const [favorites, setFavorites] = useState<Set<string>>(new Set());
+  type TabKey = "EBOOK" | "AUDIOBOOK" | "VIDEOBOOK" | "INTERACTIVE" | "HARDCOPY";
+  const [tab, setTab] = useState<TabKey>("EBOOK");
 
   useEffect(() => {
     let cancelled = false;
@@ -31,12 +31,36 @@ export default function MyShelfPage() {
         setError(null);
         const data = await api<UserBook[]>("/api/catalog/userbook");
         if (!cancelled) {
-          try { console.info("[MyShelf] userbook GET response:", data); } catch {}
+          try {
+            console.groupCollapsed("[MyShelf] GET /api/catalog/userbook");
+            console.info("Raw response:", data);
+            const rows = (Array.isArray(data) ? data : []).map((ub: any) => {
+              const b = ub?.book || {};
+              const raw = (b as any)?.formats;
+              const arr = Array.isArray(raw) ? raw : (raw ? [raw] : []);
+              const norm = arr.map((v: any) => {
+                const s = typeof v === 'string' ? v : (v?.id ?? v?.code ?? v?.value ?? v?.name ?? '');
+                return String(s).toUpperCase().replace(/[^A-Z]/g, '').replace(/^EBOOKS?$/, 'EBOOK').replace(/^AUDIOBOOKS?$/, 'AUDIOBOOK').replace(/^VIDEOBOOKS?$/, 'VIDEOBOOK');
+              });
+              return {
+                userbook_id: String(ub?.id ?? ''),
+                book_id: String(b?.id ?? ''),
+                title: String(b?.title ?? ''),
+                formats_raw: JSON.stringify(raw ?? null),
+                formats_norm: norm.join(',') || '-'
+              };
+            });
+            try { console.table(rows); } catch { console.log(rows); }
+            console.groupEnd();
+          } catch {}
           setItems(Array.isArray(data) ? data : []);
         }
       } catch (e: any) {
         if (!cancelled) {
-          try { console.warn("[MyShelf] userbook GET failed:", e?.message || String(e)); } catch {}
+          try {
+            console.warn("[MyShelf] GET /api/catalog/userbook failed:", e?.message || String(e));
+            if (e && e.stack) console.debug(e.stack);
+          } catch {}
           setError(e?.message || String(e));
         }
       } finally {
@@ -46,20 +70,47 @@ export default function MyShelfPage() {
     return () => { cancelled = true; };
   }, []);
 
-  useEffect(() => {
-    try {
-      const favs: string[] = JSON.parse(localStorage.getItem("favorites") || "[]");
-      setFavorites(new Set((Array.isArray(favs) ? favs : []).map(String)));
-    } catch {
-      setFavorites(new Set());
-    }
-  }, []);
+  const normCode = (s: string) => s
+    .toUpperCase()
+    .replace(/[^A-Z]/g, "") // drop spaces/dashes (E-Book -> EBOOK)
+    .replace(/^EBOOKS?$/, "EBOOK")
+    .replace(/^AUDIOBOOKS?$/, "AUDIOBOOK")
+    .replace(/^VIDEOBOOKS?$/, "VIDEOBOOK");
+
+  const normalizedFormats = (b: BookMin): string[] => {
+    const raw: any = (b as any)?.formats;
+    const arr: any[] = Array.isArray(raw) ? raw : (raw ? [raw] : []);
+    const vals = arr.map((v: any) => {
+      if (typeof v === 'string') return normCode(v);
+      if (v && typeof v === 'object') {
+        const cand = v.id ?? v.code ?? v.value ?? v.name ?? '';
+        return normCode(String(cand || ''));
+      }
+      return '';
+    }).filter(Boolean);
+    // de-duplicate
+    return Array.from(new Set(vals));
+  };
 
   const filtered = useMemo(() => {
-    if (tab === "fav") return items.filter(ub => favorites.has(String(ub.book?.id)));
-    // other tabs are placeholders for now
-    return items;
-  }, [items, tab, favorites]);
+    return items.filter((ub) => normalizedFormats(ub.book).includes(tab));
+  }, [items, tab]);
+
+  // If current tab has no items, switch to first tab that has items
+  useEffect(() => {
+    const order: TabKey[] = ["EBOOK","AUDIOBOOK","VIDEOBOOK","INTERACTIVE","HARDCOPY"];
+    if (loading || items.length === 0) return;
+    const has = (t: TabKey) => items.some(ub => normalizedFormats(ub.book).includes(t));
+    if (!has(tab)) {
+      const next = order.find(has);
+      if (next) setTab(next);
+    }
+    try {
+      const counts: Record<string, number> = {};
+      for (const t of order) counts[t] = items.filter(ub => normalizedFormats(ub.book).includes(t)).length;
+      console.info("[MyShelf] distribution by formats:", counts, "current tab:", tab, "visible:", filtered.length);
+    } catch {}
+  }, [items, loading]);
 
   const SkeletonCard = ({ imageHeight }: { imageHeight: string }) => (
     <div className="bg-white border border-gray-100 rounded-lg p-3 text-center shadow-sm">
@@ -77,14 +128,13 @@ export default function MyShelfPage() {
       <h1 className="text-2xl font-semibold text-slate-800 mb-4">My Shelf</h1>
 
       <div className="flex items-center gap-4 border-b mb-4">
-        {([
-          ["all","All Books"],
-          ["fav","Favourite"],
-          ["borrowed","Borrowed Books"],
-          ["ebooks","E-Books"],
-          ["audio","Audio Books"],
-          ["articles","Articles & Journals"],
-        ] as const).map(([k, label]) => (
+        {(([
+          ["EBOOK","E-Books"],
+          ["AUDIOBOOK","Audio Books"],
+          ["VIDEOBOOK","Video Books"],
+          ["INTERACTIVE","Interactive"],
+          ["HARDCOPY","Hardcopy"],
+        ]) as [TabKey, string][]).map(([k, label]) => (
           <button
             key={k}
             onClick={() => setTab(k)}

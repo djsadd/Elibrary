@@ -10,7 +10,9 @@ import ProfilePage from "../pages/profile/ProfilePage";
 import { ProtectedRoute, PublicRoute, ProtectedRouteSync, PublicRouteSync } from "@/shared/routes/guards";
 import CatalogListPage from "../pages/catalog/CatalogListPage";
 import CatalogDetailPage from "../pages/catalog/CatalogDetailPage";
+import BookNotesPage from "../pages/notes/BookNotesPage";
 import MyShelfPage from "../pages/shelf/MyShelfPage";
+import FavoritesPage from "../pages/favorites/FavoritesPage";
 import ReaderPage from "../pages/reader/ReaderPage";
 import AdminLayout from "../pages/admin/AdminLayout";
 import AdminHome from "../pages/admin/AdminHome";
@@ -53,7 +55,9 @@ const router = createBrowserRouter([
       { path: "catalog", element: <WithTitle title="Catalog - TAU"><CatalogListPage /></WithTitle> },
       { path: "catalog/:id", element: <WithTitle title="Book Details - TAU"><CatalogDetailPage /></WithTitle> },
       { path: "catalog/books/:id", element: <WithTitle title="Book Details - TAU"><CatalogDetailPage /></WithTitle> },
+      { path: "catalog/:id/notes", element: <WithTitle title="My Notes - TAU"><BookNotesPage /></WithTitle> },
       { path: "shelf", element: <WithTitle title="My Shelf - TAU"><MyShelfPage /></WithTitle> },
+      { path: "favorites", element: <WithTitle title="Favorites - TAU"><FavoritesPage /></WithTitle> },
       { path: "reader", element: <WithTitle title="Reader - TAU"><ReaderPage /></WithTitle> },
         {
           path: "admin",
