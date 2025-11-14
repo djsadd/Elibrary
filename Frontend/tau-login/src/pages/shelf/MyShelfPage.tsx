@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useState } from "react";
+﻿import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import DashboardHeader from "@/components/layout/DashboardHeader";
 import { api } from "@/shared/api/client";
+import { t } from "@/shared/i18n";
 import bookImg from "@/assets/images/image.png";
 
 type AuthorMin = { id: number | string; name: string };
@@ -125,25 +126,26 @@ export default function MyShelfPage() {
   return (
     <div>
       <DashboardHeader />
-      <h1 className="text-2xl font-semibold text-slate-800 mb-4">My Shelf</h1>
-
-      <div className="flex items-center gap-4 border-b mb-4">
-        {(([
-          ["EBOOK","E-Books"],
-          ["AUDIOBOOK","Audio Books"],
-          ["VIDEOBOOK","Video Books"],
-          ["INTERACTIVE","Interactive"],
-          ["HARDCOPY","Hardcopy"],
-        ]) as [TabKey, string][]).map(([k, label]) => (
+      <h1 className="text-2xl font-semibold text-slate-800 mb-4">{t('shelf.title')}</h1>
+      <div className="border-b mb-4 overflow-x-auto -mx-4 sm:mx-0">
+        <div className="flex items-center gap-3 sm:gap-4 px-4 sm:px-0 flex-nowrap min-w-max">
+          {([
+            ["EBOOK", t('shelf.tabs.EBOOK')],
+            ["AUDIOBOOK", t('shelf.tabs.AUDIOBOOK')],
+            ["VIDEOBOOK", t('shelf.tabs.VIDEOBOOK')],
+            ["INTERACTIVE", t('shelf.tabs.INTERACTIVE')],
+            ["HARDCOPY", t('shelf.tabs.HARDCOPY')],
+          ] as [TabKey, string][]).map(([k, label]) => (
           <button
             key={k}
             onClick={() => setTab(k)}
             className={`py-2 -mb-px border-b-2 text-sm ${tab===k ? 'border-[#7b0f2b] text-[#7b0f2b]' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
           >{label}</button>
         ))}
+        </div>
       </div>
 
-      {error && <div className="text-red-600 mb-3">Failed to load: {error}</div>}
+      {error && <div className="text-red-600 mb-3">{t('shelf.failed')}: {error}</div>}
 
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-7 gap-4">
         {loading
@@ -170,7 +172,7 @@ export default function MyShelfPage() {
                       <div className="w-full h-1.5 bg-slate-200 rounded">
                         <div className="h-1.5 bg-emerald-500 rounded" style={{ width: `${progress}%` }} />
                       </div>
-                      <div className="text-[11px] text-slate-500 mt-1">{progress}% read</div>
+                      <div className="text-[11px] text-slate-500 mt-1">{progress}%</div>
                     </div>
                   )}
                 </Link>
@@ -179,8 +181,9 @@ export default function MyShelfPage() {
       </div>
 
       {!loading && filtered.length === 0 && (
-        <div className="text-slate-500 mt-4">No books here yet.</div>
+        <div className="text-slate-500 mt-4">{t('shelf.empty')}</div>
       )}
     </div>
   );
 }
+

@@ -53,7 +53,7 @@ export default function DashboardPage() {
   type Playlist = { id: number | string; title: string; description?: string | null; books: Book[] };
 
   const SkeletonCard = ({ imageHeight }: { imageHeight: string }) => (
-    <div className="bg-white border border-gray-100 rounded-lg p-2 sm:p-3 text-center shadow-sm w-44 sm:w-auto">
+    <div className="bg-white border border-gray-100 rounded-lg p-2 sm:p-3 text-center shadow-sm w-full sm:w-auto">
       <div className={`w-full ${imageHeight} rounded-md mb-2 sm:mb-3 bg-slate-200 animate-pulse`} />
       <div className="h-4 bg-slate-200 rounded mb-1 animate-pulse" />
       <div className="h-3 bg-slate-200 rounded w-2/3 mx-auto animate-pulse" />
@@ -74,10 +74,10 @@ export default function DashboardPage() {
         const pls = await api<Playlist[]>("/api/catalog/playlists");
         // eslint-disable-next-line no-console
         console.log("/api/catalog/playlists response", pls);
-        if (Array.isArray(pls) && pls.length && !cancelled) {
+        if (Array.isArray(pls) && !cancelled) {
           setPlaylists(pls);
           setLoading(false);
-          return;
+          if (pls.length) return;
         }
       } catch (e) {
         // ignore and fallback
@@ -112,19 +112,16 @@ export default function DashboardPage() {
           {error && <div className="text-red-600 mt-2">Failed to load: {error}</div>}
 
           <div className="mt-4">
-            {/* Mobile scroller */}
-            <div className="flex gap-3 overflow-x-auto py-2 sm:hidden -ml-1">
+            <div className="grid sm:hidden grid-cols-2 gap-3">
               {loading
-                ? Array.from({ length: 7 }).map((_, idx) => (
-                    <div key={`skeleton-m-${idx}`} className="w-44 flex-shrink-0">
-                      <SkeletonCard imageHeight="h-40" />
-                    </div>
+                ? Array.from({ length: 6 }).map((_, idx) => (
+                    <SkeletonCard key={`skeleton-m-${idx}`} imageHeight="h-40" />
                   ))
                 : items.slice(0, 7).map((book) => (
                     <Link
                       to={`/catalog/${book.id}`}
                       key={String(book.id)}
-                      className="w-44 flex-shrink-0 bg-white border border-gray-100 rounded-lg p-2 text-center shadow-sm hover:shadow-md transition-shadow"
+                      className="block w-full bg-white border border-gray-100 rounded-lg p-3 text-center shadow-sm hover:shadow-md transition-shadow"
                     >
                       <img src={book.cover || bookImg} alt={`book-${book.id}`} className="w-full h-40 object-contain rounded-md mb-2 bg-slate-100 p-1" />
                       <div className="text-sm font-medium text-slate-800 truncate">{book.title}</div>
@@ -167,12 +164,12 @@ export default function DashboardPage() {
               {error && <div className="text-red-600 mt-2">Failed to load: {error}</div>}
 
               <div className="mt-4">
-                <div className="flex gap-3 overflow-x-auto py-2 sm:hidden -ml-1">
+                <div className="grid sm:hidden grid-cols-2 gap-3">
                   {(pl.books || []).slice(0,7).map((book) => (
                     <Link
                       to={`/catalog/${book.id}`}
                       key={`m-${pl.id}-${String(book.id)}`}
-                      className="w-44 flex-shrink-0 bg-white border border-gray-100 rounded-lg p-2 text-center shadow-sm hover:shadow-md transition-shadow"
+                      className="block w-full bg-white border border-gray-100 rounded-lg p-3 text-center shadow-sm hover:shadow-md transition-shadow"
                     >
                       <img src={book.cover || bookImg} alt={`book-${book.id}`} className="w-full h-40 object-contain rounded-md mb-2 bg-slate-100 p-1" />
                       <div className="text-sm font-medium text-slate-800 truncate">{book.title}</div>
@@ -206,4 +203,3 @@ export default function DashboardPage() {
     </>
   );
 }
-

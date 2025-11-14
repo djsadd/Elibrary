@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import DashboardHeader from "@/components/layout/DashboardHeader";
+import { t } from "@/shared/i18n";
 import { api } from "@/shared/api/client";
 import { namesFrom } from "@/shared/ui/text";
 import bookImg from "@/assets/images/image.png";
@@ -29,6 +30,11 @@ export default function FavoritesPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [favorites, setFavorites] = useState<Set<string>>(new Set());
+  const [limit] = useState(24);
+  const [offset, setOffset] = useState(0);
+  const [hasMore, setHasMore] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const sentinelRef = useRef<HTMLDivElement | null>(null);
 
   const SkeletonCard = ({ imageHeight }: { imageHeight: string }) => (
     <div className="bg-white border border-gray-100 rounded-lg p-3 text-center shadow-sm">
@@ -38,28 +44,90 @@ export default function FavoritesPage() {
     </div>
   );
 
-  // load favorites first
-  useEffect(() => {
-    try {
-      const favs: string[] = JSON.parse(localStorage.getItem("favorites") || "[]");
-      setFavorites(new Set((Array.isArray(favs) ? favs : []).map(String)));
-    } catch {
-      setFavorites(new Set());
-    }
-  }, []);
+  // remove legacy localStorage bootstrap; server is source of truth
+  useEffect(() => { setFavorites(new Set()); }, []);
 
-  // fetch books and filter by favorites
+  // Fetch favourites from backend and render as books
+  async function normaliseToBooks(data: any): Promise<Book[]> {
+    const arr = Array.isArray(data) ? data : [];
+    const out: Book[] = [];
+    const missingIds: (string|number)[] = [];
+    for (const it of arr) {
+      if (!it) continue;
+      if (typeof it === 'number' || typeof it === 'string') { missingIds.push(it); continue; }
+      // common shapes from API
+      if (it.book && typeof it.book === 'object' && (it.book.title || it.book.id)) { out.push(it.book as Book); continue; }
+      if (it.book && (typeof it.book === 'number' || typeof it.book === 'string')) { missingIds.push(it.book); continue; }
+      if (it.book_data && (it.book_data.title || it.book_data.id)) { out.push(it.book_data as Book); continue; }
+      // prefer explicit book id fields; avoid using generic record id which is often favourite id
+      const bid = it.book_id ?? it.bookId ?? it.catalog_id ?? it.catalogId ?? null;
+      if (bid != null) missingIds.push(bid);
+    }
+    // fetch missing book details in parallel (bounded)
+    const pool = 8;
+    for (let i=0; i<missingIds.length; i+=pool) {
+      const chunk = missingIds.slice(i, i+pool);
+      const res = await Promise.all(chunk.map(id => api<Book>(`/api/catalog/books/${id}`).catch(()=>null)));
+      for (const b of res) if (b && b.id != null) out.push(b);
+    }
+    return out;
+  }
+
+  const fetchPage = async (initial = false) => {
+    const params = new URLSearchParams();
+    params.set('limit', String(limit));
+    params.set('offset', String(initial ? 0 : offset));
+    const data = await api<any>(`/api/favourites/?${params.toString()}`);
+    try { console.info('[Favorites] GET /api/favourites', data); } catch {}
+    // tolerate various response shapes
+    const pickArr = (obj: any): any[] => {
+      if (!obj) return [];
+      if (Array.isArray(obj)) return obj;
+      if (Array.isArray(obj.items)) return obj.items;
+      if (Array.isArray(obj.data)) return obj.data;
+      if (Array.isArray(obj.results)) return obj.results;
+      if (Array.isArray(obj.favourites)) return obj.favourites;
+      if (Array.isArray(obj.favorites)) return obj.favorites;
+      return [];
+    };
+    const raw = pickArr(data);
+    const pageMeta = data?.page || data?.pagination || (typeof data?.total === 'number' ? { total: data.total } : null);
+    const books = await normaliseToBooks(raw);
+    // de-duplicate by id
+    setItems(prev => {
+      const seen = new Set(prev.map(b => String(b.id)));
+      const add = books.filter(b => !seen.has(String(b.id)));
+      return initial ? add : [...prev, ...add];
+    });
+    // update favorites set from ids
+    setFavorites(prev => {
+      const next = new Set(prev);
+      books.forEach(b => next.add(String(b.id)));
+      return next;
+    });
+    // pagination handling across shapes
+    const pageCount = Array.isArray(raw) ? raw.length : 0;
+    if (pageMeta && typeof (pageMeta.total ?? pageMeta.count) === 'number') {
+      const total = Number(pageMeta.total ?? pageMeta.count);
+      const nextOffset = (initial ? 0 : offset) + pageCount;
+      setOffset(nextOffset);
+      setHasMore(nextOffset < total);
+    } else {
+      setOffset((initial ? 0 : offset) + pageCount);
+      setHasMore(pageCount >= limit);
+    }
+    try {
+      console.debug('[Favorites] parsed', { raw: pageCount, added: books.length, totalKnown: pageMeta?.total ?? pageMeta?.count });
+    } catch {}
+  };
+
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
         setLoading(true);
         setError(null);
-        const data = await api<BookListResponse>("/api/catalog/books");
-        const all = Array.isArray(data.items) ? data.items : [];
-        const favIds = favorites;
-        const onlyFavs = all.filter((b) => favIds.has(String(b.id)));
-        if (!cancelled) setItems(onlyFavs);
+        await fetchPage(true);
       } catch (e: any) {
         if (!cancelled) setError(e?.message || String(e));
       } finally {
@@ -67,7 +135,25 @@ export default function FavoritesPage() {
       }
     })();
     return () => { cancelled = true; };
-  }, [favorites]);
+  }, []);
+
+  // infinite scroll
+  useEffect(() => {
+    const el = sentinelRef.current;
+    if (!el) return;
+    const io = new IntersectionObserver((ents) => {
+      for (const ent of ents) if (ent.isIntersecting) {
+        if (!loadingMore && hasMore) {
+          setLoadingMore(true);
+          fetchPage(false).finally(() => setLoadingMore(false));
+        }
+      }
+    }, { rootMargin: '300px' });
+    io.observe(el);
+    return () => io.disconnect();
+  }, [sentinelRef.current, hasMore, loadingMore, offset]);
+
+  // remove legacy filtering effect — now data comes from API
 
   const toggleFavorite = (id: string | number, e?: React.MouseEvent) => {
     if (e) { e.preventDefault(); e.stopPropagation(); }
@@ -80,15 +166,15 @@ export default function FavoritesPage() {
     });
   };
 
-  const title = useMemo(() => `Favorites (${favorites.size})`, [favorites]);
+  const title = useMemo(() => `${t('favorites.title')} (${items.length})`, [items]);
 
   return (
     <div>
       <DashboardHeader />
       <h1 className="text-2xl font-semibold text-[#7b0f2b] mb-4">{title}</h1>
-      {error && <div className="text-red-600">Failed to load: {error}</div>}
-      {favorites.size === 0 && (
-        <div className="text-slate-500 mb-4">You have no favorites yet.</div>
+      {error && <div className="text-red-600">{t('favorites.failed')}: {error}</div>}
+      {!loading && items.length === 0 && (
+        <div className="text-slate-500 mb-4">{t('favorites.none')}</div>
       )}
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-7 gap-4">
         {loading
@@ -123,10 +209,9 @@ export default function FavoritesPage() {
               );
             })}
       </div>
-      {!loading && !error && favorites.size > 0 && items.length === 0 && (
-        <div className="text-slate-500 mt-4">No favorites matched current catalogue list.</div>
+      {(hasMore || loadingMore) && !loading && (
+        <div ref={sentinelRef} className="py-6 text-center text-slate-400 text-sm">{loadingMore ? t('favorites.loadingMore') : t('favorites.loadMore')}</div>
       )}
     </div>
   );
 }
-

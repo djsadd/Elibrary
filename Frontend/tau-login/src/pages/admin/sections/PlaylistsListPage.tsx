@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "@/shared/api/client";
+import { t } from "@/shared/i18n";
 
 type Book = { id: number | string; title: string };
 type Playlist = { id: number | string; title: string; description?: string | null; created_at?: string; books?: Book[] };
@@ -46,7 +47,7 @@ export default function PlaylistsListPage() {
   return (
     <div>
       <div className="flex items-center justify-between mb-3">
-        <h2 className="text-lg font-semibold">Playlists</h2>
+        <h2 className="text-lg font-semibold">{t('admin.playlists.heading')}</h2>
         <div className="flex items-center gap-2">
           <input value={q} onChange={(e)=>setQ(e.target.value)} className="px-3 py-2 rounded-md border border-slate-200 text-sm" placeholder="Search…" />
           <button onClick={()=>setModalOpen(true)} className="px-3 py-2 rounded-md bg-[#7b0f2b] text-white text-sm">Add</button>
@@ -59,11 +60,11 @@ export default function PlaylistsListPage() {
           <table className="w-full text-sm">
             <thead className="text-left text-slate-500">
               <tr>
-                <th className="py-2">Title</th>
-                <th>Description</th>
-                <th>Books</th>
-                <th>Created</th>
-                <th className="w-16 text-center">Actions</th>
+                <th className="py-2">{t('admin.playlists.table.title')}</th>
+                <th>{t('admin.playlists.table.description')}</th>
+                <th>{t('admin.playlists.table.books')}</th>
+                <th>{t('admin.playlists.table.created')}</th>
+                <th className="w-16 text-center">{t('admin.playlists.table.actions')}</th>
               </tr>
             </thead>
             <tbody>
@@ -77,8 +78,8 @@ export default function PlaylistsListPage() {
                     <Link
                       to={`/admin/playlists/${p.id}/edit`}
                       className="inline-flex items-center justify-center w-8 h-8 rounded hover:bg-slate-100"
-                      title="Edit"
-                      aria-label="Edit"
+                      title={t('admin.common.edit')}
+                      aria-label={t('admin.common.edit')}
                     >
                       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#7b0f2b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                         <path d="M12 20h9"/>
@@ -89,7 +90,7 @@ export default function PlaylistsListPage() {
                 </tr>
               ))}
               {items.length === 0 && (
-                <tr><td colSpan={5} className="py-6 text-center text-slate-500">No playlists yet</td></tr>
+                <tr><td colSpan={5} className="py-6 text-center text-slate-500">{t('admin.playlists.empty')}</td></tr>
               )}
             </tbody>
           </table>

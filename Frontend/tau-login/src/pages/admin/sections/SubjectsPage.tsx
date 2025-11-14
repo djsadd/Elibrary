@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { api } from "@/shared/api/client";
+import { t } from "@/shared/i18n";
 
 export default function SubjectsPage() {
   const [q, setQ] = useState("");
@@ -62,8 +63,8 @@ export default function SubjectsPage() {
           setCreateError(null);
           setCreateOk(null);
           const name = newName.trim();
-          if (!name) { setCreateError("Name is required"); return; }
-          if (name.length > 256) { setCreateError("Name too long (max 256)"); return; }
+          if (!name) { setCreateError(t('admin.taxonomy.errors.nameRequired')); return; }
+          if (name.length > 256) { setCreateError(t('admin.taxonomy.errors.nameTooLong')); return; }
           try {
             setCreating(true);
             await api("/api/catalog/subjects", {
@@ -71,7 +72,7 @@ export default function SubjectsPage() {
               body: JSON.stringify({ name }),
             });
             setNewName("");
-            setCreateOk("Subject added");
+            setCreateOk(t('admin.taxonomy.errors.addedOk'));
             setRefreshTick((x) => x + 1); // reload list
           } catch (e: any) {
             setCreateError(e?.message || String(e));

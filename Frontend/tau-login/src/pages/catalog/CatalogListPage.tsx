@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { useEffect, useRef, useState } from "react";
 import DashboardHeader from "../../components/layout/DashboardHeader";
+import { t } from "@/shared/i18n";
 import { api } from "@/shared/api/client";
 import { namesFrom } from "@/shared/ui/text";
 import bookImg from "@/assets/images/image.png";
@@ -123,21 +124,39 @@ export default function CatalogListPage() {
     }
   }, []);
 
-  const toggleFavorite = (id: string | number, e?: React.MouseEvent) => {
+  const toggleFavorite = async (id: string | number, e?: React.MouseEvent) => {
     if (e) { e.preventDefault(); e.stopPropagation(); }
     const sid = String(id);
-    setFavorites(prev => {
-      const next = new Set(prev);
-      if (next.has(sid)) next.delete(sid); else next.add(sid);
-      try { localStorage.setItem("favorites", JSON.stringify(Array.from(next))); } catch {}
-      return next;
-    });
+    const alreadyFav = favorites.has(sid);
+
+    // optimistic toggle in UI/localStorage
+    const next = new Set(favorites);
+    if (alreadyFav) next.delete(sid); else next.add(sid);
+    setFavorites(next);
+    try { localStorage.setItem("favorites", JSON.stringify(Array.from(next))); } catch {}
+
+    // network side-effect: only POST when adding to favorites
+    if (!alreadyFav) {
+      try {
+        await api<any>(`/api/favourites/`, {
+          method: "POST",
+          body: JSON.stringify({ book_id: Number(id) }),
+        });
+      } catch (err: any) {
+        // revert optimistic update on failure
+        const reverted = new Set(next);
+        reverted.delete(sid);
+        setFavorites(reverted);
+        try { localStorage.setItem("favorites", JSON.stringify(Array.from(reverted))); } catch {}
+        try { console.warn("[Catalog] POST /api/favourites failed:", err?.message || String(err)); } catch {}
+      }
+    }
   };
 
   return (
     <div>
       <DashboardHeader />
-      <h1 className="text-2xl font-semibold text-[#7b0f2b] mb-4">Catalog</h1>
+      <h1 className="text-2xl font-semibold text-[#7b0f2b] mb-4">{t('catalog.title')}</h1>
       {error && <div className="text-red-600">Failed to load: {error}</div>}
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-7 gap-3 sm:gap-4">
         {loading
@@ -177,7 +196,7 @@ export default function CatalogListPage() {
         <div ref={sentinelRef} className="py-6 text-center text-slate-400 text-sm">{loadingMore ? 'Loading more…' : 'Scroll to load more'}</div>
       )}
       {!loading && !error && items.length === 0 && (
-        <div className="text-slate-500 mt-4">No books found</div>
+        <div className="text-slate-500 mt-4">{t('common.noBooks')}</div>
       )}
     </div>
   );

@@ -1,5 +1,6 @@
 import { Link, useLocation } from "react-router-dom";
 import logo from "@/assets/images/Logo.svg";
+import { t } from "@/shared/i18n";
 import { MobileDashboardHeader } from "./DashboardHeader";
 import { useAuth } from "@/shared/auth/AuthContext";
 
@@ -27,13 +28,13 @@ export default function Sidebar() {
   const isAdmin = roles.some((r) => /^(admin|librarian)$/i.test(String(r)));
 
   const items = [
-    { to: "/", label: "Home", icon: HomeIcon },
-    { to: "/catalog", label: "Catalog", icon: CatalogIcon },
-    { to: "/shelf", label: "My Shelf", icon: ShelfIcon },
-    { to: "/favorites", label: "Favorites", icon: HeartIcon },
-    ...(isAdmin ? [{ to: "/admin", label: "Admin", icon: AdminIcon }] : [] as any),
-    { to: "/profile", label: "Profile", icon: UserIcon },
-    { to: "#", label: "Contribute", icon: ContributeIcon },
+    { to: "/", label: t('nav.home'), icon: HomeIcon },
+    { to: "/catalog", label: t('nav.catalog'), icon: CatalogIcon },
+    { to: "/shelf", label: t('nav.shelf'), icon: ShelfIcon },
+    { to: "/favorites", label: t('nav.favorites'), icon: HeartIcon },
+    ...(isAdmin ? [{ to: "/admin", label: t('nav.admin'), icon: AdminIcon }] : [] as any),
+    { to: "/profile", label: t('nav.profile'), icon: UserIcon },
+    { to: "#", label: t('nav.contribute'), icon: ContributeIcon },
   ];
 
   return (
@@ -52,18 +53,18 @@ export default function Sidebar() {
         <MobileDashboardHeader />
 
         {/* menu */}
-        <nav className="px-4">
-          <ul className="space-y-2">
+        <nav className="px-3 sm:px-4">
+          <ul className="space-y-1.5">
             {items.map((it) => {
               const active = it.to === "/" ? loc.pathname === "/" : loc.pathname.startsWith(it.to);
               return (
                 <li key={it.label}>
                   <Link
                     to={it.to}
-                    className={`flex items-center gap-3 px-6 py-3 rounded-md transition-colors text-sm ${active ? 'text-[#7b0f2b] bg-slate-50 font-medium' : 'text-slate-600 hover:text-[#7b0f2b] hover:bg-slate-50'}`}
+                    className={`flex items-center gap-3 px-4 py-3 sm:px-6 rounded-md transition-colors text-base sm:text-sm ${active ? 'text-[#7b0f2b] bg-slate-50 font-medium' : 'text-slate-600 hover:text-[#7b0f2b] hover:bg-slate-50'}`}
                   >
                     <span className="w-5 h-5 flex items-center justify-center">
-                      <it.icon className={active ? 'w-5 h-5 text-[#7b0f2b]' : 'w-5 h-5 text-slate-400'} />
+                      <it.icon className={active ? 'w-6 h-6 sm:w-5 sm:h-5 text-[#7b0f2b]' : 'w-6 h-6 sm:w-5 sm:h-5 text-slate-400'} />
                     </span>
                     <span>{it.label}</span>
                   </Link>
@@ -74,7 +75,7 @@ export default function Sidebar() {
         </nav>
       </div>
 
-      <div className="px-6 py-8 text-sm text-slate-400">
+      <div className="px-4 sm:px-6 py-6 sm:py-8 text-sm text-slate-400">
         <div className="space-y-2">
           <div className="hover:text-slate-600 cursor-pointer">About</div>
           <div className="hover:text-slate-600 cursor-pointer">Support</div>

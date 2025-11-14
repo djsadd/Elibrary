@@ -1,5 +1,5 @@
-// src/shared/api/client.ts
-const BASE = import.meta.env.VITE_API_URL ?? "http://localhost:8000";
+﻿// src/shared/api/client.ts
+const BASE: string = (import.meta.env.VITE_API_URL as string | undefined) ?? "";
 
 // Track a single refresh in-flight to de-duplicate concurrent 401s
 let refreshPromise: Promise<string | null> | null = null;
@@ -104,6 +104,7 @@ export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
       ...(auth ? { Authorization: `Bearer ${auth}` } : (token ? { Authorization: `Bearer ${token}` } : {})),
     } as any;
     return fetch(`${BASE}${path}`, {
+      cache: init.cache ?? "no-store",
       ...init,
       headers: mergedHeaders,
     });
@@ -136,3 +137,4 @@ export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
   }
   return res.json();
 }
+

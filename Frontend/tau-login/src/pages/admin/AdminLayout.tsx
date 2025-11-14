@@ -1,20 +1,21 @@
 import { NavLink, Outlet, useLocation } from "react-router-dom";
 import DashboardHeader from "../../components/layout/DashboardHeader";
+import { t } from "@/shared/i18n";
 
 const nav = [
-  { to: "/admin", label: "Overview", end: true },
-  { to: "/admin/books", label: "Books" },
-  { to: "/admin/books/new", label: "Add Book" },
-  { to: "/admin/playlists", label: "Playlists" },
-  { to: "/admin/playlists/new", label: "Add Playlist" },
-  { to: "/admin/authors", label: "Authors" },
-  { to: "/admin/subjects", label: "Subjects" },
-  { to: "/admin/files", label: "Files" },
-  { to: "/admin/users", label: "Users" },
-  { to: "/admin/roles", label: "Roles" },
-  { to: "/admin/reports", label: "Reports" },
-  { to: "/admin/settings", label: "Settings" },
-];
+  { to: "/admin", label: () => t('admin.nav.overview'), end: true },
+  { to: "/admin/books", label: () => t('admin.nav.books') },
+  { to: "/admin/books/new", label: () => t('admin.nav.addBook') },
+  { to: "/admin/playlists", label: () => t('admin.nav.playlists') },
+  { to: "/admin/playlists/new", label: () => t('admin.nav.addPlaylist') },
+  { to: "/admin/authors", label: () => t('admin.nav.authors') },
+  { to: "/admin/subjects", label: () => t('admin.nav.subjects') },
+  { to: "/admin/files", label: () => t('admin.nav.files') },
+  { to: "/admin/users", label: () => t('admin.nav.users') },
+  { to: "/admin/roles", label: () => t('admin.nav.roles') },
+  { to: "/admin/reports", label: () => t('admin.nav.reports') },
+  { to: "/admin/settings", label: () => t('admin.nav.settings') },
+] as const;
 
 export default function AdminLayout() {
   const location = useLocation();
@@ -38,7 +39,7 @@ export default function AdminLayout() {
                     }`
                   }
                 >
-                  {item.label}
+                  {typeof item.label === 'function' ? item.label() : item.label}
                 </NavLink>
               ))}
             </div>

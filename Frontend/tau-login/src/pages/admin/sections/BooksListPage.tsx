@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "@/shared/api/client";
+import { t } from "@/shared/i18n";
 
 type Book = { id: number | string; title: string; year?: string | null; lang?: string | null; authors?: any };
 
@@ -29,8 +30,8 @@ export default function BooksListPage() {
   return (
     <div>
       <div className="flex items-center justify-between mb-3">
-        <h2 className="text-lg font-semibold">Books</h2>
-        <a href="/admin/books/new" className="px-3 py-2 rounded-md bg-slate-700 text-white text-sm">Add book</a>
+        <h2 className="text-lg font-semibold">{t('admin.books.heading')}</h2>
+        <a href="/admin/books/new" className="px-3 py-2 rounded-md bg-slate-700 text-white text-sm">{t('admin.books.addBook')}</a>
       </div>
       {loading && <div className="text-slate-500">Loading…</div>}
       {error && <div className="text-red-600">Failed to load: {error}</div>}
@@ -39,11 +40,11 @@ export default function BooksListPage() {
           <table className="w-full text-sm">
             <thead className="text-left text-slate-500">
               <tr>
-                <th className="py-2">Title</th>
-                <th>Year</th>
-                <th>Lang</th>
-                <th>Authors</th>
-                <th className="w-16 text-center">Actions</th>
+                <th className="py-2">{t('admin.books.table.title')}</th>
+                <th>{t('admin.books.table.year')}</th>
+                <th>{t('admin.books.table.lang')}</th>
+                <th>{t('admin.books.table.authors')}</th>
+                <th className="w-16 text-center">{t('admin.books.table.actions')}</th>
               </tr>
             </thead>
             <tbody>
@@ -57,8 +58,8 @@ export default function BooksListPage() {
                     <Link
                       to={`/admin/books/${b.id}/edit`}
                       className="inline-flex items-center justify-center w-8 h-8 rounded hover:bg-slate-100"
-                      title="Edit"
-                      aria-label="Edit"
+                      title={t('admin.common.edit')}
+                      aria-label={t('admin.common.edit')}
                     >
                       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#7b0f2b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                         <path d="M12 20h9"/>
@@ -69,7 +70,7 @@ export default function BooksListPage() {
                 </tr>
               ))}
               {items.length === 0 && (
-                <tr><td colSpan={5} className="py-6 text-center text-slate-500">No books</td></tr>
+                <tr><td colSpan={5} className="py-6 text-center text-slate-500">{t('admin.books.empty')}</td></tr>
               )}
             </tbody>
           </table>
