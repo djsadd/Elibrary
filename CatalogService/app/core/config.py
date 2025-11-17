@@ -14,8 +14,9 @@ class Settings(BaseSettings):
     DB_PASS: str = "postgres"
 
     SQLITE_DB_PATH: str = "sqlite.db"
+    FILE_SERVICE_URL: str = "http://127.0.0.1:8082/files/upload"
 
-    AUTH_SERVICE_URL: str = "http://127.0.0.1:8001"
+    AUTH_SERVICE_URL: str = "http://127.0.0.1:8000/api/"
     # CORS
     CORS_ALLOW_ORIGINS: str = ""
 
