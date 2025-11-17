@@ -2,8 +2,8 @@
 import { Link } from "react-router-dom";
 import DashboardHeader from "@/components/layout/DashboardHeader";
 import { api } from "@/shared/api/client";
-import { t } from "@/shared/i18n";
-import bookImg from "@/assets/images/image.png";
+import { t, getLang } from "@/shared/i18n";
+import bookImg from "@/assets/images/Image.png";
 
 type AuthorMin = { id: number | string; name: string };
 type BookMin = { id: number | string; title: string; cover?: string | null; authors?: AuthorMin[]; formats?: string[] | string | null };
@@ -129,19 +129,51 @@ export default function MyShelfPage() {
       <h1 className="text-2xl font-semibold text-slate-800 mb-4">{t('shelf.title')}</h1>
       <div className="border-b mb-4 overflow-x-auto -mx-4 sm:mx-0">
         <div className="flex items-center gap-3 sm:gap-4 px-4 sm:px-0 flex-nowrap min-w-max">
-          {([
-            ["EBOOK", t('shelf.tabs.EBOOK')],
-            ["AUDIOBOOK", t('shelf.tabs.AUDIOBOOK')],
-            ["VIDEOBOOK", t('shelf.tabs.VIDEOBOOK')],
-            ["INTERACTIVE", t('shelf.tabs.INTERACTIVE')],
-            ["HARDCOPY", t('shelf.tabs.HARDCOPY')],
-          ] as [TabKey, string][]).map(([k, label]) => (
-          <button
-            key={k}
-            onClick={() => setTab(k)}
-            className={`py-2 -mb-px border-b-2 text-sm ${tab===k ? 'border-[#7b0f2b] text-[#7b0f2b]' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
-          >{label}</button>
-        ))}
+          {(() => {
+            const lang = getLang();
+            const isRu = lang === 'ru';
+            const isKk = lang === 'kk';
+            const shortRU: Record<TabKey, string> = {
+              EBOOK: 'Эл.',
+              AUDIOBOOK: 'Аудио',
+              VIDEOBOOK: 'Видео',
+              INTERACTIVE: 'Интерак.',
+              HARDCOPY: 'Печ.',
+            } as const;
+            const shortKK: Record<TabKey, string> = {
+              EBOOK: 'Эл.',
+              AUDIOBOOK: 'Аудио',
+              VIDEOBOOK: 'Видео',
+              INTERACTIVE: 'Интерак.',
+              HARDCOPY: 'Баспа',
+            } as const;
+            const tabs: [TabKey, string, string][] = ([
+              'EBOOK', 'AUDIOBOOK', 'VIDEOBOOK', 'INTERACTIVE', 'HARDCOPY',
+            ] as TabKey[]).map((k) => {
+              const longLabel = t(`shelf.tabs.${k}`);
+              const shortLabel = isRu
+                ? shortRU[k]
+                : isKk
+                ? shortKK[k]
+                : longLabel;
+              return [k, longLabel, shortLabel];
+            });
+            return tabs.map(([k, longLabel, shortLabel]) => (
+              <button
+                key={k}
+                title={longLabel}
+                onClick={() => setTab(k)}
+                className={`px-2 py-2 -mb-px border-b-2 text-sm whitespace-nowrap ${
+                  tab === k
+                    ? 'border-[#7b0f2b] text-[#7b0f2b]'
+                    : 'border-transparent text-slate-500 hover:text-slate-700'
+                }`}
+              >
+                <span className="sm:hidden inline">{shortLabel}</span>
+                <span className="hidden sm:inline">{longLabel}</span>
+              </button>
+            ));
+          })()}
         </div>
       </div>
 

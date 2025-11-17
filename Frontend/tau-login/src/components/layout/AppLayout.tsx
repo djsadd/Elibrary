@@ -1,4 +1,4 @@
-import { Outlet } from "react-router-dom";
+import { Outlet, useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import Footer from "./Footer";
 import Sidebar from "./Sidebar";
@@ -9,6 +9,7 @@ function LayoutInner() {
   const { isOpen, close, open } = useSidebar();
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const nav = useNavigate();
   const closeSearch = () => setSearchOpen(false);
 
   useEffect(() => {
@@ -19,6 +20,22 @@ function LayoutInner() {
       document.body.style.overflow = previous;
     };
   }, [searchOpen]);
+
+  // When search overlay is open, submit on Enter to catalog results
+  useEffect(() => {
+    if (!searchOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Enter') {
+        const q = (searchQuery || '').trim();
+        if (q) {
+          nav(`/search?q=${encodeURIComponent(q)}`);
+          setSearchOpen(false);
+        }
+      }
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [searchOpen, searchQuery]);
 
   useEffect(() => {
     const handleKey = (event: KeyboardEvent) => {

@@ -4,6 +4,8 @@ from sqlalchemy.orm import Session
 from typing import List, Optional
 import requests
 from sqlalchemy import select, func
+from fastapi.responses import StreamingResponse
+
 from app.utils.authz import get_current_user, AuthUser
 from fastapi import File, UploadFile, Form
 from app.core.db import SessionLocal
@@ -14,7 +16,8 @@ from app.core.config import settings
 from app.utils.authz import require_roles, AuthUser
 import os, uuid, shutil
 from fastapi.responses import FileResponse
-
+import base64
+from uuid import uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
@@ -30,6 +33,7 @@ router = APIRouter(prefix="/catalog", tags=["catalog"])
 
 MEDIA_ROOT = os.path.abspath(os.getenv("MEDIA_ROOT", "./storage"))
 os.makedirs(MEDIA_ROOT, exist_ok=True)
+UPLOAD_DIR = "static/covers"  # путь, куда сохраняем картинки
 
 MAX_RAW_SIZE = 50 * 1024 * 1024  # 50MB общий лимит на raw-загрузку
 
@@ -160,6 +164,34 @@ def download_book(book_id: int, db: Session = Depends(get_db)):
     )
 
 
+@router.get("/books/{book_id}/stream")
+def stream_book(book_id: int, db: Session = Depends(get_db)):
+    """
+    Стриминг PDF файла по частям (не скачивание)
+    """
+    book = db.get(Book, book_id)
+    if not book:
+        raise HTTPException(status_code=404, detail="Book not found")
+
+    file_path = os.path.join("storage", book.file_id)
+
+    if not os.path.exists(file_path):
+        raise HTTPException(status_code=404, detail="File not found")
+
+    def iterfile():
+        with open(file_path, mode="rb") as f:
+            while chunk := f.read(1024 * 1024):   # 1MB чанки
+                yield chunk
+
+    return StreamingResponse(
+        iterfile(),
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f"inline; filename={book.title}.pdf"
+        }
+    )
+
+
 def _to_out(b: Book) -> BookOut:
     return BookOut(
         id=b.id,
@@ -224,22 +256,37 @@ def get_book(book_id: int, db: Session = Depends(get_db)):
     return _to_out(b)
 
 
+def save_cover_file(cover_base64: str) -> str:
+    """Сохраняет base64-картинку в файл и возвращает путь для API"""
+    if not cover_base64:
+        return None
+
+    os.makedirs(UPLOAD_DIR, exist_ok=True)
+    file_name = f"{uuid4().hex}.png"
+    file_path = os.path.join(UPLOAD_DIR, file_name)
+
+    # если base64 приходит с префиксом data:image/png;base64, убираем его
+    if "base64," in cover_base64:
+        cover_base64 = cover_base64.split("base64,")[-1]
+
+    with open(file_path, "wb") as f:
+        f.write(base64.b64decode(cover_base64))
+
+    return f"/{UPLOAD_DIR}/{file_name}"  # путь для фронтенда/API
+
+
 # ---- SECURED (admin/librarian) ----
 _admin_guard = Depends(require_roles("admin", "librarian"))
 
-
 @router.post("/books", response_model=BookOut, status_code=201, dependencies=[_admin_guard])
-async def create_book(
-    book_in: BookCreate,  # <- теперь FastAPI автоматически парсит JSON
-    db: Session = Depends(get_db),
-):
-    """
-    Создаёт новую книгу (только для admin/librarian).
-    """
+async def create_book(book_in: BookCreate, db: Session = Depends(get_db)):
     try:
         authors_list = [a.strip() for a in (book_in.authors or []) if a.strip()]
         subjects_list = [s.strip() for s in (book_in.subjects or []) if s.strip()]
         formats_list = [f.strip().upper() for f in (book_in.formats or ["EBOOK"]) if f.strip()]
+
+        # Сохраняем cover_file
+        cover_file_path = save_cover_file(book_in.cover) if book_in.cover else None
 
         b = Book(
             title=book_in.title,
@@ -247,7 +294,8 @@ async def create_book(
             lang=book_in.lang,
             pub_info=book_in.pub_info,
             summary=book_in.summary,
-            cover=book_in.cover,
+            cover=book_in.cover,  # старое поле для совместимости
+            cover_file=cover_file_path,  # новое поле для файла
             file_id=book_in.file_id,
             download_url=book_in.download_url,
             source=book_in.source,
@@ -258,6 +306,7 @@ async def create_book(
             available_copies=book_in.available_copies,
             is_public=book_in.is_public,
         )
+
         b.formats_list = formats_list
         b.authors = _ensure_authors(db, authors_list)
         b.subjects = _ensure_subjects(db, subjects_list)
@@ -273,11 +322,7 @@ async def create_book(
 
 
 @router.patch("/books/{book_id}", response_model=BookOut, dependencies=[_admin_guard])
-def update_book(
-    book_id: int,
-    book_in: BookUpdate,
-    db: Session = Depends(get_db)
-):
+def update_book(book_id: int, book_in: BookUpdate, db: Session = Depends(get_db)):
     b = db.get(Book, book_id)
     if not b:
         raise HTTPException(404, "Book not found")
@@ -285,8 +330,9 @@ def update_book(
     update_data = book_in.dict(exclude_unset=True)
 
     # Обновление простых полей
-    for field in ["title", "year", "lang", "pub_info", "summary", "cover", "file_id", "download_url",
-                  "source", "isbn", "edition", "page_count", "available_copies", "is_public"]:
+    for field in ["title", "year", "lang", "pub_info", "summary", "cover", "file_id",
+                  "download_url", "source", "isbn", "edition", "page_count",
+                  "available_copies", "is_public"]:
         if field in update_data:
             setattr(b, field, update_data[field])
 
@@ -296,10 +342,15 @@ def update_book(
     if "subjects" in update_data:
         b.subjects = _ensure_subjects(db, update_data["subjects"])
 
+    # Обновление форматов
     if "formats" in update_data:
         formats_list = [f.strip().upper() for f in update_data["formats"] if f.strip()]
         b.formats = ",".join(formats_list)
         b.formats_list = formats_list
+
+    # Если пришла новая cover, сохраняем файл
+    if "cover" in update_data and update_data["cover"]:
+        b.cover_file = save_cover_file(update_data["cover"])
 
     db.commit()
     db.refresh(b)
@@ -336,6 +387,43 @@ def create_author(payload: AuthorCreate, db: Session = Depends(get_db)):
         )
 
     return author.name
+
+
+@router.get("/books/search", response_model=BookList)
+def search_books(
+    db: Session = Depends(get_db),
+    q: Optional[str] = None,        # основной поисковый запрос
+    lang: Optional[str] = None,
+    year: Optional[str] = None,
+    limit: int = Query(20, ge=1, le=100),
+    offset: int = Query(0, ge=0),
+):
+    limit = clamp_limit(limit)
+    offset = clamp_offset(offset)
+
+    query = db.query(Book)
+
+    if q:
+        like = f"%{q}%"
+        # Поиск по названию книги
+        query = query.filter(Book.title.ilike(like))
+        # Поиск по авторам или предметам (через join)
+        query = query.outerjoin(Book.authors).outerjoin(Book.subjects).filter(
+            (Author.name.ilike(like)) | (Subject.name.ilike(like))
+        ).distinct()
+
+    if lang:
+        query = query.filter(Book.lang == lang)
+    if year:
+        query = query.filter(Book.year == year)
+
+    total = query.count()
+    rows = query.offset(offset).limit(limit).all()
+
+    return BookList(
+        items=[_to_out(b) for b in rows],
+        page={"limit": limit, "offset": offset, "total": total},
+    )
 
 
 @router.get("/authors", response_model=List[str])

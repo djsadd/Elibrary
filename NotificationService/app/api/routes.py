@@ -6,7 +6,7 @@ from app.models.notification import Notification
 from app.tasks import send_notification_task
 from app.utils.authz import get_current_user
 
-router = APIRouter(prefix="/")
+router = APIRouter(prefix="/notification")
 
 
 @router.post("/", response_model=NotificationOut)

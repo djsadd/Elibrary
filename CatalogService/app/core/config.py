@@ -5,23 +5,28 @@ import os
 
 
 class Settings(BaseSettings):
-    USE_SQLITE: bool = True
+    # Прямое подключение к БД из переменной окружения
+    DATABASE_URL: str = ""
 
+    # Для обратной совместимости (если DATABASE_URL не задан)
+    USE_SQLITE: bool = True
     DB_HOST: str = "127.0.0.1"
     DB_PORT: int = 5432
     DB_NAME: str = "catalog_db"
     DB_USER: str = "postgres"
     DB_PASS: str = "postgres"
-
     SQLITE_DB_PATH: str = "sqlite.db"
-    FILE_SERVICE_URL: str = "http://127.0.0.1:8082/files/upload"
 
+    FILE_SERVICE_URL: str = "http://127.0.0.1:8082/files/upload"
     AUTH_SERVICE_URL: str = "http://127.0.0.1:8000/api/"
-    # CORS
+
+    # CORS (через запятую)
     CORS_ALLOW_ORIGINS: str = ""
 
     @property
     def SQLALCHEMY_DATABASE_URI(self) -> str:
+        if self.DATABASE_URL:
+            return self.DATABASE_URL
         if self.USE_SQLITE:
             db_path = os.path.abspath(self.SQLITE_DB_PATH)
             return f"sqlite:///{db_path}"

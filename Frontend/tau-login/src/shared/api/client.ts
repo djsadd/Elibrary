@@ -115,7 +115,14 @@ export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
     let message = txt || `HTTP ${res.status}`;
     try {
       const j = JSON.parse(txt);
-      message = j?.detail || j?.message || j?.error || message;
+      if (Array.isArray(j?.detail)) {
+        const first = j.detail[0];
+        const loc = Array.isArray(first?.loc) ? first.loc.join('.') : '';
+        const msg = first?.msg || first?.message || first?.error || JSON.stringify(first);
+        message = `${res.status} ${res.statusText || ''}`.trim() + (msg ? `: ${msg}` : '') + (loc ? ` (${loc})` : '');
+      } else {
+        message = j?.detail || j?.message || j?.error || message;
+      }
     } catch {}
     // if unauthorized, clear stored token (server-side expired/invalidated) and notify app
     if (res.status === 401) {

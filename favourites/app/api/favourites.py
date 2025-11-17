@@ -37,7 +37,20 @@ async def list_favourites(
     book_ids = [fav.book_id for fav in favourites]
 
     books = await get_books_batch(book_ids)
-    books_map = {book["id"]: book for book in books}
+
+    # безопасное преобразование
+    books_dicts = []
+    for book in books:
+        if isinstance(book, str):
+            try:
+                import json
+                book = json.loads(book)
+            except json.JSONDecodeError:
+                continue  # пропускаем некорректные данные
+        if isinstance(book, dict):
+            books_dicts.append(book)
+
+    books_map = {book["id"]: book for book in books_dicts if "id" in book}
 
     result = []
     for fav in favourites:

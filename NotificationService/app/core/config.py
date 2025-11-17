@@ -3,7 +3,7 @@ from pydantic_settings import BaseSettings
 
 class Settings(BaseSettings):
     PROJECT_NAME: str = "Notification Service"
-    DATABASE_URL: str = "sqlite:///./notifications.db"
+    DATABASE_URL: str = ""
 
     AUTH_SERVICE_URL: str = "http://127.0.0.1:8000/api/"
     # Email
@@ -12,8 +12,7 @@ class Settings(BaseSettings):
     SMTP_USER: str = ""
     SMTP_PASS: str = ""
 
-    class Config:
-        env_file = ".env"
+    model_config = {"env_file": ".env", "extra": "ignore"}
 
 
 settings = Settings()

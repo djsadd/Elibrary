@@ -1,4 +1,4 @@
-import bookImg from "@/assets/images/image.png";
+import bookImg from "@/assets/images/Image.png";
 import { Link } from "react-router-dom";
 import { useState, useEffect } from "react";
 import { api } from "@/shared/api/client";

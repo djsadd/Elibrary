@@ -55,7 +55,9 @@ class Book(Base):
     lang: Mapped[str | None] = mapped_column(String(16), index=True)
     pub_info: Mapped[str | None] = mapped_column(String(512))
     summary: Mapped[str | None] = mapped_column(Text)
-    cover: Mapped[str | None] = mapped_column(String(1024))
+    cover: Mapped[str | None] = mapped_column(Text)  # старое поле, теперь можно хранить base64 без ограничений
+    cover_file: Mapped[str | None] = mapped_column(String(2048))  # путь/URL к файлу изображения
+
     file_id: Mapped[str | None] = mapped_column(String(128))
     download_url: Mapped[str | None] = mapped_column(String(2048))
 

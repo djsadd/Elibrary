@@ -4,7 +4,7 @@ import DashboardHeader from "@/components/layout/DashboardHeader";
 import { t } from "@/shared/i18n";
 import { api } from "@/shared/api/client";
 import { namesFrom } from "@/shared/ui/text";
-import bookImg from "@/assets/images/image.png";
+import bookImg from "@/assets/images/Image.png";
 
 type Book = {
   id: number | string;

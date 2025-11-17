@@ -5,6 +5,9 @@ class NotificationCreate(BaseModel):
     type: str
     message: str
 
+    class Config:
+        orm_mode = True
+
 class NotificationOut(BaseModel):
     id: int
     status: str

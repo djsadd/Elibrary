@@ -9,3 +9,5 @@ redis>=5
 pydantic[email]
 bcrypt==4.0.1
 pydantic-settings
+python-dotenv
+httpx

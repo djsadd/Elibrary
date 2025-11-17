@@ -1,10 +1,10 @@
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { useEffect, useRef, useState } from "react";
 import DashboardHeader from "../../components/layout/DashboardHeader";
 import { t } from "@/shared/i18n";
 import { api } from "@/shared/api/client";
 import { namesFrom } from "@/shared/ui/text";
-import bookImg from "@/assets/images/image.png";
+import bookImg from "@/assets/images/Image.png";
 
 type Book = {
   id: number | string;
@@ -26,14 +26,19 @@ type BookListResponse = {
 };
 
 export default function CatalogListPage() {
+  const [sp] = useSearchParams();
+  const q = (sp.get('q') || '').trim();
   const [items, setItems] = useState<Book[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [favorites, setFavorites] = useState<Set<string>>(new Set());
   const [hasMore, setHasMore] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
-  const [pageInfo, setPageInfo] = useState<{ limit: number; offset: number; total: number }>({ limit: 24, offset: 0, total: 0 });
+  const DEFAULT_LIMIT = 24;
+  const [pageInfo, setPageInfo] = useState<{ limit: number; offset: number; total: number }>({ limit: DEFAULT_LIMIT, offset: 0, total: 0 });
   const sentinelRef = useRef<HTMLDivElement | null>(null);
+  const showError = !q && !!error;
+  const [searchFallback, setSearchFallback] = useState(false);
 
   
 
@@ -45,44 +50,102 @@ export default function CatalogListPage() {
     </div>
   );
 
-  // initial fetch and pagination
+  // initial fetch and when search query changes
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
         setLoading(true);
         setError(null);
+        setSearchFallback(false);
         const params = new URLSearchParams();
-        params.set("limit", String(pageInfo.limit));
+        params.set("limit", String(DEFAULT_LIMIT));
         params.set("offset", String(0));
-        const data = await api<BookListResponse>(`/api/catalog/books?${params.toString()}`);
+        if (q) params.set('q', q);
+        const endpoint = q ? '/api/catalog/books/search' : '/api/catalog/books';
+        const url = `${endpoint}?${params.toString()}`;
+        let data: BookListResponse;
+        try {
+          data = await api<BookListResponse>(url);
+        } catch (e) {
+          // Fallback path for search errors: fetch plain catalog and filter on client
+          if (q) {
+            try { console.warn('[Catalog] search endpoint failed, falling back to client-side filter:', e); } catch {}
+            const p2 = new URLSearchParams();
+            // grab more to improve match chance
+            p2.set('limit', String(100));
+            p2.set('offset', '0');
+            const url2 = `/api/catalog/books?${p2.toString()}`;
+            const data2 = await api<BookListResponse>(url2);
+            const needle = q.toLocaleLowerCase();
+            const inText = (s?: string | null) => (s ? s.toLocaleLowerCase().includes(needle) : false);
+            const filtered = (Array.isArray(data2.items) ? data2.items : []).filter((b: any) => {
+              if (inText(b?.title)) return true;
+              const a = (b?.authors || []).map((x: any) => (typeof x === 'string' ? x : x?.name || '')).filter(Boolean);
+              const s = (b?.subjects || []).map((x: any) => (typeof x === 'string' ? x : x?.name || '')).filter(Boolean);
+              if (a.some(inText)) return true;
+              if (s.some(inText)) return true;
+              return false;
+            });
+            data = { items: filtered, page: { limit: filtered.length, offset: 0, total: filtered.length } };
+            setSearchFallback(true);
+          } else {
+            throw e;
+          }
+        }
+        try {
+          console.groupCollapsed('[Catalog] fetch initial', { endpoint, q, limit: pageInfo.limit, offset: 0 });
+          console.info('URL:', url);
+          console.info('Raw response:', data);
+        } catch {}
         if (cancelled) return;
         const arr = Array.isArray(data.items) ? data.items : [];
+        try { console.info('Items parsed:', arr.length, arr.slice(0, 3)); console.groupEnd?.(); } catch {}
         setItems(arr);
         const total = data.page?.total ?? arr.length;
-        const limit = data.page?.limit ?? pageInfo.limit;
+        const limit = Math.max(1, data.page?.limit ?? DEFAULT_LIMIT);
         const offset = data.page?.offset ?? 0;
         setPageInfo({ limit, offset: offset + arr.length, total });
-        setHasMore(offset + arr.length < total);
+        setHasMore(!q && (offset + arr.length < total));
       } catch (e: any) {
-        if (!cancelled) setError(e?.message || String(e));
+        try { console.warn('[Catalog] initial fetch failed:', e); } catch {}
+        const msg = (e && typeof e.message === 'string')
+          ? e.message
+          : (typeof e === 'string' ? e : (()=>{ try { return JSON.stringify(e); } catch { return String(e); } })());
+        if (!cancelled) setError(msg);
+        // For search errors (e.g., 422), keep UI clean: just show empty list
+        if (!cancelled && q) {
+          setItems([]);
+          setPageInfo((p) => ({ ...p, offset: 0, total: 0 }));
+          setHasMore(false);
+        }
       } finally {
         if (!cancelled) setLoading(false);
       }
     })();
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [q]);
 
   const loadMore = async () => {
     if (loadingMore || !hasMore) return;
+    if (q && searchFallback) return; // no pagination in fallback mode
     try {
       setLoadingMore(true);
       const params = new URLSearchParams();
       params.set("limit", String(pageInfo.limit));
       params.set("offset", String(pageInfo.offset));
-      const data = await api<BookListResponse>(`/api/catalog/books?${params.toString()}`);
+      if (q) params.set('q', q);
+      const endpoint = q ? '/api/catalog/books/search' : '/api/catalog/books';
+      const url = `${endpoint}?${params.toString()}`;
+      const data = await api<BookListResponse>(url);
+      try {
+        console.groupCollapsed('[Catalog] fetch more', { endpoint, q, limit: pageInfo.limit, offset: pageInfo.offset });
+        console.info('URL:', url);
+        console.info('Raw response:', data);
+      } catch {}
       const arr = Array.isArray(data.items) ? data.items : [];
+      try { console.info('Items parsed:', arr.length, arr.slice(0, 3)); console.groupEnd?.(); } catch {}
       setItems(prev => {
         const seen = new Set(prev.map((b) => String(b.id)));
         const add = arr.filter((b) => !seen.has(String(b.id)));
@@ -93,6 +156,7 @@ export default function CatalogListPage() {
       setPageInfo((p) => ({ ...p, offset: nextOffset, total }));
       setHasMore(nextOffset < total);
     } catch (e) {
+      try { console.warn('[Catalog] load more failed:', e); } catch {}
       // ignore load-more errors, keep hasMore true to allow retry on scroll
     } finally {
       setLoadingMore(false);
@@ -157,7 +221,7 @@ export default function CatalogListPage() {
     <div>
       <DashboardHeader />
       <h1 className="text-2xl font-semibold text-[#7b0f2b] mb-4">{t('catalog.title')}</h1>
-      {error && <div className="text-red-600">Failed to load: {error}</div>}
+      {showError && <div className="text-red-600">Failed to load: {error}</div>}
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-7 gap-3 sm:gap-4">
         {loading
           ? Array.from({ length: 12 }).map((_, idx) => (
@@ -195,7 +259,7 @@ export default function CatalogListPage() {
       {(hasMore || loadingMore) && !loading && (
         <div ref={sentinelRef} className="py-6 text-center text-slate-400 text-sm">{loadingMore ? 'Loading more…' : 'Scroll to load more'}</div>
       )}
-      {!loading && !error && items.length === 0 && (
+      {!loading && !showError && items.length === 0 && (
         <div className="text-slate-500 mt-4">{t('common.noBooks')}</div>
       )}
     </div>

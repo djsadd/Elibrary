@@ -84,8 +84,8 @@ export default function DashboardHeader() {
   const doSearch = () => {
     const q = query.trim();
     if (!q) return;
-    // Navigate to catalog with query param (catalog may ignore it now)
-    nav(`/catalog?q=${encodeURIComponent(q)}`);
+    // Navigate to dedicated search page
+    nav(`/search?q=${encodeURIComponent(q)}`);
   };
 
   const Capsule = ({ children }: { children: React.ReactNode }) => (

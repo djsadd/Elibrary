@@ -41,6 +41,8 @@ export default function ReaderPage() {
   const pinchStartDistRef = useRef<number | null>(null);
   const pinchStartScaleRef = useRef<number>(1);
   const lastTouchXRef = useRef<number | null>(null);
+  const [nativeFullscreen, setNativeFullscreen] = useState(false);
+  const [overlayFullscreen, setOverlayFullscreen] = useState(false);
 
   const [userbookId, setUserbookId] = useState<string | null>(null);
   const [bookMeta, setBookMeta] = useState<any | null>(null);
@@ -63,6 +65,27 @@ export default function ReaderPage() {
   useEffect(() => {
     if (isMobile) setTwoPage(false);
   }, [isMobile]);
+
+  // Listen to fullscreenchange to keep UI state in sync
+  useEffect(() => {
+    const onFsChange = () => {
+      const isFs = !!(document as any).fullscreenElement || !!(document as any).webkitFullscreenElement || !!(document as any).mozFullScreenElement || !!(document as any).msFullscreenElement;
+      setNativeFullscreen(isFs);
+      if (!isFs) {
+        // when native FS exits, ensure body scroll restored if overlay wasn't used
+        if (!overlayFullscreen) {
+          try { document.documentElement.style.overflow = ""; } catch {}
+        }
+      }
+    };
+    document.addEventListener('fullscreenchange', onFsChange);
+    // Safari/WebKit
+    document.addEventListener('webkitfullscreenchange' as any, onFsChange as any);
+    return () => {
+      document.removeEventListener('fullscreenchange', onFsChange);
+      document.removeEventListener('webkitfullscreenchange' as any, onFsChange as any);
+    };
+  }, [overlayFullscreen]);
 
   // Fetch book metadata for header
   useEffect(() => {
@@ -296,7 +319,10 @@ export default function ReaderPage() {
         } catch {}
       }
       if (bookIdParam) {
-        candidates.push({ url: `${BASE}/api/catalog/books/${bookIdParam}/download`, reason: 'api-endpoint' });
+        // Prefer streaming endpoint for faster first paint
+        candidates.push({ url: `${BASE}/api/catalog/books/${bookIdParam}/stream`, reason: 'api-stream' });
+        // Fallback to download endpoint
+        candidates.push({ url: `${BASE}/api/catalog/books/${bookIdParam}/download`, reason: 'api-download' });
       }
       // Always include demo asset last
       candidates.push({ url: bookPdf as any, reason: 'demo-asset' });
@@ -340,7 +366,20 @@ export default function ReaderPage() {
         if (!okPdf) continue;
 
         try {
-          const loadingTask = pdfjsLib.getDocument({ url: cand.url as any, httpHeaders: headers } as any);
+          const loadingTask = pdfjsLib.getDocument({
+            url: cand.url as any,
+            httpHeaders: headers as any,
+            // Enable streaming and range-based incremental loading
+            disableStream: false,
+            disableAutoFetch: true, // fetch only needed ranges/pages
+            rangeChunkSize: 65536,  // 64KB chunks
+            withCredentials: false,
+          } as any);
+          try {
+            loadingTask.onProgress = (p: any) => {
+              try { console.info('[ReaderPage] PDF loading progress', p?.loaded, '/', p?.total); } catch {}
+            };
+          } catch {}
           const doc = await loadingTask.promise;
           if (cancelled) return;
           setPdf(doc);
@@ -429,24 +468,65 @@ export default function ReaderPage() {
     // no-op; placeholder for future panning
   };
 
+  const enterNativeFullscreen = async (el: HTMLElement): Promise<boolean> => {
+    try {
+      const anyEl: any = el;
+      if (anyEl.requestFullscreen) { await anyEl.requestFullscreen(); return true; }
+      if (anyEl.webkitRequestFullscreen) { await anyEl.webkitRequestFullscreen(); return true; }
+      if (anyEl.mozRequestFullScreen) { await anyEl.mozRequestFullScreen(); return true; }
+      if (anyEl.msRequestFullscreen) { await anyEl.msRequestFullscreen(); return true; }
+      const root: any = document.documentElement as any;
+      if (root && root.requestFullscreen) { await root.requestFullscreen(); return true; }
+      if (root && root.webkitRequestFullscreen) { await root.webkitRequestFullscreen(); return true; }
+    } catch (e) {
+      try { console.warn('[ReaderPage] enterNativeFullscreen failed:', e); } catch {}
+    }
+    return false;
+  };
+
+  const exitNativeFullscreen = async (): Promise<boolean> => {
+    try {
+      const anyDoc: any = document as any;
+      if (anyDoc.exitFullscreen) { await anyDoc.exitFullscreen(); return true; }
+      if (anyDoc.webkitExitFullscreen) { await anyDoc.webkitExitFullscreen(); return true; }
+      if (anyDoc.mozCancelFullScreen) { await anyDoc.mozCancelFullScreen(); return true; }
+      if (anyDoc.msExitFullscreen) { await anyDoc.msExitFullscreen(); return true; }
+    } catch (e) {
+      try { console.warn('[ReaderPage] exitNativeFullscreen failed:', e); } catch {}
+    }
+    return false;
+  };
+
   const toggleFullscreen = async () => {
     const el = containerRef.current;
     if (!el) return;
-    // @ts-ignore
-    if (!document.fullscreenElement) {
-      // @ts-ignore
-      await el.requestFullscreen?.();
-    } else {
-      // @ts-ignore
-      await document.exitFullscreen?.();
+    const currentlyFs = nativeFullscreen || overlayFullscreen;
+    if (currentlyFs) {
+      // Try exit native first; then fallback to overlay exit
+      const exited = await exitNativeFullscreen();
+      if (!exited && overlayFullscreen) {
+        setOverlayFullscreen(false);
+        try { document.documentElement.style.overflow = ""; } catch {}
+      }
+      return;
     }
+    // Try native fullscreen
+    const ok = await enterNativeFullscreen(el);
+    if (ok) { setNativeFullscreen(true); return; }
+    // Fallback: overlay fullscreen (mobile/iOS Safari)
+    setOverlayFullscreen(true);
+    try { document.documentElement.style.overflow = "hidden"; } catch {}
   };
 
   return (
     <div className="space-y-4 overflow-x-hidden">
       <DashboardHeader />
 
-      <div ref={containerRef} className="bg-slate-800 p-3 sm:p-4 rounded-md overflow-hidden">
+      <div
+        ref={containerRef}
+        className={`bg-slate-800 ${overlayFullscreen ? 'fixed inset-0 z-50 p-0 sm:p-0 rounded-none' : 'p-3 sm:p-4 rounded-md'} overflow-hidden`}
+        style={overlayFullscreen ? { width: '100vw', height: '100vh' } : undefined}
+      >
         <div className="bg-slate-700 text-white rounded-t-md px-3 sm:px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-3 sm:gap-4">
             <Link to="/" className="text-sm hover:underline flex items-center gap-1">
@@ -482,7 +562,7 @@ export default function ReaderPage() {
 
             <button onClick={() => setFav((v) => !v)} className={`p-2 rounded-md ${fav ? 'bg-red-600 text-white' : 'hover:bg-slate-600'}`}>вќ¤</button>
 
-            <button onClick={toggleFullscreen} className="p-2 rounded-md hover:bg-slate-600">Full</button>
+            <button onClick={toggleFullscreen} className="p-2 rounded-md hover:bg-slate-600">{(nativeFullscreen||overlayFullscreen)?'Exit':'Full'}</button>
 
             <button onClick={() => setTwoPage((v) => !v)} className="p-2 rounded-md hover:bg-slate-600">{twoPage ? '2-up' : '1-up'}</button>
           </div>
@@ -533,12 +613,12 @@ export default function ReaderPage() {
                 <path d="M10 8l4 4" />
               </svg>
             </button>
-            <button aria-label="Toggle fullscreen" onClick={toggleFullscreen} className="fixed bottom-4 left-4 z-50 p-3 rounded-full bg-white shadow border text-slate-700">
-              <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6">
-                <path d="M9 3H5a2 2 0 0 0-2 2v4" />
-                <path d="M15 21h4a2 2 0 0 0 2-2v-4" />
-                <path d="M21 9V5a2 2 0 0 0-2-2h-4" />
-                <path d="M3 15v4a2 2 0 0 0 2 2h4" />
+            <button aria-label="Toggle fullscreen" title="Fullscreen" onClick={toggleFullscreen} className="fixed bottom-4 left-4 z-50 p-3 rounded-full bg-white shadow border text-slate-700">
+              <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M15 3h6v6" />
+                <path d="M21 3l-7 7" />
+                <path d="M9 21H3v-6" />
+                <path d="M3 21l7-7" />
               </svg>
             </button>
             {notesOpen && (
