@@ -20,11 +20,15 @@ def get_db():
 
 @router.post("/register", status_code=201)
 def register(req: RegisterRequest, db: Session = Depends(get_db)):
-    if db.query(User).filter_by(email=req.email).first():
-        raise HTTPException(409, "Email already exists")
-    u = User(email=req.email, hashed_password=hash_password(req.password))
-    db.add(u); db.commit(); db.refresh(u)
-    return {"id": u.id, "email": u.email}
+    # временно отключено
+    raise HTTPException(403, "Регистрация пока не разрешена")
+
+    # if db.query(User).filter_by(email=req.email).first():
+    #     raise HTTPException(409, "Email already exists")
+    # u = User(email=req.email, hashed_password=hash_password(req.password))
+    # db.add(u); db.commit(); db.refresh(u)
+    # return {"id": u.id, "email": u.email}
+
 
 
 @router.post("/login", response_model=TokenPair)
@@ -48,7 +52,11 @@ def refresh_token(body: IntrospectRequest, db: Session = Depends(get_db)):
         raise HTTPException(401, "User disabled")
     access, exp = create_access(u.id, u.roles or "")
     new_refresh, _ = create_refresh(u.id)
-    return TokenPair(access_token=access, refresh_token=new_refresh, expires_in=exp - __import__("time").time())
+    return TokenPair(
+        access_token=access,
+        refresh_token=new_refresh,
+        expires_in=int(exp - __import__("time").time())
+    )
 
 
 @router.post("/introspect", response_model=IntrospectResponse)

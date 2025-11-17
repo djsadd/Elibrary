@@ -9,3 +9,8 @@ SessionLocal = sessionmaker(engine, autoflush=False, autocommit=False)
 
 class Base(DeclarativeBase):
     pass
+
+
+def init_db():
+    from app.models.user import User  # импорт всех моделей
+    Base.metadata.create_all(bind=engine)
