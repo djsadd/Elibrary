@@ -18,7 +18,8 @@ export default function ReaderPage() {
   const pdfUrlParam = searchParams.get("url");
   const bookIdParam = searchParams.get("book");
   const pageParam = searchParams.get("page") || searchParams.get("p");
-  const BASE = import.meta.env.VITE_API_URL ?? "http://localhost:8000";
+  // Prefer configured API base; fall back to current origin for same-origin deployments.
+  const BASE = (import.meta.env.VITE_API_URL as string | undefined) || window.location.origin;
   const containerRef = useRef<HTMLDivElement | null>(null);
   const leftCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const rightCanvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -276,22 +277,86 @@ export default function ReaderPage() {
   useEffect(() => {
     let cancelled = false;
     const load = async () => {
-      const src = bookIdParam ? `${BASE}/api/catalog/books/${bookIdParam}/download` : (pdfUrlParam || bookPdf);
+      // Build a list of candidate sources and try them in order.
+      const isPrivateHost = (h: string) => /^(localhost|127\.|10\.|192\.168\.|172\.(1[6-9]|2\d|3[0-1])\.)/i.test(h);
+      const toAbsolute = (u: string) => (/^https?:\/\//i.test(u) ? u : `${BASE}${u.startsWith('/') ? '' : '/'}${u}`);
+
+      const candidates: { url: string; reason: string }[] = [];
+      if (pdfUrlParam) {
+        candidates.push({ url: toAbsolute(pdfUrlParam), reason: 'query-param' });
+      }
+      const du = (bookMeta as any)?.download_url as string | undefined;
+      if (du) {
+        try {
+          const abs = toAbsolute(du);
+          const host = new URL(abs, window.location.href).hostname;
+          if (!isPrivateHost(host)) {
+            candidates.push({ url: abs, reason: 'bookMeta.download_url' });
+          }
+        } catch {}
+      }
+      if (bookIdParam) {
+        candidates.push({ url: `${BASE}/api/catalog/books/${bookIdParam}/download`, reason: 'api-endpoint' });
+      }
+      // Always include demo asset last
+      candidates.push({ url: bookPdf as any, reason: 'demo-asset' });
+
       const token = localStorage.getItem("token") || sessionStorage.getItem("token");
-      const loadingTask = pdfjsLib.getDocument({
-        url: src as any,
-        httpHeaders: token ? { Authorization: `Bearer ${token}` } : undefined,
-      } as any);
-      const doc = await loadingTask.promise;
-      if (cancelled) return;
-      setPdf(doc);
-      setPageCount(doc.numPages);
+
+      for (const cand of candidates) {
+        if (cancelled) return;
+        let headers: Record<string, string> | undefined = undefined;
+        try {
+          const srcUrl = new URL(cand.url, window.location.href);
+          const baseUrl = new URL(BASE, window.location.href);
+          const sameOrigin = srcUrl.origin === baseUrl.origin || srcUrl.origin === window.location.origin;
+          if (sameOrigin && token) headers = { Authorization: `Bearer ${token}` };
+        } catch {
+          if (token) headers = { Authorization: `Bearer ${token}` };
+        }
+
+        // Probe for PDF signature
+        let okPdf = false;
+        try {
+          const probe = await fetch(cand.url, {
+            method: 'GET',
+            headers: { ...(headers || {}), Range: 'bytes=0-1023' } as any,
+          });
+          if (probe.ok) {
+            const buf = await probe.arrayBuffer();
+            const sig = new TextDecoder('ascii').decode(new Uint8Array(buf).slice(0, 5));
+            okPdf = sig === '%PDF-';
+            if (!okPdf) {
+              const text = new TextDecoder('utf-8').decode(new Uint8Array(buf));
+              console.warn('[ReaderPage] Non-PDF response sample:', text.slice(0, 256), 'from', cand);
+            }
+          } else {
+            console.warn('[ReaderPage] Probe non-OK', probe.status, 'for', cand);
+          }
+        } catch (e) {
+          console.warn('[ReaderPage] Probe failed for', cand, e);
+        }
+
+        if (!okPdf) continue;
+
+        try {
+          const loadingTask = pdfjsLib.getDocument({ url: cand.url as any, httpHeaders: headers } as any);
+          const doc = await loadingTask.promise;
+          if (cancelled) return;
+          setPdf(doc);
+          setPageCount(doc.numPages);
+          return; // success
+        } catch (e) {
+          console.warn('[ReaderPage] pdf.js failed to open candidate', cand, e);
+          // try next candidate
+        }
+      }
+
+      console.error('[ReaderPage] No usable PDF source');
     };
     load();
-    return () => {
-      cancelled = true;
-    };
-  }, [pdfUrlParam, bookIdParam, BASE]);
+    return () => { cancelled = true; };
+  }, [pdfUrlParam, bookIdParam, BASE, bookMeta]);
 
   useEffect(() => {
     if (!pdf) return;
