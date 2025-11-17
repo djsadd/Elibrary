@@ -33,6 +33,18 @@ async def reviews_proxy(path: str, request: Request, _=Depends(auth_required)):
     return await forward(request, settings.FAVOURITES_SERVICE_URL, path_suffix=f"favourites/{path}")
 
 
+# =========== Notifications ==========
+@router.api_route("/notification", methods=["GET", "POST", "PUT", "PATCH", "DELETE"])
+@router.api_route("/notification/", methods=["GET", "POST", "PUT", "PATCH", "DELETE"])
+async def notifications_root_proxy(request: Request, _=Depends(auth_required)):
+    return await forward(request, settings.NOTIFY_SERVICE_URL, path_suffix="notification")
+
+
+@router.api_route("/notification/{path:path}", methods=["GET", "POST", "PUT", "PATCH", "DELETE"])
+@router.api_route("/notification/{path:path}/", methods=["GET", "POST", "PUT", "PATCH", "DELETE"])
+async def notification_proxy(path: str, request: Request, _=Depends(auth_required)):
+    return await forward(request, settings.NOTIFY_SERVICE_URL, path_suffix=f"notification/{path}")
+
 # ====== Catalog ======
 @router.get("/catalog/books")
 async def catalog_books(request: Request, _=Depends(auth_required)):

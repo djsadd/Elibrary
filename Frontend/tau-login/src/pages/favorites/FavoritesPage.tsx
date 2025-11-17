@@ -35,6 +35,7 @@ export default function FavoritesPage() {
   const [hasMore, setHasMore] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const sentinelRef = useRef<HTMLDivElement | null>(null);
+  const aliveRef = useRef(true);
 
   const SkeletonCard = ({ imageHeight }: { imageHeight: string }) => (
     <div className="bg-white border border-gray-100 rounded-lg p-3 text-center shadow-sm">
@@ -44,8 +45,17 @@ export default function FavoritesPage() {
     </div>
   );
 
-  // remove legacy localStorage bootstrap; server is source of truth
-  useEffect(() => { setFavorites(new Set()); }, []);
+  // lifecycle guard for async updates and hydrate favorites from storage
+  useEffect(() => {
+    aliveRef.current = true;
+    try {
+      const favs: string[] = JSON.parse(localStorage.getItem("favorites") || "[]");
+      setFavorites(new Set((Array.isArray(favs) ? favs : []).map(String)));
+    } catch {
+      setFavorites(new Set());
+    }
+    return () => { aliveRef.current = false; };
+  }, []);
 
   // Fetch favourites from backend and render as books
   async function normaliseToBooks(data: any): Promise<Book[]> {
@@ -92,8 +102,18 @@ export default function FavoritesPage() {
     };
     const raw = pickArr(data);
     const pageMeta = data?.page || data?.pagination || (typeof data?.total === 'number' ? { total: data.total } : null);
-    const books = await normaliseToBooks(raw);
+    // fast-path: if server already provided embedded book objects, use them immediately
+    const quickBooks: Book[] = raw
+      .map((it: any) => {
+        if (!it) return null;
+        if (it.book_data && (it.book_data.id != null || it.book_data.title)) return it.book_data as Book;
+        if (it.book && typeof it.book === 'object' && (it.book.id != null || it.book.title)) return it.book as Book;
+        return null;
+      })
+      .filter(Boolean) as Book[];
+    const books = quickBooks.length > 0 ? quickBooks : await normaliseToBooks(raw);
     // de-duplicate by id
+    if (!aliveRef.current) return;
     setItems(prev => {
       const seen = new Set(prev.map(b => String(b.id)));
       const add = books.filter(b => !seen.has(String(b.id)));
@@ -151,7 +171,7 @@ export default function FavoritesPage() {
     }, { rootMargin: '300px' });
     io.observe(el);
     return () => io.disconnect();
-  }, [sentinelRef.current, hasMore, loadingMore, offset]);
+  }, [hasMore, loadingMore, offset]);
 
   // remove legacy filtering effect — now data comes from API
 
@@ -177,7 +197,7 @@ export default function FavoritesPage() {
         <div className="text-slate-500 mb-4">{t('favorites.none')}</div>
       )}
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-7 gap-4">
-        {loading
+        {loading && items.length === 0
           ? Array.from({ length: 12 }).map((_, idx) => (
               <SkeletonCard key={`skeleton-${idx}`} imageHeight="h-40 sm:h-56" />
             ))

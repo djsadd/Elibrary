@@ -558,3 +558,129 @@ dict.kk.auth = {
 function lookup(obj: any, path: string): string | undefined {
   return path.split('.').reduce((o, k) => (o && typeof o === 'object' ? o[k] : undefined), obj);
 }
+// Profile translations
+dict.en.profile = {
+  title: 'Account',
+  tabs: {
+    account: 'Account Setting',
+    security: 'Login & Security',
+    notifications: 'Notifications',
+    interface: 'Interface',
+  },
+  account: {
+    uploadPhoto: 'Upload new photo',
+    fullName: 'Full name',
+    email: 'College Email ID',
+    regNo: 'Register Number',
+    phone: 'Phone number',
+    bio: 'Bio',
+    update: 'Update Profile',
+    reset: 'Reset',
+  },
+  stats: {
+    readings: 'Readings',
+    contribution: 'Contribution',
+  },
+  security: {
+    title: 'Login & Security',
+    twoFactor: 'Two-factor authentication',
+    disabled: 'Disabled',
+    lastPasswordChange: 'Last password change: 3 months ago',
+    changePassword: 'Change password',
+  },
+  notifications: {
+    title: 'Notifications',
+    emailUpdates: 'Email updates',
+    newReleases: 'New releases',
+    weeklyDigest: 'Weekly digest',
+  },
+  interface: {
+    title: 'Interface',
+    compactMode: 'Compact mode',
+    highContrast: 'High contrast',
+  },
+};
+
+dict.ru.profile = {
+  title: 'Аккаунт',
+  tabs: {
+    account: 'Настройки аккаунта',
+    security: 'Вход и безопасность',
+    notifications: 'Уведомления',
+    interface: 'Интерфейс',
+  },
+  account: {
+    uploadPhoto: 'Загрузить новое фото',
+    fullName: 'Полное имя',
+    email: 'Эл. почта колледжа',
+    regNo: 'Регистрационный номер',
+    phone: 'Номер телефона',
+    bio: 'О себе',
+    update: 'Обновить профиль',
+    reset: 'Сбросить',
+  },
+  stats: {
+    readings: 'Прочитано',
+    contribution: 'Вклад',
+  },
+  security: {
+    title: 'Вход и безопасность',
+    twoFactor: 'Двухфакторная аутентификация',
+    disabled: 'Выключена',
+    lastPasswordChange: 'Последняя смена пароля: 3 месяца назад',
+    changePassword: 'Сменить пароль',
+  },
+  notifications: {
+    title: 'Уведомления',
+    emailUpdates: 'Почтовые обновления',
+    newReleases: 'Новые релизы',
+    weeklyDigest: 'Еженедельная рассылка',
+  },
+  interface: {
+    title: 'Интерфейс',
+    compactMode: 'Компактный режим',
+    highContrast: 'Высокая контрастность',
+  },
+};
+
+dict.kk.profile = {
+  title: 'Есептік жазба',
+  tabs: {
+    account: 'Есептік баптаулар',
+    security: 'Кіру және қауіпсіздік',
+    notifications: 'Хабарландырулар',
+    interface: 'Интерфейс',
+  },
+  account: {
+    uploadPhoto: 'Жаңа фото жүктеу',
+    fullName: 'Толық аты-жөні',
+    email: 'Колледж эл. поштасы',
+    regNo: 'Тіркеу нөмірі',
+    phone: 'Телефон нөмірі',
+    bio: 'Өзі туралы',
+    update: 'Профильді жаңарту',
+    reset: 'Қалпына келтіру',
+  },
+  stats: {
+    readings: 'Оқылғандар',
+    contribution: 'Үлес',
+  },
+  security: {
+    title: 'Кіру және қауіпсіздік',
+    twoFactor: 'Екі факторлы аутентификация',
+    disabled: 'Өшірілген',
+    lastPasswordChange: 'Құпиясөз соңғы рет: 3 ай бұрын',
+    changePassword: 'Құпиясөзді өзгерту',
+  },
+  notifications: {
+    title: 'Хабарландырулар',
+    emailUpdates: 'Эл. пошта жаңартулары',
+    newReleases: 'Жаңа шығарылымдар',
+    weeklyDigest: 'Апталық дайджест',
+  },
+  interface: {
+    title: 'Интерфейс',
+    compactMode: 'Ықшам режим',
+    highContrast: 'Жоғары контраст',
+  },
+};

@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState, type ChangeEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { getLang } from "@/shared/i18n";
+import { api } from "@/shared/api/client";
 
 export default function DashboardHeader() {
   const [filterOpen, setFilterOpen] = useState(false);
@@ -34,6 +35,30 @@ export default function DashboardHeader() {
     ];
   });
   useEffect(() => { try { localStorage.setItem('ui_notifs', JSON.stringify(notifs)); } catch {} }, [notifs]);
+
+  // Fetch notifications for current user from backend
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await api<any>(`/api/notification/`);
+        const arr: any[] = Array.isArray(res)
+          ? res
+          : (Array.isArray(res?.items) ? res.items : (Array.isArray(res?.data) ? res.data : []));
+        const mapped = arr.map((n: any, idx: number) => {
+          const id = String(n.id ?? n.uuid ?? idx);
+          const title = n.title ?? n.subject ?? n.header ?? 'Notification';
+          const body = n.body ?? n.message ?? n.text ?? '';
+          const time = n.time ?? n.created_at ?? n.createdAt ?? n.date ?? undefined;
+          const read = Boolean(n.read ?? n.seen ?? n.is_read ?? false);
+          const type = (n.type ?? n.level ?? 'info');
+          return { id, title, body, time, read, type } as any;
+        });
+        if (!cancelled) setNotifs(mapped);
+      } catch {}
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   useEffect(() => {
     const t = setInterval(() => {
@@ -102,13 +127,12 @@ export default function DashboardHeader() {
         <div ref={langRef} className="relative">
           <Capsule>
             <button onClick={()=>setLangOpen(v=>!v)} className="flex items-center gap-2">
-              {/* Translation icon */}
-              <svg className="w-4 h-4 text-[#7b0f2b]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6">
-                <path d="M6 18h12M6 6h7" strokeLinecap="round" />
-                <path d="M9 6c0 1.333.8 2 2 2s2-.667 2-2M10 12h4" strokeLinecap="round" />
-                <path d="M5 20h14" strokeLinecap="round" />
-                <path d="M11 18l-2 2M11 18l2 2" strokeLinecap="round" strokeLinejoin="round" />
-                <path d="M16 7l2 4-2 4" strokeLinecap="round" strokeLinejoin="round" />
+              {/* Language (globe) icon */}
+              <svg className="w-4 h-4 text-[#7b0f2b]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden>
+                <circle cx="12" cy="12" r="9" />
+                <path d="M3 12h18" strokeLinecap="round" />
+                <path d="M12 3c2.6 2.6 3.9 5.6 3.9 9s-1.3 6.4-3.9 9" strokeLinecap="round" strokeLinejoin="round" />
+                <path d="M12 3c-2.6 2.6-3.9 5.6-3.9 9s1.3 6.4 3.9 9" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
               <span>{lang}</span>
               <svg className="w-4 h-4 text-slate-400" viewBox="0 0 20 20" fill="none"><path d="M6 8l4 4 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
@@ -139,11 +163,10 @@ export default function DashboardHeader() {
             {/* Notifications bell */}
             <button type="button" aria-label="Notifications" onClick={()=>setNotifOpen(v=>!v)} className="flex items-center gap-2">
               <span className="relative">
-                <svg className="w-5 h-5 text-[#7b0f2b]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6">
-                  <path d="M6 8c0-2 2-3 4-3s4 1 4 3c0 1-.5 2.15-1 3v2.5l-1 1.5H8.5l-1-1.5V11c-.5-.85-1-1.75-1-3Z" strokeLinecap="round" strokeLinejoin="round" />
-                  <path d="M5 12c0 2.5-1 3-1 4h16c0-1-.5-1.5-1-4" strokeLinecap="round" />
-                  <path d="M11 20h2" strokeLinecap="round" />
-                  <path d="M12 22a2 2 0 0 0 2-2H10a2 2 0 0 0 2 2Z" />
+                {/* Notification (bell) icon */}
+                <svg className="w-5 h-5 text-[#7b0f2b]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden>
+                  <path d="M18 8a6 6 0 10-12 0v3c0 .7-.3 1.3-1 2l-1 1h16l-1-1c-.7-.7-1-1.3-1-2V8" strokeLinecap="round" strokeLinejoin="round" />
+                  <path d="M10 21h4" strokeLinecap="round" />
                 </svg>
                 {notifs.some(n=>!n.read) && <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-emerald-500" />}
               </span>

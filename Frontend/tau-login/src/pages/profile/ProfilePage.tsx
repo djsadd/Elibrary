@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from "react";
+import { api } from "@/shared/api/client";
+import { t } from "@/shared/i18n";
 
 type Profile = {
   fullName: string;
@@ -29,10 +31,36 @@ export default function ProfilePage() {
   });
   const [avatarPreview, setAvatarPreview] = useState<string | null>(form.avatar || null);
   const fileRef = useRef<HTMLInputElement | null>(null);
+  const [readingCount, setReadingCount] = useState<number>(0);
+  const aliveRef = useRef(true);
 
   useEffect(() => {
     try { localStorage.setItem("ui_profile", JSON.stringify({ ...form, avatar: avatarPreview })); } catch {}
   }, [form, avatarPreview]);
+
+  // Load actual profile from backend: GET /api/auth/profile
+  useEffect(() => {
+    aliveRef.current = true;
+    (async () => {
+      try {
+        const data: any = await api<any>(`/api/auth/profile`);
+        if (!aliveRef.current || !data) return;
+        setForm(prev => ({
+          ...prev,
+          email: data.email ?? prev.email,
+          phone: data.phone ?? prev.phone,
+          regNo: (data.student_id != null ? String(data.student_id) : prev.regNo),
+          // if backend later returns name/full_name, prefer it here
+          fullName: data.full_name ?? data.name ?? prev.fullName,
+        }));
+        if (typeof data.reading_history_count === 'number') setReadingCount(data.reading_history_count);
+        if (data.avatar_url) setAvatarPreview(String(data.avatar_url));
+      } catch {
+        // keep local defaults on failure
+      }
+    })();
+    return () => { aliveRef.current = false; };
+  }, []);
 
   const onAvatarPick = (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0];
@@ -54,16 +82,16 @@ export default function ProfilePage() {
 
   return (
     <div className="p-4 md:p-6">
-      <h2 className="text-2xl font-semibold mb-4">Account</h2>
+      <h2 className="text-2xl font-semibold mb-4">{t('profile.title')}</h2>
 
       <div className="bg-white rounded-xl shadow-sm border">
         {/* Tabs */}
         <div className="px-4 md:px-6 pt-4 border-b flex items-center gap-6 text-sm">
           {([
-            ["account","Account Setting"],
-            ["security","Login & Security"],
-            ["notifications","Notifications"],
-            ["interface","Interface"],
+            ["account", t('profile.tabs.account')],
+            ["security", t('profile.tabs.security')],
+            ["notifications", t('profile.tabs.notifications')],
+            ["interface", t('profile.tabs.interface')],
           ] as const).map(([key,label]) => (
             <button key={key} onClick={()=>setTab(key)} className={`py-3 -mb-px border-b-2 ${tab===key ? 'border-[#7b0f2b] text-[#7b0f2b]' : 'border-transparent text-slate-500 hover:text-slate-700'}`}>{label}</button>
           ))}
@@ -79,14 +107,14 @@ export default function ProfilePage() {
                     {avatarPreview ? <img src={avatarPreview} alt="avatar" className="w-full h-full object-cover" /> : <span className="text-slate-500">U</span>}
                   </div>
                   <div>
-                    <button onClick={()=>fileRef.current?.click()} className="text-xs text-[#7b0f2b] hover:underline">Upload new photo</button>
+                    <button onClick={()=>fileRef.current?.click()} className="text-xs text-[#7b0f2b] hover:underline">{t('profile.account.uploadPhoto')}</button>
                     <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={onAvatarPick} />
                   </div>
                 </div>
 
                 <div className="flex items-center gap-3">
-                  <Stat color="#F97316" value={120} label="Readings" icon={<svg className="w-4 h-4 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"><path d="M4 6h16v12H4z" /><path d="M8 6v12" /></svg>} />
-                  <Stat color="#7C3AED" value={10} label="Contribution" icon={<svg className="w-4 h-4 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"><path d="M12 3v18" /><path d="M5 8h14" /></svg>} />
+                  <Stat color="#F97316" value={readingCount} label={t('profile.stats.readings')} icon={<svg className="w-4 h-4 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"><path d="M4 6h16v12H4z" /><path d="M8 6v12" /></svg>} />
+                  <Stat color="#7C3AED" value={10} label={t('profile.stats.contribution')} icon={<svg className="w-4 h-4 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"><path d="M12 3v18" /><path d="M5 8h14" /></svg>} />
                 </div>
               </div>
 
@@ -94,30 +122,30 @@ export default function ProfilePage() {
               <div className="lg:col-span-2">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm text-slate-600 mb-1">Full name</label>
+                    <label className="block text-sm text-slate-600 mb-1">{t('profile.account.fullName')}</label>
                     <input value={form.fullName} onChange={(e)=>setForm({...form, fullName:e.target.value})} className="w-full border rounded-md px-3 py-2" />
                   </div>
                   <div>
-                    <label className="block text-sm text-slate-600 mb-1">College Email ID</label>
+                    <label className="block text-sm text-slate-600 mb-1">{t('profile.account.email')}</label>
                     <input type="email" value={form.email} onChange={(e)=>setForm({...form, email:e.target.value})} className="w-full border rounded-md px-3 py-2" />
                   </div>
                   <div>
-                    <label className="block text-sm text-slate-600 mb-1">Register Number</label>
+                    <label className="block text-sm text-slate-600 mb-1">{t('profile.account.regNo')}</label>
                     <input value={form.regNo} onChange={(e)=>setForm({...form, regNo:e.target.value})} className="w-full border rounded-md px-3 py-2" />
                   </div>
                   <div>
-                    <label className="block text-sm text-slate-600 mb-1">Phone number</label>
+                    <label className="block text-sm text-slate-600 mb-1">{t('profile.account.phone')}</label>
                     <input value={form.phone} onChange={(e)=>setForm({...form, phone:e.target.value})} className="w-full border rounded-md px-3 py-2" />
                   </div>
                   <div className="md:col-span-2">
-                    <label className="block text-sm text-slate-600 mb-1">Bio</label>
+                    <label className="block text-sm text-slate-600 mb-1">{t('profile.account.bio')}</label>
                     <textarea value={form.bio} onChange={(e)=>setForm({...form, bio:e.target.value})} className="w-full border rounded-md px-3 py-2 h-24" />
                   </div>
                 </div>
 
                 <div className="mt-4 flex items-center gap-3">
-                  <button className="px-4 py-2 rounded-md bg-[#7b0f2b] text-white">Update Profile</button>
-                  <button className="px-4 py-2 rounded-md border" onClick={()=>{ setForm(defaultProfile); setAvatarPreview(defaultProfile.avatar||null); }}>Reset</button>
+                  <button className="px-4 py-2 rounded-md bg-[#7b0f2b] text-white">{t('profile.account.update')}</button>
+                  <button className="px-4 py-2 rounded-md border" onClick={()=>{ setForm(defaultProfile); setAvatarPreview(defaultProfile.avatar||null); }}>{t('profile.account.reset')}</button>
                 </div>
               </div>
             </div>

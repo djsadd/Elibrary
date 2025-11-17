@@ -1,0 +1,35 @@
+# ---- Python ----
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# ---- Virtual env ----
+venv/
+env/
+.venv/
+
+# ---- PyCharm ----
+.idea/
+*.iml
+
+# ---- SQLite databases ----
+sqlite.db
+app/sqlite.db
+*.db
+
+# ---- Logs ----
+*.log
+
+# ---- Storage (uploaded files) ----
+storage/
+
+# ---- OS files ----
+.DS_Store
+Thumbs.db
