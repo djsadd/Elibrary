@@ -4,12 +4,14 @@ import logging
 from typing import Optional
 from app.core.config import settings
 from app.schemas.auth import IntrospectResponse
+from urllib.parse import urljoin
 
 log = logging.getLogger(__name__)
 
 async def _post_json(url: str, json: dict, timeout: float) -> httpx.Response:
     async with httpx.AsyncClient(timeout=timeout) as client:
         return await client.post(url, json=json)
+
 
 async def _retry(fn, retries: int, backoff: float):
     last_exc = None
@@ -21,8 +23,13 @@ async def _retry(fn, retries: int, backoff: float):
             await asyncio.sleep(backoff * (attempt + 1))
     raise last_exc
 
+
 async def introspect(token: str) -> Optional[IntrospectResponse]:
-    url = f"{settings.AUTH_SERVICE_URL}/api/v1/auth/introspect"
+    # Align with actual auth routes used by gateway ("/auth/..."),
+    # and be robust to trailing '/' in AUTH_SERVICE_URL
+    base = str(settings.AUTH_SERVICE_URL).rstrip('/') + '/'
+    url = urljoin(base, 'auth/introspect')
+
     async def call():
         resp = await _post_json(url, {"token": token}, settings.PROXY_TIMEOUT_S)
         resp.raise_for_status()

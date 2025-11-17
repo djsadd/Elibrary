@@ -6,6 +6,33 @@ from app.services.auth_guard import auth_required
 router = APIRouter(tags=["secure"])
 
 
+# ======== Review ========
+
+@router.api_route("/reviews", methods=["GET", "POST", "PUT", "PATCH", "DELETE"])
+@router.api_route("/reviews/", methods=["GET", "POST", "PUT", "PATCH", "DELETE"])
+async def reviews_root_proxy(request: Request, _=Depends(auth_required)):
+    return await forward(request, settings.REVIEW_SERVICE_URL, path_suffix="reviews")
+
+
+@router.api_route("/reviews/{path:path}", methods=["GET", "POST", "PUT", "PATCH", "DELETE"])
+@router.api_route("/reviews/{path:path}/", methods=["GET", "POST", "PUT", "PATCH", "DELETE"])
+async def reviews_proxy(path: str, request: Request, _=Depends(auth_required)):
+    return await forward(request, settings.REVIEW_SERVICE_URL, path_suffix=f"reviews/{path}")
+
+
+# =========== Favourites ==========
+@router.api_route("/favourites", methods=["GET", "POST", "PUT", "PATCH", "DELETE"])
+@router.api_route("/favourites/", methods=["GET", "POST", "PUT", "PATCH", "DELETE"])
+async def reviews_root_proxy(request: Request, _=Depends(auth_required)):
+    return await forward(request, settings.FAVOURITES_SERVICE_URL, path_suffix="favourites")
+
+
+@router.api_route("/favourites/{path:path}", methods=["GET", "POST", "PUT", "PATCH", "DELETE"])
+@router.api_route("/favourites/{path:path}/", methods=["GET", "POST", "PUT", "PATCH", "DELETE"])
+async def reviews_proxy(path: str, request: Request, _=Depends(auth_required)):
+    return await forward(request, settings.FAVOURITES_SERVICE_URL, path_suffix=f"favourites/{path}")
+
+
 # ====== Catalog ======
 @router.get("/catalog/books")
 async def catalog_books(request: Request, _=Depends(auth_required)):

@@ -16,6 +16,8 @@ class Settings(BaseSettings):
     SEARCH_SERVICE_URL: AnyHttpUrl = "http://localhost:8004"
     PROFILE_SERVICE_URL: AnyHttpUrl = "http://localhost:8005"
     NOTIFY_SERVICE_URL: AnyHttpUrl = "http://localhost:8006"
+    REVIEW_SERVICE_URL: AnyHttpUrl = "http://localhost:8007"
+    FAVOURITES_SERVICE_URL: AnyHttpUrl = "http://localhost:8008"
 
     CORS_ALLOW_ORIGINS: List[str] = ["*"]
 

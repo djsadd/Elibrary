@@ -12,16 +12,13 @@ from app.core.config import settings
 
 log = logging.getLogger(__name__)
 
-# --- глобальный httpx клиент с пулом/таймаутами ---
 _CLIENT = httpx.AsyncClient(
     timeout=httpx.Timeout(settings.PROXY_TIMEOUT_S),
     limits=httpx.Limits(max_keepalive_connections=100, max_connections=200),
     follow_redirects=False,
-    # http2=True,  ← Удали или закомментируй эту строку
 )
 
 
-# RFC 7230 hop-by-hop заголовки
 _HOP_BY_HOP = {
     "connection", "keep-alive", "proxy-authenticate", "proxy-authorization",
     "te", "trailer", "transfer-encoding", "upgrade",
@@ -33,16 +30,21 @@ def _strip_hop_by_hop(headers: Mapping[str, str]) -> dict:
 
 
 def _filtered_headers(request: Request) -> dict:
-    # не пробрасываем host/content-length — httpx поставит сам
     excluded = {"host", "content-length"}
     h = {k: v for k, v in request.headers.items() if k.lower() not in excluded}
 
-    # корреляция
+    # Проверяем Authorization
+    auth = request.headers.get("authorization")
+    if auth:
+        h["Authorization"] = auth
+        log.debug("Authorization token present: %s", auth[:10] + "…")  # показываем только начало токена
+    else:
+        log.warning("Authorization token missing in incoming request!")
+
     rid = getattr(request.state, "request_id", None)
     if rid:
         h["X-Request-ID"] = rid
 
-    # прокидываем пользователя (если у тебя auth-мидлварь кладёт это)
     user = getattr(request.state, "user", None)
     if isinstance(user, dict):
         if user.get("user_id"):
@@ -51,7 +53,6 @@ def _filtered_headers(request: Request) -> dict:
         if roles:
             h["X-User-Roles"] = ",".join(map(str, roles))
 
-    # X-Forwarded-*
     client_host = request.client.host if request.client else ""
     proto = request.headers.get("x-forwarded-proto") or request.url.scheme
     host = request.headers.get("x-forwarded-host") or request.headers.get("host") or ""
@@ -60,7 +61,6 @@ def _filtered_headers(request: Request) -> dict:
     h["X-Forwarded-Proto"] = proto
     h["X-Forwarded-Host"] = host
 
-    # финальная очистка hop-by-hop
     return _strip_hop_by_hop(h)
 
 
@@ -76,7 +76,6 @@ async def _retry(call, retries: int, backoff: float, method: str):
         except (httpx.ConnectError, httpx.ReadTimeout, httpx.NetworkError) as e:
             if attempt >= retries:
                 raise
-            # экспоненциальный бэкофф с джиттером
             delay = backoff * (2 ** attempt) + (0.1 * backoff) * (attempt + 1) * asyncio.get_event_loop().time() % 0.1
             log.warning("Upstream %s failed (%s). Retry %d in %.2fs", method, e.__class__.__name__, attempt + 1, delay)
             await asyncio.sleep(delay)
@@ -96,32 +95,50 @@ def _join_url(base_url, path: str, query: str) -> str:
 
 async def forward(request: Request, base_url: str, path_suffix: str = "") -> Response:
     """
-    Прокси в апстрим. Ожидается, что caller передаёт 'path_suffix' — это уже «хвост» без /api/{service}.
-    Если path_suffix не передан — прокинем весь request.url.path (как у тебя сейчас).
+    Прокси в апстрим. Логирует всё от фронтенда и форвардит запрос.
     """
-    # путь и query
+    # --- Логируем запрос от фронтенда ---
+    try:
+        body_bytes = await request.body()
+        body_text = body_bytes.decode("utf-8") if body_bytes else "(empty)"
+    except Exception as e:
+        body_text = f"(error reading body: {e})"
+
+    log.debug("=== Incoming request from frontend ===")
+    log.debug(f"Method: {request.method}")
+    log.debug(f"URL: {request.url}")
+    log.debug(f"Query params: {dict(request.query_params)}")
+    log.debug(f"Headers: {dict(request.headers)}")
+    log.debug(f"Body: {body_text}")
+    log.debug("======================================")
+
+    # --- Формируем upstream URL и заголовки ---
     upstream_path = path_suffix or request.url.path
-    target = _join_url(base_url, upstream_path, request.url.query)
+    # Ensure base_url is clean (no stray spaces)
+    target = _join_url(str(base_url).strip(), upstream_path, request.url.query)
     headers = _filtered_headers(request)
 
-    # тело (можно сделать stream upload, если потребуется)
-    body = await request.body()
+    # Логируем, что уйдёт в апстрим
+    log.debug("=== Forwarding to upstream ===")
+    log.debug(f"Target URL: {target}")
+    log.debug(f"Method: {request.method}")
+    log.debug(f"Headers: {headers}")
+    log.debug(f"Body length: {len(body_bytes)} bytes")
+    log.debug("=================================")
 
     async def call():
         return await _CLIENT.request(
             method=request.method,
             url=target,
             headers=headers,
-            content=body
+            content=body_bytes
         )
 
     try:
         resp = await _retry(call, settings.PROXY_RETRIES, settings.PROXY_RETRY_BACKOFF_S, request.method)
 
-        # чистим hop-by-hop и отдаём стримом
         response_headers = _strip_hop_by_hop(resp.headers)
 
-        # Если хочется полностью стримить (без буфера):
         async def _aiter():
             async for chunk in resp.aiter_bytes():
                 yield chunk
@@ -141,3 +158,4 @@ async def forward(request: Request, base_url: str, path_suffix: str = "") -> Res
             media_type="application/json",
             headers={"Cache-Control": "no-store"}
         )
+

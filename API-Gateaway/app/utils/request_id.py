@@ -4,6 +4,7 @@ from starlette.types import ASGIApp
 from starlette.requests import Request
 from starlette.responses import Response
 
+
 class RequestIDMiddleware(BaseHTTPMiddleware):
     def __init__(self, app: ASGIApp, header_name: str = "X-Request-ID"):
         super().__init__(app)
