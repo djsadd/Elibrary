@@ -8,6 +8,10 @@ type Profile = {
   regNo: string;
   phone: string;
   bio: string;
+   institution?: string;
+   faculty?: string;
+   groupName?: string;
+   studentId?: string;
   avatar?: string | null; // dataURL
 };
 
@@ -17,6 +21,10 @@ const defaultProfile: Profile = {
   regNo: "6020220",
   phone: "+7 777 123 45 67",
   bio: "I'm a Student",
+  institution: "",
+  faculty: "",
+  groupName: "",
+  studentId: "",
   avatar: null,
 };
 
@@ -50,6 +58,10 @@ export default function ProfilePage() {
           email: data.email ?? prev.email,
           phone: data.phone ?? prev.phone,
           regNo: (data.student_id != null ? String(data.student_id) : prev.regNo),
+          studentId: (data.student_id != null ? String(data.student_id) : prev.studentId),
+          institution: data.institution ?? prev.institution,
+          faculty: data.faculty ?? prev.faculty,
+          groupName: data.group_name ?? prev.groupName,
           // if backend later returns name/full_name, prefer it here
           fullName: data.full_name ?? data.name ?? prev.fullName,
         }));
@@ -137,15 +149,52 @@ export default function ProfilePage() {
                     <label className="block text-sm text-slate-600 mb-1">{t('profile.account.phone')}</label>
                     <input value={form.phone} onChange={(e)=>setForm({...form, phone:e.target.value})} className="w-full border rounded-md px-3 py-2" />
                   </div>
+                  <div>
+                    <label className="block text-sm text-slate-600 mb-1">Учреждение (ВУЗ)</label>
+                    <input value={form.institution || ""} onChange={(e)=>setForm({...form, institution:e.target.value})} className="w-full border rounded-md px-3 py-2" />
+                  </div>
+                  <div>
+                    <label className="block text-sm text-slate-600 mb-1">Факультет</label>
+                    <input value={form.faculty || ""} onChange={(e)=>setForm({...form, faculty:e.target.value})} className="w-full border rounded-md px-3 py-2" />
+                  </div>
+                  <div>
+                    <label className="block text-sm text-slate-600 mb-1">Группа</label>
+                    <input value={form.groupName || ""} onChange={(e)=>setForm({...form, groupName:e.target.value})} className="w-full border rounded-md px-3 py-2" />
+                  </div>
+                  <div>
+                    <label className="block text-sm text-slate-600 mb-1">Студенческий ID</label>
+                    <input value={form.studentId || ""} onChange={(e)=>setForm({...form, studentId:e.target.value})} className="w-full border rounded-md px-3 py-2" />
+                  </div>
                   <div className="md:col-span-2">
                     <label className="block text-sm text-slate-600 mb-1">{t('profile.account.bio')}</label>
                     <textarea value={form.bio} onChange={(e)=>setForm({...form, bio:e.target.value})} className="w-full border rounded-md px-3 py-2 h-24" />
                   </div>
                 </div>
 
-                <div className="mt-4 flex items-center gap-3">
-                  <button className="px-4 py-2 rounded-md bg-[#7b0f2b] text-white">{t('profile.account.update')}</button>
-                  <button className="px-4 py-2 rounded-md border" onClick={()=>{ setForm(defaultProfile); setAvatarPreview(defaultProfile.avatar||null); }}>{t('profile.account.reset')}</button>
+                <div className="mt-4 flex items-center">
+                  <button
+                    type="button"
+                    className="px-4 py-2 rounded-md bg-[#7b0f2b] text-white"
+                    onClick={async () => {
+                      try {
+                        await api(`/api/auth/profile`, {
+                          method: "PUT",
+                          body: JSON.stringify({
+                            phone: form.phone || undefined,
+                            avatar_url: avatarPreview || undefined,
+                            institution: form.institution || undefined,
+                            faculty: form.faculty || undefined,
+                            group_name: form.groupName || undefined,
+                            student_id: (form.studentId || form.regNo) || undefined,
+                          }),
+                        });
+                      } catch {
+                        // keep silent on failure for now
+                      }
+                    }}
+                  >
+                    {t('profile.account.update')}
+                  </button>
                 </div>
               </div>
             </div>

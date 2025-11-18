@@ -15,6 +15,7 @@ import MyShelfPage from "../pages/shelf/MyShelfPage";
 import FavoritesPage from "../pages/favorites/FavoritesPage";
 import ReaderPage from "../pages/reader/ReaderPage";
 import SearchResultsPage from "../pages/search/SearchResultsPage";
+import IntelligentSearchPage from "../pages/intelligent/IntelligentSearchPage";
 import AdminLayout from "../pages/admin/AdminLayout";
 import AdminHome from "../pages/admin/AdminHome";
 import CreateBookPage from "../pages/admin/CreateBookPage";
@@ -55,6 +56,7 @@ const router = createBrowserRouter([
       { path: "profile", element: <WithTitle title="Profile - TAU"><ProfilePage /></WithTitle> },
       { path: "catalog", element: <WithTitle title="Catalog - TAU"><CatalogListPage /></WithTitle> },
       { path: "search", element: <WithTitle title="Search - TAU"><SearchResultsPage /></WithTitle> },
+      { path: "intelligent-search", element: <WithTitle title="Intelligent Search - TAU"><IntelligentSearchPage /></WithTitle> },
       { path: "catalog/:id", element: <WithTitle title="Book Details - TAU"><CatalogDetailPage /></WithTitle> },
       { path: "catalog/books/:id", element: <WithTitle title="Book Details - TAU"><CatalogDetailPage /></WithTitle> },
       { path: "catalog/:id/notes", element: <WithTitle title="My Notes - TAU"><BookNotesPage /></WithTitle> },

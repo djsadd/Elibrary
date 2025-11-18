@@ -175,15 +175,40 @@ export default function FavoritesPage() {
 
   // remove legacy filtering effect — now data comes from API
 
-  const toggleFavorite = (id: string | number, e?: React.MouseEvent) => {
+  const toggleFavorite = async (id: string | number, e?: React.MouseEvent) => {
     if (e) { e.preventDefault(); e.stopPropagation(); }
     const sid = String(id);
-    setFavorites(prev => {
-      const next = new Set(prev);
-      if (next.has(sid)) next.delete(sid); else next.add(sid);
-      try { localStorage.setItem("favorites", JSON.stringify(Array.from(next))); } catch {}
-      return next;
-    });
+    const alreadyFav = favorites.has(sid);
+
+    // optimistic local toggle
+    const next = new Set(favorites);
+    if (alreadyFav) next.delete(sid); else next.add(sid);
+    setFavorites(next);
+    try { localStorage.setItem("favorites", JSON.stringify(Array.from(next))); } catch {}
+
+    try {
+      if (!alreadyFav) {
+        await api<any>(`/api/favourites/`, {
+          method: "POST",
+          body: JSON.stringify({ book_id: Number(id) }),
+        });
+      } else {
+        await api<any>(`/api/favourites/${Number(id)}`, {
+          method: "DELETE",
+        });
+      }
+    } catch (err: any) {
+      // revert on failure
+      const reverted = new Set(favorites);
+      if (alreadyFav) {
+        reverted.add(sid);
+      } else {
+        reverted.delete(sid);
+      }
+      setFavorites(reverted);
+      try { localStorage.setItem("favorites", JSON.stringify(Array.from(reverted))); } catch {}
+      try { console.warn("[Favorites] favourite toggle failed:", err?.message || String(err)); } catch {}
+    }
   };
 
   const title = useMemo(() => `${t('favorites.title')} (${items.length})`, [items]);

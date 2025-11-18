@@ -11,7 +11,24 @@ export async function login(body: LoginDto) {
 }
 
 // Registration helper: tries common endpoints (left unchanged)
-export type RegisterDto = { email: string; password: string; reg_no?: string };
+export type RegisterDto = {
+  email: string;
+  password: string;
+  reg_no?: string;
+  phone?: string;
+  avatar_url?: string | null;
+  role?: string;
+  permissions?: string | null;
+  institution?: string;
+  faculty?: string;
+  group_name?: string;
+  student_id?: string;
+  subscription_type?: string;
+  subscription_expire_at?: string | null;
+  google_id?: string | null;
+  github_id?: string | null;
+};
+
 export async function register(body: RegisterDto) {
   const paths = [
     "/api/auth/register",
@@ -30,4 +47,3 @@ export async function register(body: RegisterDto) {
   }
   throw lastErr;
 }
-

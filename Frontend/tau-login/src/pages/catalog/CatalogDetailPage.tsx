@@ -128,16 +128,35 @@ export default function CatalogDetailPage() {
     return book.download_url.startsWith("/") ? `${BASE}${book.download_url}` : book.download_url;
   }, [book, BASE, id]);
 
-  const toggleFavorite = () => {
+  const toggleFavorite = async () => {
+    if (!id) return;
+    const sid = String(id);
     try {
+      // sync with localStorage
       const key = "favorites";
       const raw = localStorage.getItem(key);
       const arr: string[] = raw ? JSON.parse(raw) : [];
-      const sid = String(id ?? "");
-      const next = arr.includes(sid) ? arr.filter((x) => x !== sid) : [...arr, sid];
+      const alreadyFav = arr.includes(sid);
+      const next = alreadyFav ? arr.filter((x) => x !== sid) : [...arr, sid];
       localStorage.setItem(key, JSON.stringify(next));
       setFavorite(next.includes(sid));
-    } catch {}
+
+      // backend: POST on add, DELETE /{book_id} on remove
+      if (!alreadyFav) {
+        await api<any>(`/api/favourites/`, {
+          method: "POST",
+          body: JSON.stringify({ book_id: Number(id) }),
+        });
+      } else {
+        await api<any>(`/api/favourites/${Number(id)}`, {
+          method: "DELETE",
+        });
+      }
+    } catch (err) {
+      try {
+        console.warn("[CatalogDetail] favourite toggle failed:", (err as any)?.message || String(err));
+      } catch {}
+    }
   };
 
   async function startReading() {
@@ -165,7 +184,7 @@ export default function CatalogDetailPage() {
                     className="max-h-80 w-auto object-contain rounded-md bg-slate-100 p-2"
                   />
                 </div>
-                <div className="mt-4 w-full border-t pt-3">
+                <div className="mt-4 w-full border-t pt-3 space-y-4">
                   <div className="grid grid-cols-3 gap-2 text-center">
                     <button
                       type="button"
@@ -235,6 +254,38 @@ export default function CatalogDetailPage() {
                       </svg>
                       <div className="mt-1 text-xs text-slate-700">{t("catalog.actions.share")}</div>
                     </button>
+                  </div>
+
+                  <div className="pt-3 border-t border-dashed border-slate-200">
+                    <div className="text-[11px] font-semibold tracking-wide text-slate-500 uppercase mb-2">
+                      Интеллектуальный поиск
+                    </div>
+                    <div className="relative group">
+                      <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-[#7b0f2b]/10 via-rose-400/10 to-amber-300/10 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 blur-sm transition-opacity" />
+                      <div className="relative bg-white/90 backdrop-blur border border-slate-200 rounded-2xl shadow-sm group-hover:shadow-md group-focus-within:border-[#7b0f2b] group-focus-within:shadow-[0_0_0_1px_rgba(123,15,43,0.18)] transition-all flex items-center px-3 py-2">
+                        <svg
+                          className="w-4 h-4 text-slate-400 mr-2 flex-shrink-0"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="1.6"
+                        >
+                          <circle cx="11" cy="11" r="6" />
+                          <path d="M16 16l4 4" />
+                        </svg>
+                        <input
+                          type="search"
+                          placeholder="Найти идею, цитату или тему"
+                          className="w-full bg-transparent border-none outline-none text-xs sm:text-sm text-slate-800 placeholder-slate-400"
+                        />
+                        <span className="ml-2 hidden sm:inline text-[10px] uppercase tracking-wide text-slate-500 bg-slate-100 rounded-full px-2 py-0.5">
+                          AI
+                        </span>
+                      </div>
+                      <p className="mt-2 text-[11px] text-slate-400 leading-tight">
+                        Напишите любой вопрос — позже подключим умный поиск по книге.
+                      </p>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -626,4 +677,3 @@ export default function CatalogDetailPage() {
     </div>
   );
 }
-

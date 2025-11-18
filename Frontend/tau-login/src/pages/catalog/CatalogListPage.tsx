@@ -199,21 +199,31 @@ export default function CatalogListPage() {
     setFavorites(next);
     try { localStorage.setItem("favorites", JSON.stringify(Array.from(next))); } catch {}
 
-    // network side-effect: only POST when adding to favorites
-    if (!alreadyFav) {
-      try {
+    // network side-effect:
+    // - POST on add
+    // - DELETE /{book_id} on remove
+    try {
+      if (!alreadyFav) {
         await api<any>(`/api/favourites/`, {
           method: "POST",
           body: JSON.stringify({ book_id: Number(id) }),
         });
-      } catch (err: any) {
-        // revert optimistic update on failure
-        const reverted = new Set(next);
-        reverted.delete(sid);
-        setFavorites(reverted);
-        try { localStorage.setItem("favorites", JSON.stringify(Array.from(reverted))); } catch {}
-        try { console.warn("[Catalog] POST /api/favourites failed:", err?.message || String(err)); } catch {}
+      } else {
+        await api<any>(`/api/favourites/${Number(id)}`, {
+          method: "DELETE",
+        });
       }
+    } catch (err: any) {
+      // revert optimistic update on failure
+      const reverted = new Set(favorites);
+      if (alreadyFav) {
+        reverted.add(sid);
+      } else {
+        reverted.delete(sid);
+      }
+      setFavorites(reverted);
+      try { localStorage.setItem("favorites", JSON.stringify(Array.from(reverted))); } catch {}
+      try { console.warn("[Catalog] favourite toggle failed:", err?.message || String(err)); } catch {}
     }
   };
 

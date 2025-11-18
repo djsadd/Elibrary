@@ -8,6 +8,11 @@ import { t } from "@/shared/i18n";
 export default function RegisterPage() {
   const [regNo, setRegNo] = useState("");
   const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
+  const [institution, setInstitution] = useState("");
+  const [faculty, setFaculty] = useState("");
+  const [groupName, setGroupName] = useState("");
+  const [studentId, setStudentId] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [showPwd, setShowPwd] = useState(false);
@@ -27,7 +32,18 @@ export default function RegisterPage() {
     try {
       // Try backend registration; fallback to demo success
       try {
-        await register({ email, password, reg_no: regNo || undefined });
+        await register({
+          email,
+          password,
+          reg_no: regNo || undefined,
+          phone: phone || undefined,
+          institution: institution || undefined,
+          faculty: faculty || undefined,
+          group_name: groupName || undefined,
+          student_id: (studentId || regNo) || undefined,
+          role: "student",
+          subscription_type: "free",
+        });
       } catch (err) {
         // If no backend, keep UX flowing
         console.warn("register call failed; continuing demo flow", err);
@@ -59,8 +75,28 @@ export default function RegisterPage() {
             <input value={regNo} onChange={(e)=>setRegNo(e.target.value)} placeholder="College Reg. No." className="w-full rounded-lg border border-slate-200 px-3 py-2" />
           </div>
           <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Студенческий ID</label>
+            <input value={studentId} onChange={(e)=>setStudentId(e.target.value)} className="w-full rounded-lg border border-slate-200 px-3 py-2" />
+          </div>
+          <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">{t("auth.register.email")}</label>
             <input type="email" value={email} onChange={(e)=>setEmail(e.target.value)} placeholder="username@collegename.ac.in" required className="w-full rounded-lg border border-slate-200 px-3 py-2" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Телефон</label>
+            <input value={phone} onChange={(e)=>setPhone(e.target.value)} className="w-full rounded-lg border border-slate-200 px-3 py-2" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Учреждение (ВУЗ)</label>
+            <input value={institution} onChange={(e)=>setInstitution(e.target.value)} className="w-full rounded-lg border border-slate-200 px-3 py-2" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Факультет</label>
+            <input value={faculty} onChange={(e)=>setFaculty(e.target.value)} className="w-full rounded-lg border border-slate-200 px-3 py-2" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Группа</label>
+            <input value={groupName} onChange={(e)=>setGroupName(e.target.value)} className="w-full rounded-lg border border-slate-200 px-3 py-2" />
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">{t("auth.register.password")}</label>
