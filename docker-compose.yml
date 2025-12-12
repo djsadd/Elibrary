@@ -102,7 +102,7 @@ services:
     environment:
       - API_SERVER=http://gateway:8000
     ports:
-      - "5173:80"
+      - "80:80"
     depends_on:
       - gateway
 
