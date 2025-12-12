@@ -1,0 +1,111 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: postgres
+    environment:
+      POSTGRES_USER: elib
+      POSTGRES_PASSWORD: elib
+      POSTGRES_DB: elib_default
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./postgres-init/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    ports:
+      - "5432:5432"
+
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+    ports:
+      - "6379:6379"
+
+  gateway:
+    build: ./API-Gateaway
+    container_name: gateway
+    env_file:
+      - API-Gateaway/.env.prod
+    depends_on:
+      - auth
+      - catalog
+      - filestorage
+      - notifications
+      - reviews
+      - favourites
+    ports:
+      - "8000:8000"
+
+  auth:
+    build: ./AuthService
+    container_name: auth
+    env_file:
+      - AuthService/.env.prod
+    depends_on:
+      - postgres
+      - redis
+    ports:
+      - "8001:8001"
+
+  catalog:
+    build: ./CatalogService
+    container_name: catalog
+    env_file:
+      - CatalogService/.env.prod
+    volumes:
+      - filestorage_data:/app/storage
+    depends_on:
+      - postgres
+    ports:
+      - "8002:8002"
+
+  filestorage:
+    build: ./FileStorageService
+    container_name: filestorage
+    env_file:
+      - FileStorageService/.env.prod
+    volumes:
+      - filestorage_data:/app/storage
+    ports:
+      - "8003:8003"
+
+  notifications:
+    build: ./NotificationService
+    container_name: notifications
+    env_file:
+      - NotificationService/.env.prod
+    depends_on:
+      - postgres
+    ports:
+      - "8006:8006"
+
+  reviews:
+    build: ./reviews
+    container_name: reviews
+    env_file:
+      - reviews/.env.prod
+    depends_on:
+      - postgres
+    ports:
+      - "8007:8007"
+
+  favourites:
+    build: ./favourites
+    container_name: favourites
+    env_file:
+      - favourites/.env.prod
+    depends_on:
+      - postgres
+    ports:
+      - "8008:8008"
+
+  frontend:
+    build: ./Frontend/tau-login
+    container_name: frontend
+    environment:
+      - API_SERVER=http://gateway:8000
+    ports:
+      - "5173:80"
+    depends_on:
+      - gateway
+
+volumes:
+  pgdata: {}
+  filestorage_data: {}
