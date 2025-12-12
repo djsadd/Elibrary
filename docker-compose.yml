@@ -96,6 +96,18 @@ services:
     ports:
       - "8008:8008"
 
+  otherlibraryintegrations:
+    build: ./OtherLibraryIntegrations
+    container_name: otherlibraryintegrations
+    env_file:
+      - OtherLibraryIntegrations/.env.prod
+    depends_on:
+      - postgres
+      - catalog
+      - gateway
+    ports:
+      - "8009:8009"
+
   frontend:
     build: ./Frontend/tau-login
     container_name: frontend
