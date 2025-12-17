@@ -10,3 +10,4 @@ redis>=5
 pydantic[email]
 python-dotenv
 bcrypt==4.0.1
+alembic>=1.13
