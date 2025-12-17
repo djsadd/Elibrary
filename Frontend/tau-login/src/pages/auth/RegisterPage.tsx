@@ -8,6 +8,7 @@ import { t } from "@/shared/i18n";
 export default function RegisterPage() {
   const [regNo, setRegNo] = useState("");
   const [email, setEmail] = useState("");
+  const [iin, setIin] = useState("");
   const [phone, setPhone] = useState("");
   const [institution, setInstitution] = useState("");
   const [faculty, setFaculty] = useState("");
@@ -35,6 +36,7 @@ export default function RegisterPage() {
         await register({
           email,
           password,
+          iin: iin || undefined,
           reg_no: regNo || undefined,
           phone: phone || undefined,
           institution: institution || undefined,
@@ -70,6 +72,15 @@ export default function RegisterPage() {
         <div className="text-center text-xs text-slate-500 mb-4">{t("auth.register.subtitle")}</div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">ИИН</label>
+            <input
+              value={iin}
+              onChange={(e)=>setIin(e.target.value)}
+              maxLength={12}
+              className="w-full rounded-lg border border-slate-200 px-3 py-2"
+            />
+          </div>
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">{t("auth.register.regNo")}</label>
             <input value={regNo} onChange={(e)=>setRegNo(e.target.value)} placeholder="College Reg. No." className="w-full rounded-lg border border-slate-200 px-3 py-2" />

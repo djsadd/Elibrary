@@ -16,6 +16,7 @@ const dict: Record<Lang, Record<string, any>> = {
         roles: 'Roles',
         reports: 'Reports',
         settings: 'Settings',
+        integrations: 'Integrations',
       },
       common: {
         catalogSearchPlaceholder: 'Search catalog',
@@ -466,6 +467,30 @@ export function t(path: string, vars?: Record<string, any>): string {
   if (!vars) return val;
   return Object.keys(vars).reduce((acc, k) => acc.replace(new RegExp(`\\{\\{${k}\\}\\}`, 'g'), String(vars[k])), val);
 }
+
+// Admin integrations (LIBTAU) texts
+dict.en.admin.integrations = {
+  libtau: {
+    crawl: {
+      title: "LIBTAU: Crawl PDFs",
+      description:
+        "Fetch books and subjects from the external LIBTAU database. First get a preview, then commit or cancel.",
+      previewBtn: "Preview crawl",
+    },
+    migrate: {
+      title: "LIBTAU: Subjects migration",
+      description:
+        "Migrate subjects and books from LIBTAU into the catalog service using the queued migration endpoints.",
+      previewBtn: "Preview migration",
+    },
+  },
+  common: {
+    loading: "Loading…",
+    commit: "Commit",
+    cancel: "Cancel",
+    total: "Total",
+  },
+};
 
 dict.en.common.catalogSearchPlaceholder = "Search catalog";
 dict.ru.common.catalogSearchPlaceholder = "Поиск по каталогу";

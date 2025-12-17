@@ -38,6 +38,7 @@ UPLOAD_DIR = "static/covers"  # путь, куда сохраняем карти
 MAX_RAW_SIZE = 50 * 1024 * 1024  # 50MB общий лимит на raw-загрузку
 
 
+
 def _public_download_url(file_id: str) -> str:
     # меняй, если раздаёшь статику по другому префиксу
     return f"/files/{file_id}"
@@ -88,6 +89,28 @@ def get_db():
         yield db
     finally:
         db.close()
+
+
+@router.get("/filters")
+def get_filters(db: Session = Depends(get_db)):
+    # Авторы
+    authors = [a.name for a in db.query(Author).order_by(Author.name).all()]
+
+    # Жанры / предметы
+    subjects = [s.name for s in db.query(Subject).order_by(Subject.name).all()]
+
+    # Языки (у тебя фиксированные)
+    langs = ["Russian", "English", "Kazakh"]
+
+    # Года (все года книг)
+    years = [y for (y,) in db.query(Book.year).distinct().order_by(Book.year.desc()).all() if y]
+
+    return {
+        "authors": authors,
+        "subjects": subjects,
+        "langs": langs,
+        "years": years,
+    }
 
 
 # ---- helpers ----
@@ -278,15 +301,68 @@ def save_cover_file(cover_base64: str) -> str:
 # ---- SECURED (admin/librarian) ----
 _admin_guard = Depends(require_roles("admin", "librarian"))
 
-@router.post("/books", response_model=BookOut, status_code=201, dependencies=[_admin_guard])
+
+@router.post("/books", response_model=BookOut, status_code=201)
 async def create_book(book_in: BookCreate, db: Session = Depends(get_db)):
     try:
+        # Логируем входные данные
+        print("=== Incoming book payload ===")
+        print(book_in.json())
+        print("=============================")
+
         authors_list = [a.strip() for a in (book_in.authors or []) if a.strip()]
         subjects_list = [s.strip() for s in (book_in.subjects or []) if s.strip()]
         formats_list = [f.strip().upper() for f in (book_in.formats or ["EBOOK"]) if f.strip()]
 
-        # Сохраняем cover_file
         cover_file_path = save_cover_file(book_in.cover) if book_in.cover else None
+
+        existing = None
+        if book_in.file_id:
+            existing = db.query(Book).filter(Book.file_id == book_in.file_id).first()
+        if not existing and book_in.download_url:
+            existing = db.query(Book).filter(Book.download_url == book_in.download_url).first()
+
+        if existing:
+            if book_in.title is not None:
+                existing.title = book_in.title
+            if book_in.year is not None:
+                existing.year = book_in.year
+            if book_in.lang is not None:
+                existing.lang = book_in.lang
+            if book_in.pub_info is not None:
+                existing.pub_info = book_in.pub_info
+            if book_in.summary is not None:
+                existing.summary = book_in.summary
+            if book_in.cover:
+                existing.cover = book_in.cover
+                existing.cover_file = cover_file_path
+            if book_in.file_id:
+                existing.file_id = book_in.file_id
+            if book_in.download_url:
+                existing.download_url = book_in.download_url
+            if book_in.source is not None:
+                existing.source = book_in.source
+            if book_in.isbn is not None:
+                existing.isbn = book_in.isbn
+            if book_in.edition is not None:
+                existing.edition = book_in.edition
+            if book_in.page_count is not None:
+                existing.page_count = book_in.page_count
+            if book_in.available_copies is not None:
+                existing.available_copies = book_in.available_copies
+            if book_in.is_public is not None:
+                existing.is_public = book_in.is_public
+
+            if formats_list:
+                existing.formats_list = formats_list
+            if authors_list:
+                existing.authors = _ensure_authors(db, authors_list)
+            if subjects_list:
+                existing.subjects = _ensure_subjects(db, subjects_list)
+
+            db.commit()
+            db.refresh(existing)
+            return _to_out(existing)
 
         b = Book(
             title=book_in.title,
@@ -294,8 +370,8 @@ async def create_book(book_in: BookCreate, db: Session = Depends(get_db)):
             lang=book_in.lang,
             pub_info=book_in.pub_info,
             summary=book_in.summary,
-            cover=book_in.cover,  # старое поле для совместимости
-            cover_file=cover_file_path,  # новое поле для файла
+            cover=book_in.cover,
+            cover_file=cover_file_path,
             file_id=book_in.file_id,
             download_url=book_in.download_url,
             source=book_in.source,
@@ -318,6 +394,11 @@ async def create_book(book_in: BookCreate, db: Session = Depends(get_db)):
 
     except Exception as e:
         db.rollback()
+        # Логируем ошибку с трассировкой
+        import traceback
+        print("=== Error creating book ===")
+        traceback.print_exc()
+        print("===========================")
         raise HTTPException(status_code=400, detail=f"Create book failed: {e}")
 
 
@@ -455,7 +536,7 @@ def create_subject(payload: SubjectCreate, db: Session = Depends(get_db)):
         db.rollback()
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Автор с именем '{payload.name}' уже существует.",
+            detail=f"Жанр сназванием '{payload.name}' уже существует.",
         )
 
     return subject.name
@@ -744,3 +825,80 @@ def list_userbook_notes(
     if page:
         query = query.filter(UserBookNote.page == page)
     return query.all()
+
+
+# AI-SERVICE
+
+AI_API_BASE = "http://192.168.112.182"
+
+
+import httpx
+
+
+async def login_to_auth_service():
+    async with httpx.AsyncClient() as client:
+        response = await client.post(
+            f"{AI_API_BASE}/auth/login",
+            data={
+                "username": "erasil.bakhytgan@gmail.com",
+                "password": "Polipol1313"
+            },
+            headers={"Content-Type": "application/x-www-form-urlencoded"}
+        )
+        if response.status_code != 200:
+            raise HTTPException(status_code=500, detail="Auth service login failed")
+        return response.json()  # ожидаем {"access_token": "..."}
+
+
+@router.post("/chat_card")
+async def chat_card(data: dict):
+    # 1. Логинимся и получаем токен
+    auth_data = await login_to_auth_service()
+    token = auth_data.get("access_token")
+    if not token:
+        raise HTTPException(status_code=500, detail="No token received from auth service")
+
+    async with httpx.AsyncClient() as client:
+        r = await client.post(
+            f"{AI_API_BASE}/api/chat_card",
+            json=data,
+            headers={"Authorization": f"Bearer {token}"}
+        )
+        return r.json()
+
+@router.post("/generate_llm_context")
+async def generate_llm_context(data: dict):
+    try:
+        # 1. Логинимся
+        auth_data = await login_to_auth_service()
+        token = auth_data.get("access_token")
+        if not token:
+            raise HTTPException(status_code=500, detail="No token received from auth service")
+
+        # 2. Запрос к AI сервису
+        async with httpx.AsyncClient() as client:
+            r = await client.post(
+                f"{AI_API_BASE}/api/generate_llm_context",
+                json=data,
+                headers={"Authorization": f"Bearer {token}"}
+            )
+            # Проверяем, JSON ли вернул сервис
+            try:
+                return r.json()
+            except Exception:
+                # Если нет, возвращаем текст
+                return {"text": r.text}
+
+    except httpx.HTTPStatusError as e:
+        raise HTTPException(status_code=e.response.status_code, detail=e.response.text)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+# Optional override of raw upload limit via env (megabytes).
+_raw_override_mb = os.getenv("CATALOG_MAX_RAW_MB")
+if _raw_override_mb:
+    try:
+        MAX_RAW_SIZE = int(_raw_override_mb) * 1024 * 1024
+    except ValueError:
+        # ignore invalid override, keep default
+        pass

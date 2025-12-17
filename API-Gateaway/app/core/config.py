@@ -18,12 +18,14 @@ class Settings(BaseSettings):
     NOTIFY_SERVICE_URL: AnyHttpUrl = "http://localhost:8006"
     REVIEW_SERVICE_URL: AnyHttpUrl = "http://localhost:8007"
     FAVOURITES_SERVICE_URL: AnyHttpUrl = "http://localhost:8008"
+    LIBTAU_INTEGRATE_SERVICE: AnyHttpUrl = "http://libtau:8009"
 
     CORS_ALLOW_ORIGINS: List[str] = ["*"]
 
-    PROXY_TIMEOUT_S: float = 8.0
+    PROXY_TIMEOUT_S: float = 500.0
     PROXY_RETRIES: int = 2
     PROXY_RETRY_BACKOFF_S: float = 0.3
+    JWT_SECRET: str = "some-super-secret-key"
 
     @field_validator("CORS_ALLOW_ORIGINS", mode="before")
     @classmethod

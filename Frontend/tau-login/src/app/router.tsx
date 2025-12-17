@@ -29,6 +29,7 @@ import AuthorsPage from "../pages/admin/sections/AuthorsPage";
 import SubjectsPage from "../pages/admin/sections/SubjectsPage";
 import FilesPage from "../pages/admin/sections/FilesPage";
 import SettingsPage from "../pages/admin/sections/SettingsPage";
+import IntegrationsPage from "../pages/admin/sections/IntegrationsPage";
 import ReportsPage from "../pages/admin/sections/ReportsPage";
 import RolesPage from "../pages/admin/sections/RolesPage";
 
@@ -80,6 +81,7 @@ const router = createBrowserRouter([
             { path: "files", element: <WithTitle title="Admin Files - TAU"><FilesPage /></WithTitle> },
             { path: "roles", element: <WithTitle title="Admin Roles - TAU"><RolesPage /></WithTitle> },
             { path: "reports", element: <WithTitle title="Admin Reports - TAU"><ReportsPage /></WithTitle> },
+            { path: "integrations", element: <WithTitle title="Admin Integrations - TAU"><IntegrationsPage /></WithTitle> },
             { path: "settings", element: <WithTitle title="Admin Settings - TAU"><SettingsPage /></WithTitle> },
           ],
         },

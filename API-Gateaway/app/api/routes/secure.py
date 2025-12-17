@@ -33,6 +33,19 @@ async def reviews_proxy(path: str, request: Request, _=Depends(auth_required)):
     return await forward(request, settings.FAVOURITES_SERVICE_URL, path_suffix=f"favourites/{path}")
 
 
+# =========== Libtau integration ==========
+@router.api_route("/libtau", methods=["GET", "POST", "PUT", "PATCH", "DELETE"])
+@router.api_route("/libtau/", methods=["GET", "POST", "PUT", "PATCH", "DELETE"])
+async def libtau_root_proxy(request: Request, _=Depends(auth_required)):
+    return await forward(request, settings.LIBTAU_INTEGRATE_SERVICE, path_suffix="libtau")
+
+
+@router.api_route("/libtau/{path:path}", methods=["GET", "POST", "PUT", "PATCH", "DELETE"])
+@router.api_route("/libtau/{path:path}/", methods=["GET", "POST", "PUT", "PATCH", "DELETE"])
+async def libtau_proxy(path: str, request: Request, _=Depends(auth_required)):
+    return await forward(request, settings.LIBTAU_INTEGRATE_SERVICE, path_suffix=f"libtau/{path}")
+
+
 # =========== Notifications ==========
 @router.api_route("/notification", methods=["GET", "POST", "PUT", "PATCH", "DELETE"])
 @router.api_route("/notification/", methods=["GET", "POST", "PUT", "PATCH", "DELETE"])
@@ -45,9 +58,10 @@ async def notifications_root_proxy(request: Request, _=Depends(auth_required)):
 async def notification_proxy(path: str, request: Request, _=Depends(auth_required)):
     return await forward(request, settings.NOTIFY_SERVICE_URL, path_suffix=f"notification/{path}")
 
+
 # ====== Catalog ======
 @router.get("/catalog/books")
-async def catalog_books(request: Request, _=Depends(auth_required)):
+async def catalog_books(request: Request):
     return await forward(request, settings.CATALOG_SERVICE_URL)
 
 

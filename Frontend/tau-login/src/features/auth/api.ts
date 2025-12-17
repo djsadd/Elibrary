@@ -14,6 +14,7 @@ export async function login(body: LoginDto) {
 export type RegisterDto = {
   email: string;
   password: string;
+  iin?: string;
   reg_no?: string;
   phone?: string;
   avatar_url?: string | null;

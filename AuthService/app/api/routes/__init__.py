@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from app.core.db import SessionLocal
 from app.models.user import User
 from app.schemas.auth import (RegisterRequest, LoginRequest, TokenPair,
-                              IntrospectRequest, IntrospectResponse)
+                              IntrospectRequest, IntrospectResponse, UpdateProfileRequest)
 from app.utils.security import hash_password, verify_password
 from app.utils.tokens import create_access, create_refresh, decode
 
@@ -20,13 +20,29 @@ def get_db():
 
 @router.post("/register", status_code=201)
 def register(req: RegisterRequest, db: Session = Depends(get_db)):
-    # временно отключено
-    # raise HTTPException(403, "Регистрация пока не разрешена")
-
     if db.query(User).filter_by(email=req.email).first():
         raise HTTPException(409, "Email already exists")
-    u = User(email=req.email, hashed_password=hash_password(req.password))
-    db.add(u); db.commit(); db.refresh(u)
+
+    u = User(
+        email=req.email,
+        hashed_password=hash_password(req.password),
+        iin=req.iin,
+        phone=req.phone,
+        avatar_url=req.avatar_url,
+        role=req.role,
+        permissions=req.permissions,
+        institution=req.institution,
+        faculty=req.faculty,
+        group_name=req.group_name,
+        student_id=req.student_id,
+        subscription_type=req.subscription_type,
+        subscription_expire_at=req.subscription_expire_at,
+        google_id=req.google_id,
+        github_id=req.github_id,
+    )
+    db.add(u)
+    db.commit()
+    db.refresh(u)
     return {"id": u.id, "email": u.email}
 
 
@@ -47,9 +63,8 @@ def refresh_token(body: IntrospectRequest, db: Session = Depends(get_db)):
         raise HTTPException(401, "Invalid refresh")
     user_id = int(data["sub"])
     u = db.get(User, user_id)
-    if not u or not u.is_active:
-        raise HTTPException(401, "User disabled")
-    access, exp = create_access(u.id, u.roles or "")
+
+    access, exp = create_access(u.id, u.role or "")
     new_refresh, _ = create_refresh(u.id)
     return TokenPair(
         access_token=access,
@@ -80,11 +95,30 @@ def me(request: Request):
     return {"user_id": int(data["sub"]), "roles": data.get("roles", [])}
 
 
+@router.put("/profile")
+def update_profile(req: UpdateProfileRequest, request: Request, db: Session = Depends(get_db)):
+    auth = request.headers.get("authorization", "")
+    tok = auth.split(" ", 1)[1] if auth.lower().startswith("bearer ") else None
+    data = decode(tok) if tok else None
+    if not data:
+        raise HTTPException(401, "Invalid token")
+
+    user_id = int(data["sub"])
+    u = db.get(User, user_id)
+    if not u:
+        raise HTTPException(404, "User not found")
+
+    for field, value in req.dict(exclude_unset=True).items():
+        setattr(u, field, value)
+
+    db.commit()
+    db.refresh(u)
+
+    return {"message": "Profile updated successfully"}
+
+
 @router.get("/profile")
-def me(request: Request, db: Session = Depends(get_db)):
-    """
-    Возвращает всю информацию о текущем пользователе
-    """
+def get_profile(request: Request, db: Session = Depends(get_db)):
     auth = request.headers.get("authorization", "")
     tok = auth.split(" ", 1)[1] if auth.lower().startswith("bearer ") else None
     data = decode(tok) if tok else None
@@ -99,23 +133,18 @@ def me(request: Request, db: Session = Depends(get_db)):
     return {
         "id": u.id,
         "email": u.email,
+        "iin": u.iin,
         "phone": u.phone,
         "avatar_url": u.avatar_url,
-        "email_verified": u.email_verified,
-        "phone_verified": u.phone_verified,
         "role": u.role,
         "permissions": u.permissions,
         "institution": u.institution,
         "faculty": u.faculty,
         "group_name": u.group_name,
         "student_id": u.student_id,
-        "last_login_at": u.last_login_at,
-        "last_activity_at": u.last_activity_at,
-        "reading_history_count": u.reading_history_count,
         "subscription_type": u.subscription_type,
         "subscription_expire_at": u.subscription_expire_at,
         "google_id": u.google_id,
         "github_id": u.github_id,
-        "created_at": u.created_at,
-        "updated_at": u.updated_at,
+        "created_at": u.created_at if hasattr(u, "created_at") else None,
     }

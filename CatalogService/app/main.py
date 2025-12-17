@@ -3,6 +3,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.db import Base, engine
 from app.api.routes import router
+from app.api.ai import ai_router
 import uvicorn
 
 # --- Патч на лимит multipart (обходит стандартный 1MB) ---
@@ -27,11 +28,13 @@ app.add_middleware(
 )
 
 app.include_router(router)
+app.include_router(ai_router)
 
 
 @app.get("/health")
 def health():
     return {"status": "ok", "service": "catalog"}
+
 
 if __name__ == "__main__":
     uvicorn.run("app.main:app", host="0.0.0.0", port=8002, reload=True)

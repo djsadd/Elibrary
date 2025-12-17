@@ -37,7 +37,9 @@ services:
     build: ./AuthService
     container_name: auth
     env_file:
-      - AuthService/.env.prod
+      - AuthService/.env.prod  
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     depends_on:
       - postgres
       - redis
@@ -49,6 +51,8 @@ services:
     container_name: catalog
     env_file:
       - CatalogService/.env.prod
+    environment:
+      - CATALOG_MAX_RAW_MB=200
     volumes:
       - filestorage_data:/app/storage
     depends_on:

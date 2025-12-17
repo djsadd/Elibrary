@@ -1,12 +1,19 @@
+import time
 import logging
 from fastapi import Request, HTTPException
-from app.core.security import get_bearer_token
+from jose import jwt, JWTError
+from app.core.config import settings
 from app.services.auth_client import introspect
 
 logger = logging.getLogger("auth_guard")
 
+# Кэш introspect ответов
+TOKEN_CACHE = {}
+CACHE_TTL = 60  # секунд
+
+
 async def auth_required(request: Request):
-    # ===== Логируем данные запроса от фронта =====
+    # ===== Чтение тела запроса (логирование) =====
     try:
         body = await request.body()
         body_str = body.decode("utf-8") if body else None
@@ -22,24 +29,75 @@ async def auth_required(request: Request):
         body_str
     )
 
-    # ===== Проверка токена =====
-    token = get_bearer_token(request)
-    if not token:
-        logger.warning("Missing bearer token")
-        raise HTTPException(status_code=401, detail="Missing bearer token")
+    # ===== Извлекаем токен =====
+    auth_header = request.headers.get("authorization", "")
+    if not auth_header.lower().startswith("bearer "):
+        raise HTTPException(401, "Missing bearer token")
 
-    data = await introspect(token)
+    token = auth_header.split(" ", 1)[1]
 
-    if not data or not data.active:
-        logger.warning("Invalid token: %s", data)
-        raise HTTPException(status_code=401, detail="Invalid token")
+    # ===== 1) Пытаемся декодировать JWT локально =====
+    try:
+        payload = jwt.decode(token, settings.JWT_SECRET, algorithms=["HS256"])
 
-    # ===== Сохраняем пользователя в request.state =====
-    # Преобразуем user_id в строку на всякий случай
-    user_id = str(data.user_id) if hasattr(data, "user_id") else None
-    roles = getattr(data, "roles", [])
-    request.state.user = {"user_id": user_id, "roles": roles}
+        user = {
+            "user_id": str(payload.get("sub")),
+            "roles": payload.get("roles", []),
+        }
 
-    logger.info("Authenticated user: %s", request.state.user)
+        request.state.user = user
+        return user
 
-    return request.state.user
+    except JWTError:
+        # Переходим к introspect
+        pass
+
+    # ===== 2) Проверяем кэш introspect =====
+    cached = TOKEN_CACHE.get(token)
+    if cached and cached["expires"] > time.time():
+        logger.debug("Using cached introspect response")
+        request.state.user = cached["user"]
+        return cached["user"]
+
+    # ===== 3) Делаем introspect =====
+    try:
+        data = await introspect(token)
+    except Exception as e:
+        logger.error("Auth service error: %s", e)
+
+        # Если есть кэш — используем его
+        if cached:
+            logger.warning("Using cached user because introspect failed")
+            request.state.user = cached["user"]
+            return cached["user"]
+
+        # Нет кэша → реальная ошибка
+        raise HTTPException(503, "Auth service unavailable")
+
+    # ===== 4) Обработка ответа introspect =====
+    if hasattr(data, "status_code") and data.status_code == 429:
+        logger.warning("Introspect rate-limited")
+
+        if cached:
+            logger.info("Using cached authentication data")
+            request.state.user = cached["user"]
+            return cached["user"]
+
+        raise HTTPException(503, "Auth service rate-limited")
+
+    if not data or not getattr(data, "active", False):
+        raise HTTPException(401, "Invalid token")
+
+    user = {
+        "user_id": str(data.user_id),
+        "roles": data.roles or []
+    }
+
+    # ===== 5) Кэшируем ответ =====
+    TOKEN_CACHE[token] = {
+        "user": user,
+        "expires": time.time() + CACHE_TTL
+    }
+
+    request.state.user = user
+    return user
