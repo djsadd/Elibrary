@@ -15,7 +15,6 @@ export type RegisterDto = {
   email: string;
   password: string;
   iin?: string;
-  reg_no?: string;
   phone?: string;
   avatar_url?: string | null;
   role?: string;
@@ -23,7 +22,6 @@ export type RegisterDto = {
   institution?: string;
   faculty?: string;
   group_name?: string;
-  student_id?: string;
   subscription_type?: string;
   subscription_expire_at?: string | null;
   google_id?: string | null;
