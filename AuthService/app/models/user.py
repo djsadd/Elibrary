@@ -16,6 +16,8 @@ class User(Base):
     avatar_url = Column(String(500), nullable=True)
     email_verified = Column(Boolean, default=False)
     phone_verified = Column(Boolean, default=False)
+    is_active = Column(Boolean, default=False, nullable=False)
+    verification_code = Column(String(10), nullable=True)
 
     # Роль и доступ
     role = Column(String(50), default="student")  # admin, teacher, librarian, student

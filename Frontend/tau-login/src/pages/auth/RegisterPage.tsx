@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import logo from "@/assets/images/Logo.svg";
-import { register } from "@/features/auth/api";
+import { register, verify } from "@/features/auth/api";
 import LanguageSwitcher from "@/components/common/LanguageSwitcher";
 import { t } from "@/shared/i18n";
 
@@ -20,37 +20,44 @@ export default function RegisterPage() {
   const [showPwd2, setShowPwd2] = useState(false);
   const [isSubmitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [step, setStep] = useState<1 | 2>(1);
+  const [verificationCode, setVerificationCode] = useState("");
   const nav = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
-    if (password !== confirm) {
-      setError("Passwords do not match");
-      return;
-    }
     setSubmitting(true);
     try {
-      // Try backend registration; fallback to demo success
-      try {
-        await register({
-          email,
-          password,
-          iin: iin || undefined,
-          reg_no: regNo || undefined,
-          phone: phone || undefined,
-          institution: institution || undefined,
-          faculty: faculty || undefined,
-          group_name: groupName || undefined,
-          student_id: (studentId || regNo) || undefined,
-          role: "student",
-          subscription_type: "free",
-        });
-      } catch (err) {
-        // If no backend, keep UX flowing
-        console.warn("register call failed; continuing demo flow", err);
+      if (step === 1) {
+        if (password !== confirm) {
+          setError("Passwords do not match");
+          return;
+        }
+        // Шаг 1: регистрация и отправка кода
+        try {
+          await register({
+            email,
+            password,
+            iin: iin || undefined,
+            reg_no: regNo || undefined,
+            phone: phone || undefined,
+            institution: institution || undefined,
+            faculty: faculty || undefined,
+            group_name: groupName || undefined,
+            student_id: (studentId || regNo) || undefined,
+            role: "student",
+            subscription_type: "free",
+          });
+        } catch (err) {
+          console.warn("register call failed; continuing demo flow", err);
+        }
+        setStep(2);
+      } else {
+        // Шаг 2: подтверждение кода и автоматический логин
+        await verify({ email, code: verificationCode });
+        nav("/");
       }
-      nav("/auth/login");
     } catch (err: any) {
       console.error(err);
       setError(err?.message || "Register failed");
@@ -68,10 +75,17 @@ export default function RegisterPage() {
           </div>
           <LanguageSwitcher />
         </div>
-        <h2 className="text-center text-slate-800 font-semibold">{t("auth.register.title")}</h2>
-        <div className="text-center text-xs text-slate-500 mb-4">{t("auth.register.subtitle")}</div>
+        <h2 className="text-center text-slate-800 font-semibold">
+          {step === 1 ? t("auth.register.title") : t("auth.register.title")}
+        </h2>
+        <div className="text-center text-xs text-slate-500 mb-4">
+          {step === 1
+            ? t("auth.register.subtitle")
+            : "Введите код подтверждения, отправленный на почту"}
+        </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
+          {step === 1 && (
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">ИИН</label>
             <input
@@ -81,34 +95,65 @@ export default function RegisterPage() {
               className="w-full rounded-lg border border-slate-200 px-3 py-2"
             />
           </div>
+          )}
+          {step === 1 && (
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">{t("auth.register.regNo")}</label>
             <input value={regNo} onChange={(e)=>setRegNo(e.target.value)} placeholder="College Reg. No." className="w-full rounded-lg border border-slate-200 px-3 py-2" />
           </div>
+          )}
+          {step === 1 && (
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">Студенческий ID</label>
             <input value={studentId} onChange={(e)=>setStudentId(e.target.value)} className="w-full rounded-lg border border-slate-200 px-3 py-2" />
           </div>
+          )}
+          {step === 1 && (
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">{t("auth.register.email")}</label>
             <input type="email" value={email} onChange={(e)=>setEmail(e.target.value)} placeholder="username@collegename.ac.in" required className="w-full rounded-lg border border-slate-200 px-3 py-2" />
           </div>
+          )}
+          {step === 1 && (
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">Телефон</label>
             <input value={phone} onChange={(e)=>setPhone(e.target.value)} className="w-full rounded-lg border border-slate-200 px-3 py-2" />
           </div>
+          )}
+          {step === 1 && (
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">Учреждение (ВУЗ)</label>
             <input value={institution} onChange={(e)=>setInstitution(e.target.value)} className="w-full rounded-lg border border-slate-200 px-3 py-2" />
           </div>
+          )}
+          {step === 1 && (
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">Факультет</label>
             <input value={faculty} onChange={(e)=>setFaculty(e.target.value)} className="w-full rounded-lg border border-slate-200 px-3 py-2" />
           </div>
+          )}
+          {step === 1 && (
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">Группа</label>
             <input value={groupName} onChange={(e)=>setGroupName(e.target.value)} className="w-full rounded-lg border border-slate-200 px-3 py-2" />
           </div>
+          )}
+
+          {step === 2 && (
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">
+                Код подтверждения
+              </label>
+              <input
+                value={verificationCode}
+                onChange={(e) => setVerificationCode(e.target.value)}
+                className="w-full rounded-lg border border-slate-200 px-3 py-2"
+              />
+              <div className="mt-1 text-xs text-slate-500">
+                Введите код из письма. Если код не пришёл, проверьте спам.
+              </div>
+            </div>
+          )}
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">{t("auth.register.password")}</label>
             <div className="relative">
@@ -127,7 +172,11 @@ export default function RegisterPage() {
           {error && <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{error}</div>}
 
           <button type="submit" disabled={isSubmitting} className="w-full rounded-lg bg-[#7b0f2b] text-white font-semibold py-2.5 disabled:opacity-70 hover:bg-[#6b0d26] transition">
-            {isSubmitting ? t("auth.register.success") : t("auth.register.submit")}
+            {isSubmitting
+              ? t("auth.register.success")
+              : step === 1
+              ? t("auth.register.submit")
+              : "Подтвердить"}
           </button>
         </form>
 

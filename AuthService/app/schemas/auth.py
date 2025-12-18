@@ -41,6 +41,11 @@ class LoginRequest(BaseModel):
     password: str
 
 
+class VerifyCodeRequest(BaseModel):
+    email: EmailStr
+    code: str
+
+
 class TokenPair(BaseModel):
     access_token: str
     refresh_token: str

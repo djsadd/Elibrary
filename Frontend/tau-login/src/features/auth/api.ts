@@ -48,3 +48,15 @@ export async function register(body: RegisterDto) {
   }
   throw lastErr;
 }
+
+export type VerifyDto = {
+  email: string;
+  code: string;
+};
+
+export async function verify(body: VerifyDto) {
+  return api<LoginResp>("/api/auth/verify", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
