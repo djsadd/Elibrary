@@ -1,5 +1,5 @@
 from pydantic import BaseModel, EmailStr
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 from datetime import datetime
 
 class RegisterRequest(BaseModel):
@@ -39,6 +39,11 @@ class LoginRequest(BaseModel):
     password: str
 
 
+class PlatonusLoginRequest(BaseModel):
+    login: str
+    password: str
+
+
 class VerifyCodeRequest(BaseModel):
     email: EmailStr
     code: str
@@ -49,6 +54,10 @@ class TokenPair(BaseModel):
     refresh_token: str
     token_type: str = "bearer"
     expires_in: int  # сек для access
+
+
+class PlatonusLoginResponse(TokenPair):
+    student_info: Dict[str, Any]
 
 
 class IntrospectRequest(BaseModel):

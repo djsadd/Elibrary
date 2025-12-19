@@ -3,10 +3,13 @@ from sqlalchemy.orm import Session
 import random
 import requests
 from app.core.db import SessionLocal
+from app.core.config import settings
 from app.models.user import User
 from app.schemas.auth import (
     RegisterRequest,
     LoginRequest,
+    PlatonusLoginRequest,
+    PlatonusLoginResponse,
     TokenPair,
     IntrospectRequest,
     IntrospectResponse,
@@ -137,6 +140,64 @@ def login(req: LoginRequest, db: Session = Depends(get_db)):
         access_token=access,
         refresh_token=refresh,
         expires_in=int(exp - __import__("time").time()),
+    )
+
+
+@router.post("/platonus", response_model=PlatonusLoginResponse)
+def platonus_login(req: PlatonusLoginRequest, db: Session = Depends(get_db)):
+    try:
+        response = requests.post(
+            settings.PLATONUS_AUTH_URL,
+            json={"username": req.login, "password": req.password},
+            timeout=60,
+        )
+    except requests.RequestException:
+        raise HTTPException(502, "Platonus auth service unavailable")
+
+    if response.status_code != 200:
+        detail = "Platonus auth failed"
+        try:
+            detail = response.json().get("detail", detail)
+        except ValueError:
+            detail = response.text or detail
+        raise HTTPException(response.status_code, detail)
+
+    data = response.json()
+    student_info = data.get("student_info")
+    if not student_info:
+        raise HTTPException(502, "Invalid response from Platonus auth")
+
+    student = student_info.get("student") or {}
+    iin = student.get("iin")
+    print("iin:", iin)
+    corporate_email = student.get("mail")
+    if not iin:
+        raise HTTPException(502, "Platonus auth response missing required fields")
+
+    u = db.query(User).filter_by(iin=iin).first()
+    if not u:
+
+        u = User(
+            email=corporate_email,
+            hashed_password=hash_password(req.password),
+            iin=iin,
+            is_active=True,
+        )
+        db.add(u)
+        db.commit()
+        db.refresh(u)
+    elif not u.is_active:
+        u.is_active = True
+        db.commit()
+        db.refresh(u)
+
+    access, exp = create_access(u.id, u.role or "")
+    refresh, _ = create_refresh(u.id)
+    return PlatonusLoginResponse(
+        access_token=access,
+        refresh_token=refresh,
+        expires_in=int(exp - __import__("time").time()),
+        student_info=student_info,
     )
 
 

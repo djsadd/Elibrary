@@ -6,14 +6,12 @@ import LanguageSwitcher from "@/components/common/LanguageSwitcher";
 import { t } from "@/shared/i18n";
 
 export default function RegisterPage() {
-  const [regNo, setRegNo] = useState("");
   const [email, setEmail] = useState("");
   const [iin, setIin] = useState("");
   const [phone, setPhone] = useState("");
   const [institution, setInstitution] = useState("");
   const [faculty, setFaculty] = useState("");
   const [groupName, setGroupName] = useState("");
-  const [studentId, setStudentId] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [showPwd, setShowPwd] = useState(false);
@@ -40,12 +38,10 @@ export default function RegisterPage() {
             email,
             password,
             iin: iin || undefined,
-            reg_no: regNo || undefined,
             phone: phone || undefined,
             institution: institution || undefined,
             faculty: faculty || undefined,
             group_name: groupName || undefined,
-            student_id: (studentId || regNo) || undefined,
             role: "student",
             subscription_type: "free",
           });
@@ -96,16 +92,16 @@ export default function RegisterPage() {
             />
           </div>
           )}
-          {step === 1 && (
+          {false && (
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">{t("auth.register.regNo")}</label>
-            <input value={regNo} onChange={(e)=>setRegNo(e.target.value)} placeholder="College Reg. No." className="w-full rounded-lg border border-slate-200 px-3 py-2" />
+            
           </div>
           )}
-          {step === 1 && (
+          {false && (
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">Студенческий ID</label>
-            <input value={studentId} onChange={(e)=>setStudentId(e.target.value)} className="w-full rounded-lg border border-slate-200 px-3 py-2" />
+            
           </div>
           )}
           {step === 1 && (

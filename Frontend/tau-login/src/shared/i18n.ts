@@ -496,19 +496,26 @@ dict.en.common.catalogSearchPlaceholder = "Search catalog";
 dict.ru.common.catalogSearchPlaceholder = "Поиск по каталогу";
 dict.kk.common.catalogSearchPlaceholder = "Каталогты іздеу";
 
-dict.en.auth = {
-  login: {
-    title: "Welcome Back !",
-    subtitle: "Sign in to continue to your Digital Library",
-    emailLabel: "Email",
-    passwordLabel: "Password",
-    passwordPlaceholder: "Enter your password",
-    remember: "Remember me",
-    forgot: "Forgot password?",
-    submit: "Login",
-    errorMissing: "Please provide both email and password.",
-    actionLink: "Register now",
-    guest: "Use as Guest",
+  dict.en.auth = {
+    login: {
+      title: "Welcome Back !",
+      subtitle: "Sign in to continue to your Digital Library",
+      emailLabel: "Email",
+      passwordLabel: "Password",
+      passwordPlaceholder: "Enter your password",
+      remember: "Remember me",
+      forgot: "Forgot password?",
+      submit: "Login",
+      errorMissing: "Please provide both email and password.",
+      actionLink: "Register now",
+      guest: "Use as Guest",
+      platonusButton: "Login with Platonus",
+      platonusTitle: "Login via Platonus",
+      platonusSubtitle: "Use your Platonus account credentials",
+      platonusLoginLabel: "Platonus login",
+      platonusPasswordLabel: "Platonus password",
+      platonusPasswordPlaceholder: "Enter your Platonus password",
+      backToDefault: "Back to normal login",
   },
   register: {
     title: "Registration",

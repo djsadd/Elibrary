@@ -12,6 +12,7 @@ class Settings(BaseSettings):
     JWT_ALG: str = "HS256"
     ACCESS_EXPIRES_MIN: int = 30
     REFRESH_EXPIRES_DAYS: int = 30
+    PLATONUS_AUTH_URL: str = "http://platonusauth:8013/auth_platonus"
 
     model_config = {"env_file": ".env", "extra": "ignore"}
 
@@ -25,4 +26,3 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
-

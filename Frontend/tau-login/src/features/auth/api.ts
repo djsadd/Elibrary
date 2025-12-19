@@ -1,10 +1,17 @@
 // src/features/auth/api.ts
 import { api } from "@/shared/api/client";
-import type { LoginDto, LoginResp } from "./types";
+import type { LoginDto, LoginResp, PlatonusLoginDto, PlatonusLoginResp } from "./types";
 
 // Use only the canonical login endpoint
 export async function login(body: LoginDto) {
   return api<LoginResp>("/api/auth/login", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export async function platonusLogin(body: PlatonusLoginDto) {
+  return api<PlatonusLoginResp>("/api/auth/platonus", {
     method: "POST",
     body: JSON.stringify(body),
   });

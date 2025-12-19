@@ -112,6 +112,16 @@ services:
     ports:
       - "8009:8009"
 
+  platonusauth:
+    build: ./PlatonusAuth
+    container_name: platonusauth
+    environment:
+      # можно вынести в отдельный .env позже
+      - PLATONUS_USERNAME=${PLATONUS_USERNAME:-}
+      - PLATONUS_PASSWORD=${PLATONUS_PASSWORD:-}
+    ports:
+      - "8013:8013"
+
   frontend:
     build: ./Frontend/tau-login
     container_name: frontend

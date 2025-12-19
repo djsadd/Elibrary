@@ -5,26 +5,22 @@ import { t } from "@/shared/i18n";
 type Profile = {
   fullName: string;
   email: string;
-  regNo: string;
   phone: string;
   bio: string;
    institution?: string;
    faculty?: string;
    groupName?: string;
-   studentId?: string;
   avatar?: string | null; // dataURL
 };
 
 const defaultProfile: Profile = {
   fullName: "Reinhard Kenson",
   email: "kensoncs.official@college.com",
-  regNo: "6020220",
   phone: "+7 777 123 45 67",
   bio: "I'm a Student",
   institution: "",
   faculty: "",
   groupName: "",
-  studentId: "",
   avatar: null,
 };
 
@@ -57,8 +53,6 @@ export default function ProfilePage() {
           ...prev,
           email: data.email ?? prev.email,
           phone: data.phone ?? prev.phone,
-          regNo: (data.student_id != null ? String(data.student_id) : prev.regNo),
-          studentId: (data.student_id != null ? String(data.student_id) : prev.studentId),
           institution: data.institution ?? prev.institution,
           faculty: data.faculty ?? prev.faculty,
           groupName: data.group_name ?? prev.groupName,
@@ -142,8 +136,7 @@ export default function ProfilePage() {
                     <input type="email" value={form.email} onChange={(e)=>setForm({...form, email:e.target.value})} className="w-full border rounded-md px-3 py-2" />
                   </div>
                   <div>
-                    <label className="block text-sm text-slate-600 mb-1">{t('profile.account.regNo')}</label>
-                    <input value={form.regNo} onChange={(e)=>setForm({...form, regNo:e.target.value})} className="w-full border rounded-md px-3 py-2" />
+                    <label className="block text-sm text-slate-600 mb-1"></label>
                   </div>
                   <div>
                     <label className="block text-sm text-slate-600 mb-1">{t('profile.account.phone')}</label>
@@ -163,7 +156,7 @@ export default function ProfilePage() {
                   </div>
                   <div>
                     <label className="block text-sm text-slate-600 mb-1">Студенческий ID</label>
-                    <input value={form.studentId || ""} onChange={(e)=>setForm({...form, studentId:e.target.value})} className="w-full border rounded-md px-3 py-2" />
+                    
                   </div>
                   <div className="md:col-span-2">
                     <label className="block text-sm text-slate-600 mb-1">{t('profile.account.bio')}</label>
@@ -185,7 +178,6 @@ export default function ProfilePage() {
                             institution: form.institution || undefined,
                             faculty: form.faculty || undefined,
                             group_name: form.groupName || undefined,
-                            student_id: (form.studentId || form.regNo) || undefined,
                           }),
                         });
                       } catch {

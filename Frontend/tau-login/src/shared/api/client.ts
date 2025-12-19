@@ -90,7 +90,7 @@ function extractRefreshToken(obj: any): string | null {
 
 export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
   const token = localStorage.getItem("token") || sessionStorage.getItem("token");
-  const isAuthEndpoint = /^\/?api\/auth\/(login|register|refresh|verify)/i.test(path);
+  const isAuthEndpoint = /^\/?api\/auth\/(login|register|refresh|verify|platonus)/i.test(path);
   if (!token && !isAuthEndpoint) {
     // Immediately redirect unauthenticated users to login for protected calls
     try { window.dispatchEvent(new CustomEvent("auth:logout")); } catch {}
