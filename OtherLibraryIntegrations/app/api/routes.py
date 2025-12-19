@@ -37,6 +37,7 @@ PENDING_MIGRATION = []
 PENDING_MIGRATION_SUBJECTS = []
 
 logger = logging.getLogger("migrate_subjects")
+logger.setLevel(logging.DEBUG)
 
 
 def get_db():
@@ -316,6 +317,7 @@ async def commit_subjects_migration(
     global PENDING_MIGRATION_SUBJECTS
 
     if not PENDING_MIGRATION_SUBJECTS:
+        logger.debug("commit_subjects_migration: no pending items")
         return {
             "status": "no_pending",
             "message": "Нет данных для миграции — выполните preview",
@@ -336,14 +338,25 @@ async def commit_subjects_migration(
         "commit_subjects_migration: grouped_items=%d (by pdf_id/download_url)",
         len(grouped_items),
     )
+    logger.debug(
+        "commit_subjects_migration: total_pending=%d",
+        len(PENDING_MIGRATION_SUBJECTS),
+    )
 
     for group_key, items in grouped_items.items():
         if migrated >= 20:
+            logger.debug("commit_subjects_migration: batch limit reached (20)")
             break
 
         main_item = items[0]
         row = db.get(LibraryWithSubjects, main_item["id"])
         if not row or row.is_integrated:
+            logger.debug(
+                "commit_subjects_migration: skip id=%s exists=%s integrated=%s",
+                main_item["id"],
+                bool(row),
+                bool(row and row.is_integrated),
+            )
             continue
 
         subjects_set = set()
@@ -362,6 +375,14 @@ async def commit_subjects_migration(
         print(parsed)
         authors_list = parsed["authors"]
         book_title = parsed["title"]
+        logger.debug(
+            "commit_subjects_migration: id=%s title=%s authors=%s subjects=%s pdf_id=%s",
+            row.id,
+            book_title,
+            authors_list,
+            subjects_list,
+            row.pdf_id,
+        )
 
         language = None
         if subjects_list:
@@ -381,6 +402,12 @@ async def commit_subjects_migration(
             )
             file_id = upload_result["file"]["file_id"]
             download_url = upload_result["file"]["download_url"]
+            logger.debug(
+                "commit_subjects_migration: upload ok id=%s file_id=%s download_url=%s",
+                row.id,
+                file_id,
+                download_url,
+            )
 
             async with aiohttp.ClientSession() as session:
                 async with session.get(row.pdf_url) as resp:
@@ -391,8 +418,18 @@ async def commit_subjects_migration(
                 "data:image/jpeg;base64,"
                 + base64.b64encode(cover_bytes).decode()
             )
+            logger.debug(
+                "commit_subjects_migration: cover extracted id=%s size=%d",
+                row.id,
+                len(cover_base64),
+            )
         except Exception as e:
             errors.append({"id": row.id, "error": f"Upload failed: {e}"})
+            logger.exception(
+                "commit_subjects_migration: upload/cover failed id=%s error=%s",
+                row.id,
+                e,
+            )
             continue
 
         payload = {
@@ -416,6 +453,11 @@ async def commit_subjects_migration(
         }
 
         try:
+            logger.debug(
+                "commit_subjects_migration: sending to catalog id=%s url=%s",
+                row.id,
+                f"{settings.CATALOG_SERVICE_URL}/books",
+            )
             resp = requests.post(
                 f"{settings.CATALOG_SERVICE_URL}/books",
                 json=payload,
@@ -424,9 +466,20 @@ async def commit_subjects_migration(
             )
             if not (200 <= resp.status_code < 300):
                 errors.append({"id": row.id, "error": resp.text})
+                logger.error(
+                    "commit_subjects_migration: catalog error id=%s status=%s body=%s",
+                    row.id,
+                    resp.status_code,
+                    resp.text,
+                )
                 continue
 
             created = resp.json()
+            logger.debug(
+                "commit_subjects_migration: catalog created id=%s catalog_id=%s",
+                row.id,
+                created.get("id"),
+            )
 
             for gi in items:
                 gi_row = db.get(LibraryWithSubjects, gi["id"])
@@ -436,6 +489,11 @@ async def commit_subjects_migration(
                     gi_row.book_id = created.get("id")
                 gi_row.is_integrated = True
                 gi_row.file_is_downloaded = True
+                logger.debug(
+                    "commit_subjects_migration: marked integrated id=%s catalog_id=%s",
+                    gi_row.id,
+                    created.get("id"),
+                )
 
             created_items.append(
                 {
@@ -453,6 +511,11 @@ async def commit_subjects_migration(
 
         except Exception as e:
             errors.append({"id": row.id, "error": str(e)})
+            logger.exception(
+                "commit_subjects_migration: request failed id=%s error=%s",
+                row.id,
+                e,
+            )
 
     db.commit()
     logger.info(
