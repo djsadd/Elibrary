@@ -23,3 +23,4 @@ async def catalog_root(request: Request):
 @router.api_route("/catalog/{path:path}", methods=["GET", "POST", "PUT", "PATCH", "DELETE"])
 async def catalog_proxy(path: str, request: Request):
     return await forward(request, settings.CATALOG_SERVICE_URL, path_suffix=f"catalog/{path}")
+

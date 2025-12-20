@@ -1,11 +1,7 @@
 import DashboardHeader from "@/components/layout/DashboardHeader";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import placeholder from "@/assets/images/Image.png";
-
-// Отдельная авторизация для AI‑сервиса (не трогаем основную авторизацию приложения)
-const AI_AUTH_BASE = import.meta.env.VITE_AI_AUTH_BASE ?? "http://192.168.112.182";
-const AI_AUTH_USERNAME = import.meta.env.VITE_AI_AUTH_USER ?? "";
-const AI_AUTH_PASSWORD = import.meta.env.VITE_AI_AUTH_PASS ?? "";
+const API_BASE = (import.meta.env.VITE_API_URL as string | undefined) || window.location.origin;
 
 type AiBook = {
   Language?: string;
@@ -27,7 +23,6 @@ type ResultTab = "book_search" | "vector_search";
 export default function IntelligentSearchPage() {
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(false);
-  const [aiToken, setAiToken] = useState<string | null>(null);
   const [books, setBooks] = useState<AiBook[]>([]);
   const [vectors, setVectors] = useState<AiVectorResult[]>([]);
   const [replyText, setReplyText] = useState<string | null>(null);
@@ -38,58 +33,6 @@ export default function IntelligentSearchPage() {
   const [vectorExplanation, setVectorExplanation] = useState("");
   const [vectorStreaming, setVectorStreaming] = useState(false);
   const [activeTab, setActiveTab] = useState<ResultTab>("book_search");
-
-  // Логин в другой сервис при открытии раздела
-  useEffect(() => {
-    async function loginExternal() {
-      if (!AI_AUTH_USERNAME || !AI_AUTH_PASSWORD) {
-        console.log(
-          "[IntelligentSearch] AI auth env vars are not set (VITE_AI_AUTH_USER / VITE_AI_AUTH_PASS); пропускаем логин"
-        );
-        return;
-      }
-      try {
-        console.log("[IntelligentSearch] logging in to external AI service");
-        const resp = await fetch(`${AI_AUTH_BASE}/login`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/x-www-form-urlencoded",
-          },
-          body: new URLSearchParams({
-            username: AI_AUTH_USERNAME,
-            password: AI_AUTH_PASSWORD,
-          }).toString(),
-        });
-        const text = await resp.text();
-        console.log("[IntelligentSearch] auth status:", resp.status);
-        console.log("[IntelligentSearch] auth raw response:", text);
-        let data: any = null;
-        try {
-          data = JSON.parse(text);
-          console.log("[IntelligentSearch] auth parsed JSON:", data);
-        } catch {
-          // ответ не JSON — ничего страшного
-        }
-        if (resp.ok && data?.access_token) {
-          setAiToken(data.access_token);
-          console.log(
-            "[IntelligentSearch] external AI auth success, token received"
-          );
-        } else {
-          console.log(
-            "[IntelligentSearch] external AI auth failed (no token)"
-          );
-        }
-      } catch (e: any) {
-        console.log(
-          "[IntelligentSearch] external AI auth error:",
-          e?.message || String(e)
-        );
-      }
-    }
-
-    loginExternal();
-  }, []);
 
   async function runSearch() {
     const trimmed = query.trim();
@@ -108,14 +51,12 @@ export default function IntelligentSearchPage() {
       const headers: Record<string, string> = {
         "Content-Type": "application/json",
       };
-      if (aiToken) {
-        headers["Authorization"] = `Bearer ${aiToken}`;
-      } else {
-        console.log(
-          "[IntelligentSearch] no external token yet, sending request без Authorization"
-        );
+      const token =
+        localStorage.getItem("token") || sessionStorage.getItem("token");
+      if (token) {
+        headers["Authorization"] = `Bearer ${token}`;
       }
-      const resp = await fetch("http://192.168.112.182/api/chat_card", {
+      const resp = await fetch(`${API_BASE}/api/ai/chat_card`, {
         method: "POST",
         headers,
         body: JSON.stringify({ query: trimmed }),
@@ -136,14 +77,13 @@ export default function IntelligentSearchPage() {
           setReplyText(json.reply as string);
         }
       } catch {
-        // ответ не JSON — это нормально
       }
     } catch (e: any) {
       console.log(
         "[IntelligentSearch] request failed:",
         e?.message || String(e)
       );
-      alert("Не удалось выполнить запрос к 192.168.112.182/api/chat_card");
+      alert("Не удалось выполнить запрос к API ����������������� ������");
     } finally {
       setLoading(false);
     }
@@ -157,24 +97,22 @@ export default function IntelligentSearchPage() {
   }
 
   async function loadVectorExplanation(v: AiVectorResult) {
-    if (!aiToken) {
-      console.log(
-        "[IntelligentSearch] no external token for generate_llm_context, skipping"
-      );
-      setVectorExplanation("");
-      return;
-    }
     try {
       setVectorStreaming(true);
       setVectorExplanation("");
+      const token =
+        localStorage.getItem("token") || sessionStorage.getItem("token");
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+      };
+      if (token) {
+        headers.Authorization = `Bearer ${token}`;
+      }
       const resp = await fetch(
-        "http://192.168.112.182/api/generate_llm_context",
+        `${API_BASE}/api/generate_llm_context`,
         {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${aiToken}`,
-          },
+          headers,
           body: JSON.stringify({
             query,
             title: v.title ?? "",
@@ -189,7 +127,6 @@ export default function IntelligentSearchPage() {
         return;
       }
       const decoder = new TextDecoder("utf-8");
-      // читаем стрим и накапливаем текст
       while (true) {
         const { value, done } = await reader.read();
         if (done) break;
@@ -585,3 +522,7 @@ export default function IntelligentSearchPage() {
     </div>
   );
 }
+
+
+
+

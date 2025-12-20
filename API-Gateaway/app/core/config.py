@@ -19,6 +19,7 @@ class Settings(BaseSettings):
     REVIEW_SERVICE_URL: AnyHttpUrl = "http://localhost:8007"
     FAVOURITES_SERVICE_URL: AnyHttpUrl = "http://localhost:8008"
     LIBTAU_INTEGRATE_SERVICE: AnyHttpUrl = "http://libtau:8009"
+    AI_SERVICE_URL: AnyHttpUrl = "http://ai:8010"
 
     CORS_ALLOW_ORIGINS: List[str] = ["*"]
 

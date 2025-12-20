@@ -5,6 +5,19 @@ from app.services.auth_guard import auth_required
 
 router = APIRouter(tags=["secure"])
 
+# ======== AI ========
+
+
+@router.api_route("/ai", methods=["GET", "POST", "PUT", "PATCH", "DELETE"])
+async def ai_root(request: Request):
+    return await forward(request, settings.AI_SERVICE_URL, path_suffix="api")
+
+
+@router.api_route("/ai/{path:path}", methods=["GET", "POST", "PUT", "PATCH", "DELETE"])
+async def ai_proxy(path: str, request: Request):
+    return await forward(request, settings.AI_SERVICE_URL, path_suffix=f"api/{path}")
+
+
 
 # ======== Review ========
 

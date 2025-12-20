@@ -112,6 +112,14 @@ services:
     ports:
       - "8009:8009"
 
+  ai:
+    build: ./AI
+    container_name: ai
+    env_file:
+      - AI/.env
+    ports:
+      - "8010:8010"
+
   platonusauth:
     build: ./PlatonusAuth
     container_name: platonusauth
