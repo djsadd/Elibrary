@@ -11,8 +11,8 @@ router = APIRouter(prefix="/notification")
 
 @router.post("/", response_model=NotificationOut)
 async def create_notification(data: NotificationCreate, db: Session = Depends(get_db),
-                              current_user: dict = Depends(get_current_user)):
-    notif = Notification(user_id=current_user["id"], type=data.type, message=data.message)
+                              current_user=Depends(get_current_user)):
+    notif = Notification(user_id=current_user.user_id, type=data.type, message=data.message)
     db.add(notif)
     db.commit()
     db.refresh(notif)
@@ -24,16 +24,16 @@ async def create_notification(data: NotificationCreate, db: Session = Depends(ge
 
 @router.get("/", response_model=list[NotificationOut])
 def get_user_notifications(db: Session = Depends(get_db),
-                           current_user: dict = Depends(get_current_user)):
-    notifs = db.query(Notification).filter(Notification.user_id == current_user["id"]).all()
+                           current_user=Depends(get_current_user)):
+    notifs = db.query(Notification).filter(Notification.user_id == current_user.user_id).all()
     return notifs
 
 
 @router.get("/{notif_id}", response_model=NotificationOut)
 def get_notification(notif_id: int, db: Session = Depends(get_db),
-                     current_user: dict = Depends(get_current_user)):
+                     current_user=Depends(get_current_user)):
     notif = db.query(Notification).filter(Notification.id == notif_id,
-                                          Notification.user_id == current_user["id"]).first()
+                                          Notification.user_id == current_user.user_id).first()
     if not notif:
         raise HTTPException(status_code=404, detail="Notification not found")
     return notif

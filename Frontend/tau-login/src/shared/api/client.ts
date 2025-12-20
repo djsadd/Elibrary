@@ -1,5 +1,23 @@
 ﻿// src/shared/api/client.ts
-const BASE: string = (import.meta.env.VITE_API_URL as string | undefined) ?? "";
+const BASE: string = resolveApiBase(import.meta.env.VITE_API_URL as string | undefined);
+
+function resolveApiBase(raw?: string): string {
+  if (!raw) return "";
+  if (!/^https?:\/\//i.test(raw)) return "";
+  try {
+    const url = new URL(raw);
+    if (isDockerInternalHost(url.hostname)) return "";
+  } catch {
+    return "";
+  }
+  return raw.replace(/\/$/, "");
+}
+
+function isDockerInternalHost(hostname: string): boolean {
+  if (hostname === "localhost") return false;
+  if (/^\d{1,3}(\.\d{1,3}){3}$/.test(hostname)) return false;
+  return !hostname.includes(".");
+}
 
 // Track a single refresh in-flight to de-duplicate concurrent 401s
 let refreshPromise: Promise<string | null> | null = null;

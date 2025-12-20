@@ -27,6 +27,11 @@ export default defineConfig({
         changeOrigin: true,
         secure: false,
       },
+      '/notification': {
+        target: 'http://localhost:8000',
+        changeOrigin: true,
+        secure: false,
+      },
     },
     ...(HMR_HOST
       ? {

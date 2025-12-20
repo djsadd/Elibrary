@@ -41,7 +41,7 @@ export default function DashboardHeader() {
     let cancelled = false;
     (async () => {
       try {
-        const res = await api<any>(`/api/notification/`);
+        const res = await api<any>(`/notification/`);
         const arr: any[] = Array.isArray(res)
           ? res
           : (Array.isArray(res?.items) ? res.items : (Array.isArray(res?.data) ? res.data : []));

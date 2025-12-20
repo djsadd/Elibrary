@@ -1,5 +1,5 @@
 # FastAPI
-from fastapi import FastAPI
+from fastapi import FastAPI, Request, Depends
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 # Apps back
@@ -8,6 +8,8 @@ from app.api.routes import router as api_router
 from app.utils.request_id import RequestIDMiddleware
 from app.utils.logging import setup_logging
 from app.utils.rate_limit import RateLimitMiddleware
+from app.services.proxy import forward
+from app.services.auth_guard import auth_required
 
 app = FastAPI(title="Elib API Gateway", version="0.1.0", redirect_slashes=False)
 
@@ -25,6 +27,17 @@ app.add_middleware(
 setup_logging()
 
 app.include_router(api_router, prefix="/api")
+
+@app.api_route("/notification", methods=["GET", "POST", "PUT", "PATCH", "DELETE"])
+@app.api_route("/notification/", methods=["GET", "POST", "PUT", "PATCH", "DELETE"])
+async def notification_root_proxy(request: Request, _=Depends(auth_required)):
+    return await forward(request, settings.NOTIFY_SERVICE_URL, path_suffix="notification/")
+
+
+@app.api_route("/notification/{path:path}", methods=["GET", "POST", "PUT", "PATCH", "DELETE"])
+@app.api_route("/notification/{path:path}/", methods=["GET", "POST", "PUT", "PATCH", "DELETE"])
+async def notification_proxy(path: str, request: Request, _=Depends(auth_required)):
+    return await forward(request, settings.NOTIFY_SERVICE_URL, path_suffix=f"notification/{path}")
 
 
 @app.get("/health")
