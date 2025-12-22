@@ -152,6 +152,7 @@ export default function CatalogListPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [favorites, setFavorites] = useState<Set<string>>(new Set());
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const DEFAULT_LIMIT = 15;
   const [pageInfo, setPageInfo] = useState<{ limit: number; offset: number; total: number }>({ limit: DEFAULT_LIMIT, offset: 0, total: 0 });
   const showError = !q && !!error;
@@ -360,8 +361,84 @@ export default function CatalogListPage() {
     <div>
       <DashboardHeader />
       <h1 className="text-2xl font-semibold text-[#7b0f2b] mb-4">{t('catalog.title')}</h1>
+      <div className="sm:hidden mb-3">
+        <button
+          type="button"
+          onClick={() => setFiltersOpen(true)}
+          className="w-full border rounded px-3 py-2 text-sm bg-white"
+        >
+          Filters
+        </button>
+      </div>
+      {filtersOpen && (
+        <div className="fixed inset-0 z-50 sm:hidden">
+          <div
+            className="absolute inset-0 bg-black/40"
+            onClick={() => setFiltersOpen(false)}
+          />
+          <div className="absolute inset-x-0 bottom-0 bg-white rounded-t-2xl p-4 shadow-xl max-h-[85vh] overflow-auto">
+            <div className="flex items-center justify-between mb-3">
+              <div className="text-sm font-semibold text-slate-800">Filters</div>
+              <button
+                type="button"
+                onClick={() => setFiltersOpen(false)}
+                className="text-sm text-slate-500"
+              >
+                Close
+              </button>
+            </div>
+            <div className="grid grid-cols-1 gap-3">
+              <FilterDropdown
+                label="Author"
+                value={author}
+                options={filtersData.authors}
+                placeholder="All authors"
+                searchPlaceholder="Search authors..."
+                allLabel="All authors"
+                onChange={(value) => updateFilter("author", value)}
+              />
+              <FilterDropdown
+                label="Category"
+                value={subject}
+                options={filtersData.subjects}
+                placeholder="All categories"
+                searchPlaceholder="Search categories..."
+                allLabel="All categories"
+                onChange={(value) => updateFilter("subject", value)}
+              />
+              <FilterDropdown
+                label="Language"
+                value={lang}
+                options={filtersData.langs}
+                placeholder="All languages"
+                searchPlaceholder="Search languages..."
+                allLabel="All languages"
+                onChange={(value) => updateFilter("lang", value)}
+              />
+              <FilterDropdown
+                label="Year"
+                value={year}
+                options={filtersData.years.map((y) => String(y))}
+                placeholder="All years"
+                searchPlaceholder="Search years..."
+                allLabel="All years"
+                onChange={(value) => updateFilter("year", value)}
+              />
+              <button
+                type="button"
+                onClick={() => {
+                  clearFilters();
+                }}
+                className="w-full border rounded px-3 py-2 text-sm"
+              >
+                Clear filters
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       <div className="bg-white border border-gray-100 rounded-lg p-3 sm:p-4 mb-4">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+        <div className="hidden sm:grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
           <FilterDropdown
             label="Author"
             value={author}
