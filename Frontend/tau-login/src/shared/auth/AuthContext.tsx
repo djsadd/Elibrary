@@ -26,7 +26,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return null;
   }
 
-  // auto-logout when token_exp is reached or when external auth:logout event dispatched
+  // auto-logout when external auth:logout event dispatched
   useEffect(() => {
     const onAuthLogout = () => {
       setTokenState(null);
@@ -35,18 +35,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
 
     window.addEventListener("auth:logout", onAuthLogout as EventListener);
-
-    // set interval to check expiry every 15s
-    const t = setInterval(() => {
-      const expStr = localStorage.getItem("token_exp") || sessionStorage.getItem("token_exp");
-      if (!expStr) return;
-      const exp = Number(expStr);
-      if (!isNaN(exp) && Date.now()/1000 >= exp) {
-        onAuthLogout();
-      }
-    }, 15000);
-
-    return () => { window.removeEventListener("auth:logout", onAuthLogout as EventListener); clearInterval(t); };
+    return () => { window.removeEventListener("auth:logout", onAuthLogout as EventListener); };
   }, []);
 
   const value = useMemo<AuthState>(
