@@ -46,6 +46,11 @@ export default function IntegrationsPage() {
     }
   };
 
+  const callLibtauAndReload = (path: string, method: "GET" | "POST" = "POST") => {
+    void api<any>(`/api/libtau${path}`, { method });
+    window.location.reload();
+  };
+
   const lastCrawl = crawlState.lastResponse as LibtauPreviewResponse | null;
   const lastMigrate = migrateState.lastResponse as LibtauPreviewResponse | null;
 
@@ -199,7 +204,7 @@ export default function IntegrationsPage() {
             <button
               type="button"
               onClick={() =>
-                callLibtau("/migrate_subjects/commit", setMigrateState, "POST")
+                callLibtauAndReload("/migrate_subjects/commit", "POST")
               }
               className="px-3 py-2 rounded-md border border-emerald-600 text-emerald-700 disabled:opacity-60"
               disabled={migrateState.loading}
@@ -209,7 +214,7 @@ export default function IntegrationsPage() {
             <button
               type="button"
               onClick={() =>
-                callLibtau("/migrate_subjects/cancel", setMigrateState, "POST")
+                callLibtauAndReload("/migrate_subjects/cancel", "POST")
               }
               className="px-3 py-2 rounded-md border border-slate-300 text-slate-700 disabled:opacity-60"
               disabled={migrateState.loading}
