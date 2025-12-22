@@ -1,5 +1,5 @@
 import { Link, useSearchParams } from "react-router-dom";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import DashboardHeader from "../../components/layout/DashboardHeader";
 import { t } from "@/shared/i18n";
 import { api } from "@/shared/api/client";
@@ -50,6 +50,9 @@ export default function CatalogListPage() {
   const showError = !q && !!error;
   const offset = (page - 1) * DEFAULT_LIMIT;
   const [filtersData, setFiltersData] = useState<FiltersResponse>({ authors: [], subjects: [], langs: [], years: [] });
+  const [subjectOpen, setSubjectOpen] = useState(false);
+  const [subjectQuery, setSubjectQuery] = useState("");
+  const subjectRef = useRef<HTMLDivElement | null>(null);
 
   
 
@@ -154,6 +157,18 @@ export default function CatalogListPage() {
   }, [page]);
 
   useEffect(() => {
+    if (!subjectOpen) return;
+    const onDocClick = (e: MouseEvent) => {
+      const t = e.target as Node;
+      if (subjectRef.current && !subjectRef.current.contains(t)) {
+        setSubjectOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", onDocClick);
+    return () => document.removeEventListener("mousedown", onDocClick);
+  }, [subjectOpen]);
+
+  useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
@@ -249,8 +264,8 @@ export default function CatalogListPage() {
     return Array.from(nums).filter((n) => n >= 1 && n <= totalPages).sort((a, b) => a - b);
   })();
 
-  const filteredSubjects = subject
-    ? filtersData.subjects.filter((s) => s.toLocaleLowerCase().includes(subject.toLocaleLowerCase()))
+  const filteredSubjects = subjectQuery
+    ? filtersData.subjects.filter((s) => s.toLocaleLowerCase().includes(subjectQuery.toLocaleLowerCase()))
     : filtersData.subjects;
 
   return (
@@ -274,18 +289,67 @@ export default function CatalogListPage() {
           </label>
           <label className="text-sm text-slate-700">
             Category
-            <input
-              value={subject}
-              onChange={(e) => updateFilter("subject", e.target.value)}
-              list="catalog-subjects-list"
-              placeholder="Type category..."
-              className="mt-1 w-full border rounded px-2 py-1 text-sm"
-            />
-            <datalist id="catalog-subjects-list">
-              {filteredSubjects.map((s) => (
-                <option key={s} value={s} />
-              ))}
-            </datalist>
+            <div ref={subjectRef} className="relative mt-1">
+              <button
+                type="button"
+                onClick={() => {
+                  setSubjectOpen((prev) => {
+                    const next = !prev;
+                    if (next) setSubjectQuery(subject);
+                    return next;
+                  });
+                }}
+                className="w-full border rounded px-2 py-1 text-sm text-left bg-white flex items-center justify-between gap-2"
+              >
+                <span className={subject ? "text-slate-900" : "text-slate-400"}>
+                  {subject || "Select category"}
+                </span>
+                <svg viewBox="0 0 24 24" className="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" strokeWidth={2}>
+                  <path d="M6 9l6 6 6-6" />
+                </svg>
+              </button>
+              {subjectOpen && (
+                <div className="absolute z-20 mt-1 w-full bg-white border rounded shadow-lg p-2">
+                  <input
+                    value={subjectQuery}
+                    onChange={(e) => setSubjectQuery(e.target.value)}
+                    placeholder="Search categories..."
+                    className="w-full border rounded px-2 py-1 text-sm mb-2"
+                  />
+                  <div className="max-h-56 overflow-auto">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        updateFilter("subject", "");
+                        setSubjectOpen(false);
+                      }}
+                      className="w-full text-left px-2 py-1 text-sm rounded hover:bg-slate-50"
+                    >
+                      All categories
+                    </button>
+                    {filteredSubjects.length ? (
+                      filteredSubjects.map((s) => (
+                        <button
+                          key={s}
+                          type="button"
+                          onClick={() => {
+                            updateFilter("subject", s);
+                            setSubjectOpen(false);
+                          }}
+                          className={`w-full text-left px-2 py-1 text-sm rounded hover:bg-slate-50 ${
+                            s === subject ? "bg-slate-100 text-slate-900" : "text-slate-700"
+                          }`}
+                        >
+                          {s}
+                        </button>
+                      ))
+                    ) : (
+                      <div className="px-2 py-1 text-sm text-slate-400">No matches</div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
           </label>
           <label className="text-sm text-slate-700">
             Language
