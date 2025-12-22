@@ -344,7 +344,7 @@ async def commit_subjects_migration(
     )
 
     for group_key, items in grouped_items.items():
-        if migrated >= 20:
+        if migrated >= 2000:
             logger.debug("commit_subjects_migration: batch limit reached (20)")
             break
 
