@@ -157,7 +157,7 @@ def preview_subjects_migration(db: Session = Depends(get_db)):
             "path_titles": row.path_titles,
         })
 
-    PENDING_MIGRATION_SUBJECTS = to_migrate[:110]
+    PENDING_MIGRATION_SUBJECTS = to_migrate[:1000]
 
     return {
         "total": len(to_migrate),
