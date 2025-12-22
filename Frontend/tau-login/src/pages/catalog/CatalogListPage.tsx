@@ -25,9 +25,20 @@ type BookListResponse = {
   page?: { limit: number; offset: number; total: number };
 };
 
+type FiltersResponse = {
+  authors: string[];
+  subjects: string[];
+  langs: string[];
+  years: Array<string | number>;
+};
+
 export default function CatalogListPage() {
   const [sp, setSp] = useSearchParams();
   const q = (sp.get('q') || '').trim();
+  const author = (sp.get('author') || '').trim();
+  const subject = (sp.get('subject') || '').trim();
+  const lang = (sp.get('lang') || '').trim();
+  const year = (sp.get('year') || '').trim();
   const rawPage = Number(sp.get('page') || '1');
   const page = Number.isFinite(rawPage) && rawPage > 0 ? Math.floor(rawPage) : 1;
   const [items, setItems] = useState<Book[]>([]);
@@ -38,6 +49,7 @@ export default function CatalogListPage() {
   const [pageInfo, setPageInfo] = useState<{ limit: number; offset: number; total: number }>({ limit: DEFAULT_LIMIT, offset: 0, total: 0 });
   const showError = !q && !!error;
   const offset = (page - 1) * DEFAULT_LIMIT;
+  const [filtersData, setFiltersData] = useState<FiltersResponse>({ authors: [], subjects: [], langs: [], years: [] });
 
   
 
@@ -60,7 +72,12 @@ export default function CatalogListPage() {
         params.set("limit", String(DEFAULT_LIMIT));
         params.set("offset", String(offset));
         if (q) params.set('q', q);
-        const endpoint = q ? '/api/catalog/books/search' : '/api/catalog/books';
+        if (author) params.set('author', author);
+        if (subject) params.set('subject', subject);
+        if (lang) params.set('lang', lang);
+        if (year) params.set('year', year);
+        const hasAdvancedFilters = !!author || !!subject;
+        const endpoint = q && !hasAdvancedFilters ? '/api/catalog/books/search' : '/api/catalog/books';
         const url = `${endpoint}?${params.toString()}`;
         let data: BookListResponse;
         try {
@@ -78,16 +95,24 @@ export default function CatalogListPage() {
             const needle = q.toLocaleLowerCase();
             const inText = (s?: string | null) => (s ? s.toLocaleLowerCase().includes(needle) : false);
             const filtered = (Array.isArray(data2.items) ? data2.items : []).filter((b: any) => {
+              const authorNames = (b?.authors || []).map((x: any) => (typeof x === 'string' ? x : x?.name || '')).filter(Boolean);
+              const subjectNames = (b?.subjects || []).map((x: any) => (typeof x === 'string' ? x : x?.name || '')).filter(Boolean);
               if (inText(b?.title)) return true;
-              const a = (b?.authors || []).map((x: any) => (typeof x === 'string' ? x : x?.name || '')).filter(Boolean);
-              const s = (b?.subjects || []).map((x: any) => (typeof x === 'string' ? x : x?.name || '')).filter(Boolean);
-              if (a.some(inText)) return true;
-              if (s.some(inText)) return true;
+              if (authorNames.some(inText)) return true;
+              if (subjectNames.some(inText)) return true;
               return false;
             });
-            const total = filtered.length;
-            const pageItems = filtered.slice(offset, offset + DEFAULT_LIMIT);
-            data = { items: pageItems, page: { limit: DEFAULT_LIMIT, offset, total } };
+            const filteredWithParams = filtered.filter((b: any) => {
+              const authorNames = (b?.authors || []).map((x: any) => (typeof x === 'string' ? x : x?.name || '')).filter(Boolean);
+              const subjectNames = (b?.subjects || []).map((x: any) => (typeof x === 'string' ? x : x?.name || '')).filter(Boolean);
+              if (author && !authorNames.some((n: string) => n.toLocaleLowerCase().includes(author.toLocaleLowerCase()))) return false;
+              if (subject && !subjectNames.some((n: string) => n.toLocaleLowerCase().includes(subject.toLocaleLowerCase()))) return false;
+              if (lang && String(b?.lang || '').toLocaleLowerCase() !== lang.toLocaleLowerCase()) return false;
+              if (year && String(b?.year || '') !== String(year)) return false;
+              return true;
+            });
+            const pageItems = filteredWithParams.slice(offset, offset + DEFAULT_LIMIT);
+            data = { items: pageItems, page: { limit: DEFAULT_LIMIT, offset, total: filteredWithParams.length } };
           } else {
             throw e;
           }
@@ -122,11 +147,24 @@ export default function CatalogListPage() {
     })();
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [q, page]);
+  }, [q, page, author, subject, lang, year]);
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "smooth" });
   }, [page]);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const data = await api<FiltersResponse>("/api/catalog/filters");
+        if (!cancelled) setFiltersData(data);
+      } catch {
+        if (!cancelled) setFiltersData({ authors: [], subjects: [], langs: [], years: [] });
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   // load favorites from localStorage
   useEffect(() => {
@@ -186,6 +224,25 @@ export default function CatalogListPage() {
     setSp(params, { replace: false });
   };
 
+  const updateFilter = (key: "author" | "subject" | "lang" | "year", value: string) => {
+    const params = new URLSearchParams(sp);
+    if (q) params.set("q", q); else params.delete("q");
+    if (value) params.set(key, value); else params.delete(key);
+    params.delete("page");
+    setSp(params, { replace: false });
+  };
+
+  const clearFilters = () => {
+    const params = new URLSearchParams(sp);
+    params.delete("author");
+    params.delete("subject");
+    params.delete("lang");
+    params.delete("year");
+    params.delete("page");
+    if (q) params.set("q", q); else params.delete("q");
+    setSp(params, { replace: false });
+  };
+
   const pageNumbers = (() => {
     if (totalPages <= 7) return Array.from({ length: totalPages }, (_, i) => i + 1);
     const nums = new Set<number>([1, totalPages, page - 2, page - 1, page, page + 1, page + 2]);
@@ -196,6 +253,72 @@ export default function CatalogListPage() {
     <div>
       <DashboardHeader />
       <h1 className="text-2xl font-semibold text-[#7b0f2b] mb-4">{t('catalog.title')}</h1>
+      <div className="bg-white border border-gray-100 rounded-lg p-3 sm:p-4 mb-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+          <label className="text-sm text-slate-700">
+            Author
+            <select
+              value={author}
+              onChange={(e) => updateFilter("author", e.target.value)}
+              className="mt-1 w-full border rounded px-2 py-1 text-sm"
+            >
+              <option value="">All authors</option>
+              {filtersData.authors.map((a) => (
+                <option key={a} value={a}>{a}</option>
+              ))}
+            </select>
+          </label>
+          <label className="text-sm text-slate-700">
+            Category
+            <select
+              value={subject}
+              onChange={(e) => updateFilter("subject", e.target.value)}
+              className="mt-1 w-full border rounded px-2 py-1 text-sm"
+            >
+              <option value="">All categories</option>
+              {filtersData.subjects.map((s) => (
+                <option key={s} value={s}>{s}</option>
+              ))}
+            </select>
+          </label>
+          <label className="text-sm text-slate-700">
+            Language
+            <select
+              value={lang}
+              onChange={(e) => updateFilter("lang", e.target.value)}
+              className="mt-1 w-full border rounded px-2 py-1 text-sm"
+            >
+              <option value="">All languages</option>
+              {filtersData.langs.map((l) => (
+                <option key={l} value={l}>{l}</option>
+              ))}
+            </select>
+          </label>
+          <label className="text-sm text-slate-700">
+            Year
+            <select
+              value={year}
+              onChange={(e) => updateFilter("year", e.target.value)}
+              className="mt-1 w-full border rounded px-2 py-1 text-sm"
+            >
+              <option value="">All years</option>
+              {filtersData.years.map((y) => {
+                const val = String(y);
+                return <option key={val} value={val}>{val}</option>;
+              })}
+            </select>
+          </label>
+          <div className="flex items-end">
+            <button
+              type="button"
+              onClick={clearFilters}
+              className="w-full border rounded px-3 py-1 text-sm"
+            >
+              Clear filters
+            </button>
+          </div>
+        </div>
+      </div>
       {showError && <div className="text-red-600">Failed to load: {error}</div>}
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-7 gap-3 sm:gap-4">
         {loading
