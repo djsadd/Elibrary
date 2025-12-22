@@ -1,5 +1,5 @@
 import { Link, useSearchParams } from "react-router-dom";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import DashboardHeader from "../../components/layout/DashboardHeader";
 import { t } from "@/shared/i18n";
 import { api } from "@/shared/api/client";
@@ -26,19 +26,18 @@ type BookListResponse = {
 };
 
 export default function CatalogListPage() {
-  const [sp] = useSearchParams();
+  const [sp, setSp] = useSearchParams();
   const q = (sp.get('q') || '').trim();
+  const rawPage = Number(sp.get('page') || '1');
+  const page = Number.isFinite(rawPage) && rawPage > 0 ? Math.floor(rawPage) : 1;
   const [items, setItems] = useState<Book[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [favorites, setFavorites] = useState<Set<string>>(new Set());
-  const [hasMore, setHasMore] = useState(true);
-  const [loadingMore, setLoadingMore] = useState(false);
-  const DEFAULT_LIMIT = 24;
+  const DEFAULT_LIMIT = 15;
   const [pageInfo, setPageInfo] = useState<{ limit: number; offset: number; total: number }>({ limit: DEFAULT_LIMIT, offset: 0, total: 0 });
-  const sentinelRef = useRef<HTMLDivElement | null>(null);
   const showError = !q && !!error;
-  const [searchFallback, setSearchFallback] = useState(false);
+  const offset = (page - 1) * DEFAULT_LIMIT;
 
   
 
@@ -57,10 +56,9 @@ export default function CatalogListPage() {
       try {
         setLoading(true);
         setError(null);
-        setSearchFallback(false);
         const params = new URLSearchParams();
         params.set("limit", String(DEFAULT_LIMIT));
-        params.set("offset", String(0));
+        params.set("offset", String(offset));
         if (q) params.set('q', q);
         const endpoint = q ? '/api/catalog/books/search' : '/api/catalog/books';
         const url = `${endpoint}?${params.toString()}`;
@@ -87,14 +85,15 @@ export default function CatalogListPage() {
               if (s.some(inText)) return true;
               return false;
             });
-            data = { items: filtered, page: { limit: filtered.length, offset: 0, total: filtered.length } };
-            setSearchFallback(true);
+            const total = filtered.length;
+            const pageItems = filtered.slice(offset, offset + DEFAULT_LIMIT);
+            data = { items: pageItems, page: { limit: DEFAULT_LIMIT, offset, total } };
           } else {
             throw e;
           }
         }
         try {
-          console.groupCollapsed('[Catalog] fetch initial', { endpoint, q, limit: pageInfo.limit, offset: 0 });
+          console.groupCollapsed('[Catalog] fetch initial', { endpoint, q, limit: pageInfo.limit, offset });
           console.info('URL:', url);
           console.info('Raw response:', data);
         } catch {}
@@ -104,9 +103,8 @@ export default function CatalogListPage() {
         setItems(arr);
         const total = data.page?.total ?? arr.length;
         const limit = Math.max(1, data.page?.limit ?? DEFAULT_LIMIT);
-        const offset = data.page?.offset ?? 0;
-        setPageInfo({ limit, offset: offset + arr.length, total });
-        setHasMore(!q && (offset + arr.length < total));
+        const nextOffset = data.page?.offset ?? offset;
+        setPageInfo({ limit, offset: nextOffset, total });
       } catch (e: any) {
         try { console.warn('[Catalog] initial fetch failed:', e); } catch {}
         const msg = (e && typeof e.message === 'string')
@@ -117,7 +115,6 @@ export default function CatalogListPage() {
         if (!cancelled && q) {
           setItems([]);
           setPageInfo((p) => ({ ...p, offset: 0, total: 0 }));
-          setHasMore(false);
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -125,58 +122,11 @@ export default function CatalogListPage() {
     })();
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [q]);
+  }, [q, page]);
 
-  const loadMore = async () => {
-    if (loadingMore || !hasMore) return;
-    if (q && searchFallback) return; // no pagination in fallback mode
-    try {
-      setLoadingMore(true);
-      const params = new URLSearchParams();
-      params.set("limit", String(pageInfo.limit));
-      params.set("offset", String(pageInfo.offset));
-      if (q) params.set('q', q);
-      const endpoint = q ? '/api/catalog/books/search' : '/api/catalog/books';
-      const url = `${endpoint}?${params.toString()}`;
-      const data = await api<BookListResponse>(url);
-      try {
-        console.groupCollapsed('[Catalog] fetch more', { endpoint, q, limit: pageInfo.limit, offset: pageInfo.offset });
-        console.info('URL:', url);
-        console.info('Raw response:', data);
-      } catch {}
-      const arr = Array.isArray(data.items) ? data.items : [];
-      try { console.info('Items parsed:', arr.length, arr.slice(0, 3)); console.groupEnd?.(); } catch {}
-      setItems(prev => {
-        const seen = new Set(prev.map((b) => String(b.id)));
-        const add = arr.filter((b) => !seen.has(String(b.id)));
-        return [...prev, ...add];
-      });
-      const total = data.page?.total ?? pageInfo.total;
-      const nextOffset = pageInfo.offset + arr.length;
-      setPageInfo((p) => ({ ...p, offset: nextOffset, total }));
-      setHasMore(nextOffset < total);
-    } catch (e) {
-      try { console.warn('[Catalog] load more failed:', e); } catch {}
-      // ignore load-more errors, keep hasMore true to allow retry on scroll
-    } finally {
-      setLoadingMore(false);
-    }
-  };
-
-  // intersection observer to auto-load more on mobile scroll
   useEffect(() => {
-    const el = sentinelRef.current;
-    if (!el) return;
-    const io = new IntersectionObserver((entries) => {
-      for (const ent of entries) {
-        if (ent.isIntersecting) {
-          loadMore();
-        }
-      }
-    }, { rootMargin: "300px" });
-    io.observe(el);
-    return () => io.disconnect();
-  }, [sentinelRef.current, hasMore, loadingMore, pageInfo.offset]);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }, [page]);
 
   // load favorites from localStorage
   useEffect(() => {
@@ -227,6 +177,21 @@ export default function CatalogListPage() {
     }
   };
 
+  const totalPages = Math.max(1, Math.ceil(pageInfo.total / DEFAULT_LIMIT));
+  const goToPage = (nextPage: number) => {
+    const normalized = Math.min(Math.max(1, nextPage), totalPages);
+    const params = new URLSearchParams(sp);
+    if (q) params.set("q", q); else params.delete("q");
+    if (normalized > 1) params.set("page", String(normalized)); else params.delete("page");
+    setSp(params, { replace: false });
+  };
+
+  const pageNumbers = (() => {
+    if (totalPages <= 7) return Array.from({ length: totalPages }, (_, i) => i + 1);
+    const nums = new Set<number>([1, totalPages, page - 2, page - 1, page, page + 1, page + 2]);
+    return Array.from(nums).filter((n) => n >= 1 && n <= totalPages).sort((a, b) => a - b);
+  })();
+
   return (
     <div>
       <DashboardHeader />
@@ -266,8 +231,43 @@ export default function CatalogListPage() {
               );
             })}
       </div>
-      {(hasMore || loadingMore) && !loading && (
-        <div ref={sentinelRef} className="py-6 text-center text-slate-400 text-sm">{loadingMore ? 'Loading more…' : 'Scroll to load more'}</div>
+      {!loading && !showError && items.length > 0 && totalPages > 1 && (
+        <div className="flex flex-wrap items-center justify-center gap-2 mt-6">
+          <button
+            type="button"
+            onClick={() => goToPage(page - 1)}
+            disabled={page <= 1}
+            className="px-3 py-1 rounded border text-sm disabled:opacity-50"
+          >
+            Prev
+          </button>
+          {pageNumbers.map((n, idx) => {
+            const prev = pageNumbers[idx - 1];
+            const gap = prev && n - prev > 1;
+            return (
+              <span key={`p-${n}`} className="flex items-center gap-2">
+                {gap && <span className="text-slate-400">...</span>}
+                <button
+                  type="button"
+                  onClick={() => goToPage(n)}
+                  className={n === page
+                    ? "px-3 py-1 rounded bg-[#7b0f2b] text-white text-sm"
+                    : "px-3 py-1 rounded border text-sm"}
+                >
+                  {n}
+                </button>
+              </span>
+            );
+          })}
+          <button
+            type="button"
+            onClick={() => goToPage(page + 1)}
+            disabled={page >= totalPages}
+            className="px-3 py-1 rounded border text-sm disabled:opacity-50"
+          >
+            Next
+          </button>
+        </div>
       )}
       {!loading && !showError && items.length === 0 && (
         <div className="text-slate-500 mt-4">{t('common.noBooks')}</div>
