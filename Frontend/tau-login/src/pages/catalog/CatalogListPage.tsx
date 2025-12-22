@@ -50,6 +50,7 @@ export default function CatalogListPage() {
   const showError = !q && !!error;
   const offset = (page - 1) * DEFAULT_LIMIT;
   const [filtersData, setFiltersData] = useState<FiltersResponse>({ authors: [], subjects: [], langs: [], years: [] });
+  const [subjectFilterText, setSubjectFilterText] = useState("");
 
   
 
@@ -249,8 +250,8 @@ export default function CatalogListPage() {
     return Array.from(nums).filter((n) => n >= 1 && n <= totalPages).sort((a, b) => a - b);
   })();
 
-  const filteredSubjects = subject
-    ? filtersData.subjects.filter((s) => s.toLocaleLowerCase().includes(subject.toLocaleLowerCase()))
+  const filteredSubjects = subjectFilterText
+    ? filtersData.subjects.filter((s) => s.toLocaleLowerCase().includes(subjectFilterText.toLocaleLowerCase()))
     : filtersData.subjects;
 
   return (
@@ -275,17 +276,21 @@ export default function CatalogListPage() {
           <label className="text-sm text-slate-700">
             Category
             <input
-              value={subject}
-              onChange={(e) => updateFilter("subject", e.target.value)}
-              list="catalog-subjects-list"
-              placeholder="Type category..."
+              value={subjectFilterText}
+              onChange={(e) => setSubjectFilterText(e.target.value)}
+              placeholder="Search category..."
               className="mt-1 w-full border rounded px-2 py-1 text-sm"
             />
-            <datalist id="catalog-subjects-list">
+            <select
+              value={subject}
+              onChange={(e) => updateFilter("subject", e.target.value)}
+              className="mt-2 w-full border rounded px-2 py-1 text-sm"
+            >
+              <option value="">All categories</option>
               {filteredSubjects.map((s) => (
-                <option key={s} value={s} />
+                <option key={s} value={s}>{s}</option>
               ))}
-            </datalist>
+            </select>
           </label>
           <label className="text-sm text-slate-700">
             Language
