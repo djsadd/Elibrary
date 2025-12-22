@@ -50,7 +50,6 @@ export default function CatalogListPage() {
   const showError = !q && !!error;
   const offset = (page - 1) * DEFAULT_LIMIT;
   const [filtersData, setFiltersData] = useState<FiltersResponse>({ authors: [], subjects: [], langs: [], years: [] });
-  const [subjectFilterText, setSubjectFilterText] = useState("");
 
   
 
@@ -250,8 +249,8 @@ export default function CatalogListPage() {
     return Array.from(nums).filter((n) => n >= 1 && n <= totalPages).sort((a, b) => a - b);
   })();
 
-  const filteredSubjects = subjectFilterText
-    ? filtersData.subjects.filter((s) => s.toLocaleLowerCase().includes(subjectFilterText.toLocaleLowerCase()))
+  const filteredSubjects = subject
+    ? filtersData.subjects.filter((s) => s.toLocaleLowerCase().includes(subject.toLocaleLowerCase()))
     : filtersData.subjects;
 
   return (
@@ -276,21 +275,17 @@ export default function CatalogListPage() {
           <label className="text-sm text-slate-700">
             Category
             <input
-              value={subjectFilterText}
-              onChange={(e) => setSubjectFilterText(e.target.value)}
-              placeholder="Search category..."
-              className="mt-1 w-full border rounded px-2 py-1 text-sm"
-            />
-            <select
               value={subject}
               onChange={(e) => updateFilter("subject", e.target.value)}
-              className="mt-2 w-full border rounded px-2 py-1 text-sm"
-            >
-              <option value="">All categories</option>
+              list="catalog-subjects-list"
+              placeholder="Type category..."
+              className="mt-1 w-full border rounded px-2 py-1 text-sm"
+            />
+            <datalist id="catalog-subjects-list">
               {filteredSubjects.map((s) => (
-                <option key={s} value={s}>{s}</option>
+                <option key={s} value={s} />
               ))}
-            </select>
+            </datalist>
           </label>
           <label className="text-sm text-slate-700">
             Language
