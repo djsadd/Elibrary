@@ -32,6 +32,7 @@ def get_db():
 
 @router.post("/register", status_code=201)
 def register(req: RegisterRequest, db: Session = Depends(get_db)):
+    raise HTTPException(409, "Регистрация временно закрыта")
     if db.query(User).filter_by(email=req.email).first():
         raise HTTPException(409, "Email already exists")
 
