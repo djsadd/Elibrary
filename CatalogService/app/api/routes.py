@@ -271,210 +271,11 @@ def list_books(
     )
 
 
-# ---- public get ----
-@router.get("/books/{book_id}", response_model=BookOut)
-def get_book(book_id: int, db: Session = Depends(get_db)):
-    b = db.get(Book, book_id)
-    if not b:
-        raise HTTPException(404, "Book not found")
-    return _to_out(b)
-
-
-def save_cover_file(cover_base64: str) -> str:
-    """Сохраняет base64-картинку в файл и возвращает путь для API"""
-    if not cover_base64:
-        return None
-
-    os.makedirs(UPLOAD_DIR, exist_ok=True)
-    file_name = f"{uuid4().hex}.png"
-    file_path = os.path.join(UPLOAD_DIR, file_name)
-
-    # если base64 приходит с префиксом data:image/png;base64, убираем его
-    if "base64," in cover_base64:
-        cover_base64 = cover_base64.split("base64,")[-1]
-
-    with open(file_path, "wb") as f:
-        f.write(base64.b64decode(cover_base64))
-
-    return f"/{UPLOAD_DIR}/{file_name}"  # путь для фронтенда/API
-
-
-# ---- SECURED (admin/librarian) ----
-_admin_guard = Depends(require_roles("admin", "librarian"))
-
-
-@router.post("/books", response_model=BookOut, status_code=201)
-async def create_book(book_in: BookCreate, db: Session = Depends(get_db)):
-    try:
-        # Логируем входные данные
-        print("=== Incoming book payload ===")
-        print(book_in.json())
-        print("=============================")
-
-        authors_list = [a.strip() for a in (book_in.authors or []) if a.strip()]
-        subjects_list = [s.strip() for s in (book_in.subjects or []) if s.strip()]
-        formats_list = [f.strip().upper() for f in (book_in.formats or ["EBOOK"]) if f.strip()]
-
-        cover_file_path = save_cover_file(book_in.cover) if book_in.cover else None
-
-        existing = None
-        if book_in.file_id:
-            existing = db.query(Book).filter(Book.file_id == book_in.file_id).first()
-        if not existing and book_in.download_url:
-            existing = db.query(Book).filter(Book.download_url == book_in.download_url).first()
-
-        if existing:
-            if book_in.title is not None:
-                existing.title = book_in.title
-            if book_in.year is not None:
-                existing.year = book_in.year
-            if book_in.lang is not None:
-                existing.lang = book_in.lang
-            if book_in.pub_info is not None:
-                existing.pub_info = book_in.pub_info
-            if book_in.summary is not None:
-                existing.summary = book_in.summary
-            if book_in.cover:
-                existing.cover = book_in.cover
-                existing.cover_file = cover_file_path
-            if book_in.file_id:
-                existing.file_id = book_in.file_id
-            if book_in.download_url:
-                existing.download_url = book_in.download_url
-            if book_in.source is not None:
-                existing.source = book_in.source
-            if book_in.isbn is not None:
-                existing.isbn = book_in.isbn
-            if book_in.edition is not None:
-                existing.edition = book_in.edition
-            if book_in.page_count is not None:
-                existing.page_count = book_in.page_count
-            if book_in.available_copies is not None:
-                existing.available_copies = book_in.available_copies
-            if book_in.is_public is not None:
-                existing.is_public = book_in.is_public
-
-            if formats_list:
-                existing.formats_list = formats_list
-            if authors_list:
-                existing.authors = _ensure_authors(db, authors_list)
-            if subjects_list:
-                existing.subjects = _ensure_subjects(db, subjects_list)
-
-            db.commit()
-            db.refresh(existing)
-            return _to_out(existing)
-
-        b = Book(
-            title=book_in.title,
-            year=book_in.year,
-            lang=book_in.lang,
-            pub_info=book_in.pub_info,
-            summary=book_in.summary,
-            cover=book_in.cover,
-            cover_file=cover_file_path,
-            file_id=book_in.file_id,
-            download_url=book_in.download_url,
-            source=book_in.source,
-            formats=",".join(formats_list),
-            isbn=book_in.isbn,
-            edition=book_in.edition,
-            page_count=book_in.page_count,
-            available_copies=book_in.available_copies,
-            is_public=book_in.is_public,
-        )
-
-        b.formats_list = formats_list
-        b.authors = _ensure_authors(db, authors_list)
-        b.subjects = _ensure_subjects(db, subjects_list)
-
-        db.add(b)
-        db.commit()
-        db.refresh(b)
-        return _to_out(b)
-
-    except Exception as e:
-        db.rollback()
-        # Логируем ошибку с трассировкой
-        import traceback
-        print("=== Error creating book ===")
-        traceback.print_exc()
-        print("===========================")
-        raise HTTPException(status_code=400, detail=f"Create book failed: {e}")
-
-
-@router.patch("/books/{book_id}", response_model=BookOut, dependencies=[_admin_guard])
-def update_book(book_id: int, book_in: BookUpdate, db: Session = Depends(get_db)):
-    b = db.get(Book, book_id)
-    if not b:
-        raise HTTPException(404, "Book not found")
-
-    update_data = book_in.dict(exclude_unset=True)
-
-    # Обновление простых полей
-    for field in ["title", "year", "lang", "pub_info", "summary", "cover", "file_id",
-                  "download_url", "source", "isbn", "edition", "page_count",
-                  "available_copies", "is_public"]:
-        if field in update_data:
-            setattr(b, field, update_data[field])
-
-    # Обновление authors/subjects
-    if "authors" in update_data:
-        b.authors = _ensure_authors(db, update_data["authors"])
-    if "subjects" in update_data:
-        b.subjects = _ensure_subjects(db, update_data["subjects"])
-
-    # Обновление форматов
-    if "formats" in update_data:
-        formats_list = [f.strip().upper() for f in update_data["formats"] if f.strip()]
-        b.formats = ",".join(formats_list)
-        b.formats_list = formats_list
-
-    # Если пришла новая cover, сохраняем файл
-    if "cover" in update_data and update_data["cover"]:
-        b.cover_file = save_cover_file(update_data["cover"])
-
-    db.commit()
-    db.refresh(b)
-    return _to_out(b)
-
-
-@router.delete("/books/{book_id}", status_code=204, dependencies=[_admin_guard])
-def delete_book(book_id: int, db: Session = Depends(get_db)):
-    b = db.get(Book, book_id)
-    if not b:
-        raise HTTPException(404, "Book not found")
-    db.delete(b)
-    db.commit()
-    return None
-
-
-@router.post("/authors", response_model=str, status_code=status.HTTP_201_CREATED)
-def create_author(payload: AuthorCreate, db: Session = Depends(get_db)):
-    """
-    Создание нового автора.
-    Если автор с таким именем уже существует — возвращает 400.
-    """
-    author = Author(name=payload.name.strip())
-
-    db.add(author)
-    try:
-        db.commit()
-        db.refresh(author)
-    except IntegrityError:
-        db.rollback()
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Автор с именем '{payload.name}' уже существует.",
-        )
-
-    return author.name
-
-
+# ---- public search ----
 @router.get("/books/search", response_model=BookList)
 def search_books(
     db: Session = Depends(get_db),
-    q: Optional[str] = None,        # основной поисковый запрос
+    q: Optional[str] = None,  # Search query
     lang: Optional[str] = None,
     year: Optional[str] = None,
     limit: Optional[int] = Query(None, ge=1, le=100),
@@ -514,6 +315,14 @@ def search_books(
         page={"limit": page_limit, "offset": offset, "total": total},
     )
 
+
+# ---- public get ----
+@router.get("/books/{book_id}", response_model=BookOut)
+def get_book(book_id: int, db: Session = Depends(get_db)):
+    b = db.get(Book, book_id)
+    if not b:
+        raise HTTPException(404, "Book not found")
+    return _to_out(b)
 
 @router.get("/authors", response_model=List[str])
 def list_authors(

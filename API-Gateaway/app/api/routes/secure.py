@@ -73,6 +73,11 @@ async def notification_proxy(path: str, request: Request, _=Depends(auth_require
 
 
 # ====== Catalog ======
+@router.get("/catalog/books/search")
+async def catalog_books_search(request: Request):
+    return await forward(request, settings.CATALOG_SERVICE_URL)
+
+
 @router.get("/catalog/books")
 async def catalog_books(request: Request):
     return await forward(request, settings.CATALOG_SERVICE_URL)
