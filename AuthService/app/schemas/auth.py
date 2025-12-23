@@ -57,7 +57,8 @@ class TokenPair(BaseModel):
 
 
 class PlatonusLoginResponse(TokenPair):
-    student_info: Dict[str, Any]
+    role: Optional[str] = None
+    info: Dict[str, Any]
 
 
 class IntrospectRequest(BaseModel):

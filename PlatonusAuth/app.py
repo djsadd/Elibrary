@@ -40,4 +40,4 @@ def auth_platonus(credentials: Credentials):
             status_code=500, detail=f"Failed to fetch notifications: {exc}"
         ) from exc
 
-    return {"student_info": response["student_info"]}
+    return {"role": response["role"], "info": response["info"]}

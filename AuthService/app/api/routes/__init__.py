@@ -164,14 +164,26 @@ def platonus_login(req: PlatonusLoginRequest, db: Session = Depends(get_db)):
         raise HTTPException(response.status_code, detail)
 
     data = response.json()
-    student_info = data.get("student_info")
-    if not student_info:
+    info = data.get("info") or data.get("student_info")
+    role = data.get("role")
+    if not info:
         raise HTTPException(502, "Invalid response from Platonus auth")
 
-    student = student_info.get("student") or {}
-    iin = student.get("iin")
+    if role == "преподаватель":
+        employee = info.get("employee") or info.get("person") or {}
+        iin = employee.get("iin") or info.get("iin")
+        corporate_email = (
+            employee.get("mail")
+            or employee.get("email")
+            or employee.get("corporateEmail")
+            or info.get("mail")
+            or info.get("email")
+        )
+    else:
+        student = info.get("student") or {}
+        iin = student.get("iin") or info.get("iin")
+        corporate_email = student.get("mail") or info.get("mail")
     print("iin:", iin)
-    corporate_email = student.get("mail")
     if not iin:
         raise HTTPException(502, "Platonus auth response missing required fields")
 
@@ -198,7 +210,8 @@ def platonus_login(req: PlatonusLoginRequest, db: Session = Depends(get_db)):
         access_token=access,
         refresh_token=refresh,
         expires_in=int(exp - __import__("time").time()),
-        student_info=student_info,
+        role=role,
+        info=info,
     )
 
 

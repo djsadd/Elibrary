@@ -83,21 +83,58 @@ def auth(username: str, password: str) -> Dict[str, Any]:
     print("sid:", sid_value)
     print("token:", token_value)
     print("request_headers:", headers)
-    student_info_response = page.request.get(
-      f"https://platonus.tau-edu.kz/rest/student/studentInfo/{person_id}/ru",
+    roles_response = page.request.get(
+      "https://platonus.tau-edu.kz/rest/api/person/roles",
       headers=headers,
     )
     try:
-      student_info = student_info_response.json()
+      roles_data = roles_response.json()
     except ValueError:
-      print("student_info_response_status:", student_info_response.status)
-      print("student_info_response_text:", student_info_response.text())
+      print("roles_response_status:", roles_response.status)
+      print("roles_response_text:", roles_response.text())
       browser.close()
-      raise RuntimeError("studentInfo response is not JSON")
-    print("student_info_response:", student_info)
+      raise RuntimeError("roles response is not JSON")
+    role_names = [
+      str(role.get("name", "")).strip().lower()
+      for role in roles_data
+      if isinstance(role, dict)
+    ]
+    print("roles_response:", roles_data)
+    if "студент" in role_names:
+      student_info_response = page.request.get(
+        f"https://platonus.tau-edu.kz/rest/student/studentInfo/{person_id}/ru",
+        headers=headers,
+      )
+      try:
+        student_info = student_info_response.json()
+      except ValueError:
+        print("student_info_response_status:", student_info_response.status)
+        print("student_info_response_text:", student_info_response.text())
+        browser.close()
+        raise RuntimeError("studentInfo response is not JSON")
+      print("student_info_response:", student_info)
+      browser.close()
+      return {"role": "студент", "info": student_info}
+    if "преподаватель" in role_names:
+      employee_info_response = page.request.get(
+        f"https://platonus.tau-edu.kz/rest/employee/employeeInfo/{person_id}/3/ru?dn=1",
+        headers=headers,
+      )
+      try:
+        employee_info = employee_info_response.json()
+      except ValueError:
+        print("employee_info_response_status:", employee_info_response.status)
+        print("employee_info_response_text:", employee_info_response.text())
+        browser.close()
+        raise RuntimeError("employeeInfo response is not JSON")
+      print("employee_info_response:", employee_info)
+      browser.close()
+      return {"role": "преподаватель", "info": employee_info}
+    if "деканат" in role_names:
+      browser.close()
+      raise RuntimeError("Временно отключено для выбранной роли.")
     browser.close()
-
-    return {"student_info": student_info}
+    raise RuntimeError("Роль не поддерживается для входа.")
 
 
 if __name__ == "__main__":
