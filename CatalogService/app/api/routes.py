@@ -3,7 +3,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request, Header
 from sqlalchemy.orm import Session
 from typing import List, Optional
 import requests
-from sqlalchemy import select, func
+from sqlalchemy import select, func, or_
 from fastapi.responses import StreamingResponse
 
 from app.utils.authz import get_current_user, AuthUser
@@ -252,6 +252,7 @@ def list_books(
     if q:
         like = f"%{q}%"
         query = query.filter(Book.title.ilike(like))
+
     if lang:
         query = query.filter(Book.lang == lang)
     if year:
@@ -476,22 +477,24 @@ def search_books(
     q: Optional[str] = None,        # основной поисковый запрос
     lang: Optional[str] = None,
     year: Optional[str] = None,
-    limit: int = Query(20, ge=1, le=100),
+    limit: Optional[int] = Query(None, ge=1, le=100),
     offset: int = Query(0, ge=0),
 ):
-    limit = clamp_limit(limit)
+    if limit is not None:
+        limit = clamp_limit(limit)
     offset = clamp_offset(offset)
 
     query = db.query(Book)
 
     if q:
         like = f"%{q}%"
-        # Поиск по названию книги
-        query = query.filter(Book.title.ilike(like))
-        # Поиск по авторам или предметам (через join)
-        query = query.outerjoin(Book.authors).outerjoin(Book.subjects).filter(
-            (Author.name.ilike(like)) | (Subject.name.ilike(like))
-        ).distinct()
+        # Search across title OR author OR subject
+        query = (
+            query.outerjoin(Book.authors)
+            .outerjoin(Book.subjects)
+            .filter(or_(Book.title.ilike(like), Author.name.ilike(like), Subject.name.ilike(like)))
+            .distinct()
+        )
 
     if lang:
         query = query.filter(Book.lang == lang)
@@ -499,11 +502,16 @@ def search_books(
         query = query.filter(Book.year == year)
 
     total = query.count()
-    rows = query.offset(offset).limit(limit).all()
+    if limit is None:
+        rows = query.offset(offset).all()
+        page_limit = len(rows)
+    else:
+        rows = query.offset(offset).limit(limit).all()
+        page_limit = limit
 
     return BookList(
         items=[_to_out(b) for b in rows],
-        page={"limit": limit, "offset": offset, "total": total},
+        page={"limit": page_limit, "offset": offset, "total": total},
     )
 
 
@@ -902,3 +910,4 @@ if _raw_override_mb:
     except ValueError:
         # ignore invalid override, keep default
         pass
+
