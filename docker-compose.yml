@@ -109,8 +109,20 @@ services:
       - postgres
       - catalog
       - gateway
+      - redis
     ports:
       - "8009:8009"
+
+  otherlibraryintegrations_worker:
+    build: ./OtherLibraryIntegrations
+    container_name: otherlibraryintegrations_worker
+    env_file:
+      - OtherLibraryIntegrations/.env.prod
+    depends_on:
+      - redis
+      - postgres
+      - catalog
+    command: celery -A app.tasks worker -l info
 
   ai:
     build: ./AI

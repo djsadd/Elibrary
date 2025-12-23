@@ -17,6 +17,7 @@ class Settings(BaseSettings):
 
     # OpenAI / LLM
     OPENAI_API_KEY: str | None = None
+    REDIS_URL: str = "redis://localhost:6379/0"
 
     DATABASE_URL: str = f"sqlite:///{BASE_DIR / 'library.db'}"
     UPLOAD_DIR: str = str(BASE_DIR / "uploads")

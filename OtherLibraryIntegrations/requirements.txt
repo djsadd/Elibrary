@@ -11,4 +11,5 @@ aiohttp
 pymupdf
 pillow
 openai
-
+celery
+redis
