@@ -37,8 +37,6 @@ export default function SearchResultsPage() {
         setError(null);
         const params = new URLSearchParams();
         params.set('q', q);
-        params.set('limit', '24');
-        params.set('offset', '0');
         const url = `/api/catalog/books/search?${params.toString()}`;
         let data: BookListResponse;
         try {
@@ -110,4 +108,3 @@ export default function SearchResultsPage() {
     </div>
   );
 }
-
