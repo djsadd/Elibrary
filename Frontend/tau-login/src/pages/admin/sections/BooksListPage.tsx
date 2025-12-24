@@ -9,29 +9,71 @@ export default function BooksListPage() {
   const [items, setItems] = useState<Book[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [q, setQ] = useState("");
+  const [limit, setLimit] = useState(20);
+  const [offset, setOffset] = useState(0);
+  const [total, setTotal] = useState(0);
+
+  useEffect(() => {
+    setOffset(0);
+  }, [q, limit]);
 
   useEffect(() => {
     let cancelled = false;
-    (async () => {
+    const tmr = setTimeout(async () => {
       try {
         setLoading(true);
         setError(null);
-        const data = await api<{ items: Book[] }>("/api/catalog/books");
-        if (!cancelled) setItems(Array.isArray(data.items) ? data.items : []);
+        const params = new URLSearchParams();
+        if (q.trim()) params.set("q", q.trim());
+        params.set("limit", String(limit));
+        params.set("offset", String(offset));
+        const data = await api<{ items: Book[]; page?: { limit: number; offset: number; total: number } }>(
+          `/api/catalog/books?${params.toString()}`
+        );
+        if (!cancelled) {
+          setItems(Array.isArray(data.items) ? data.items : []);
+          setTotal(data?.page?.total || 0);
+        }
       } catch (e: any) {
         if (!cancelled) setError(e?.message || String(e));
       } finally {
         if (!cancelled) setLoading(false);
       }
-    })();
-    return () => { cancelled = true; };
-  }, []);
+    }, 300);
+    return () => { cancelled = true; clearTimeout(tmr); };
+  }, [q, limit, offset]);
+
+  const page = Math.floor(offset / limit) + 1;
+  const pages = Math.max(1, Math.ceil((total || 0) / limit));
+  const canPrev = offset > 0;
+  const canNext = offset + limit < total;
 
   return (
     <div>
       <div className="flex items-center justify-between mb-3">
         <h2 className="text-lg font-semibold">{t('admin.books.heading')}</h2>
         <a href="/admin/books/new" className="px-3 py-2 rounded-md bg-slate-700 text-white text-sm">{t('admin.books.addBook')}</a>
+      </div>
+      <div className="flex items-end justify-between gap-3 mb-3">
+        <div className="flex items-center gap-2">
+          <input
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder={t('admin.common.search')}
+            className="px-3 py-2 rounded-md border border-slate-200 text-sm min-w-[220px]"
+          />
+          <select
+            value={limit}
+            onChange={(e) => setLimit(Number(e.target.value) || 20)}
+            className="px-2 py-2 rounded-md border border-slate-200 text-sm"
+          >
+            {[10,20,50,100].map(n => <option key={n} value={n}>{n}</option>)}
+          </select>
+        </div>
+        <div className="text-sm text-slate-500">
+          {total ? `Page ${page} of ${pages}` : ""}
+        </div>
       </div>
       {loading && <div className="text-slate-500">Loading…</div>}
       {error && <div className="text-red-600">Failed to load: {error}</div>}
@@ -74,6 +116,31 @@ export default function BooksListPage() {
               )}
             </tbody>
           </table>
+        </div>
+      )}
+      {!loading && !error && (
+        <div className="flex items-center justify-between mt-3">
+          <div className="text-sm text-slate-500">
+            {total ? `Showing ${Math.min(offset + 1, total)}-${Math.min(offset + items.length, total)} of ${total}` : ""}
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setOffset((o) => Math.max(0, o - limit))}
+              disabled={!canPrev}
+              className="px-3 py-2 border rounded disabled:opacity-50"
+            >
+              Prev
+            </button>
+            <button
+              type="button"
+              onClick={() => setOffset((o) => o + limit)}
+              disabled={!canNext}
+              className="px-3 py-2 border rounded disabled:opacity-50"
+            >
+              Next
+            </button>
+          </div>
         </div>
       )}
     </div>
