@@ -11,6 +11,7 @@ from fastapi import File, UploadFile, Form
 from app.core.db import SessionLocal
 from app.models.book import Book, Author, Subject, Playlist, UserBook, UserBookNote
 from app.schemas.book import BookCreate, BookUpdate, BookOut, BookList, AuthorOut, SubjectOut
+from app.schemas.files import FileWithBooksOut
 from app.utils.pagination import clamp_limit, clamp_offset
 from app.core.config import settings
 from app.utils.authz import require_roles, AuthUser
@@ -231,6 +232,46 @@ def _to_out(b: Book) -> BookOut:
         subjects=[SubjectOut.from_orm(s) for s in b.subjects],
     )
 
+
+# ---- files with books ----
+@router.get("/files", response_model=List[FileWithBooksOut])
+def list_files_with_books(
+    db: Session = Depends(get_db),
+    q: Optional[str] = None,
+):
+    query = db.query(Book).filter(Book.file_id.isnot(None)).filter(Book.file_id != "")
+    if q:
+        like = f"%{q}%"
+        query = query.filter(
+            or_(
+                Book.file_id.ilike(like),
+                Book.title.ilike(like),
+            )
+        )
+    rows = query.order_by(Book.file_id.asc(), Book.id.asc()).all()
+
+    grouped: dict[str, FileWithBooksOut] = {}
+    for b in rows:
+        file_id = (b.file_id or "").strip()
+        if not file_id:
+            continue
+        if file_id not in grouped:
+            grouped[file_id] = FileWithBooksOut(
+                file_id=file_id,
+                download_url=b.download_url,
+                books=[],
+            )
+        grouped[file_id].books.append(
+            BookMinimal(
+                id=b.id,
+                title=b.title,
+                cover=b.cover,
+                authors=[{"id": a.id, "name": a.name} for a in (b.authors or [])],
+                formats=b.formats_list,
+            )
+        )
+
+    return list(grouped.values())
 
 # ---- public list ----
 @router.get("/books", response_model=BookList)
