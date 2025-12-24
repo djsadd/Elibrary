@@ -1,11 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import { api } from "@/shared/api/client";
 import { t } from "@/shared/i18n";
+
+type Author = { id: number | string; name: string };
 
 export default function AuthorsPage() {
   const [q, setQ] = useState("");
   const [limit, setLimit] = useState(50);
-  const [authors, setAuthors] = useState<string[]>([]);
+  const [authors, setAuthors] = useState<Author[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [refreshTick, setRefreshTick] = useState(0);
@@ -25,7 +28,7 @@ export default function AuthorsPage() {
         const params = new URLSearchParams();
         if (q.trim()) params.set("q", q.trim());
         if (limit) params.set("limit", String(limit));
-        const data = await api<string[]>(`/api/catalog/authors${params.size ? `?${params.toString()}` : ""}`);
+        const data = await api<Author[]>(`/api/catalog/authors/details${params.size ? `?${params.toString()}` : ""}`);
         if (!cancelled) setAuthors(Array.isArray(data) ? data : []);
       } catch (e: any) {
         if (!cancelled) setError(e?.message || String(e));
@@ -37,11 +40,12 @@ export default function AuthorsPage() {
   }, [q, limit, refreshTick]);
 
   const grouped = useMemo(() => {
-    const map = new Map<string, string[]>();
-    for (const name of authors) {
+    const map = new Map<string, Author[]>();
+    for (const author of authors) {
+      const name = author?.name || "";
       const key = (name?.[0] || "?").toUpperCase();
       if (!map.has(key)) map.set(key, []);
-      map.get(key)!.push(name);
+      map.get(key)!.push(author);
     }
     return Array.from(map.entries()).sort(([a],[b]) => a.localeCompare(b));
   }, [authors]);
@@ -139,10 +143,18 @@ export default function AuthorsPage() {
                 <div key={letter}>
                   <div className="px-4 py-2 text-xs font-semibold uppercase text-slate-500 bg-slate-50 border-b">{letter}</div>
                   <ul className="divide-y">
-                    {names.map((name) => (
-                      <li key={name} className="px-4 py-3 flex items-center gap-3 hover:bg-slate-50">
-                        <Avatar name={name} />
-                        <div className="text-sm text-slate-800">{name}</div>
+                    {names.map((author) => (
+                      <li key={String(author.id)} className="px-4 py-3 flex items-center gap-3 hover:bg-slate-50">
+                        <Avatar name={author.name} />
+                        <div className="flex-1 min-w-0">
+                          <div className="text-sm text-slate-800 truncate">{author.name}</div>
+                        </div>
+                        <Link
+                          to={`/admin/authors/${author.id}/edit`}
+                          className="text-sm text-[#7b0f2b] hover:underline"
+                        >
+                          Edit
+                        </Link>
                       </li>
                     ))}
                   </ul>

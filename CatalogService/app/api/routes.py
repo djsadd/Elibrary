@@ -26,7 +26,7 @@ from typing import List
 from app.schemas.playlist import PlaylistCreate, PlaylistUpdate, PlaylistOut
 from app.schemas.userbook import UserBookOut, UserBookCreate, UserBookUpdate, BookMinimal, UserBookWithBookOut
 from app.schemas.userbook_note import UserBookNoteOut, UserBookNoteCreate, UserBookNoteUpdate
-from app.schemas.authors import AuthorCreate
+from app.schemas.authors import AuthorCreate, AuthorUpdate, AuthorDetail
 from app.schemas.subjects import SubjectCreate, SubjectUpdate, SubjectDetail
 
 router = APIRouter(prefix="/catalog", tags=["catalog"])
@@ -335,6 +335,69 @@ def list_authors(
         query = query.filter(Author.name.ilike(f"%{q}%"))
     authors = query.order_by(Author.name.asc()).limit(limit).all()
     return [a.name for a in authors]
+
+
+def _author_to_detail(author: Author) -> AuthorDetail:
+    books = [
+        BookMinimal(
+            id=b.id,
+            title=b.title,
+            cover=b.cover,
+            authors=[{"id": a.id, "name": a.name} for a in b.authors],
+            formats=b.formats_list,
+        )
+        for b in (author.books or [])
+    ]
+    return AuthorDetail(id=author.id, name=author.name, books=books)
+
+
+@router.get("/authors/details", response_model=List[AuthorDetail])
+def list_authors_details(
+    db: Session = Depends(get_db),
+    q: Optional[str] = None,
+    limit: int = Query(50, ge=1, le=200),
+):
+    query = db.query(Author)
+    if q:
+        query = query.filter(Author.name.ilike(f"%{q}%"))
+    authors = query.order_by(Author.name.asc()).limit(limit).all()
+    return [_author_to_detail(a) for a in authors]
+
+
+@router.get("/authors/{author_id}", response_model=AuthorDetail)
+def get_author(author_id: int, db: Session = Depends(get_db)):
+    author = db.get(Author, author_id)
+    if not author:
+        raise HTTPException(status_code=404, detail="Author not found")
+    return _author_to_detail(author)
+
+
+@router.patch("/authors/{author_id}", response_model=AuthorDetail)
+def update_author(
+    author_id: int,
+    payload: AuthorUpdate,
+    db: Session = Depends(get_db),
+):
+    author = db.get(Author, author_id)
+    if not author:
+        raise HTTPException(status_code=404, detail="Author not found")
+
+    new_name = payload.name.strip()
+    if not new_name:
+        raise HTTPException(status_code=400, detail="Author name is required")
+
+    author.name = new_name
+    try:
+        db.commit()
+        db.refresh(author)
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(
+            status_code=400,
+            detail=f"Author '{payload.name}' already exists.",
+        )
+
+    return _author_to_detail(author)
 
 
 @router.post("/subjects", response_model=str, status_code=status.HTTP_201_CREATED)

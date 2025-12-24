@@ -60,7 +60,7 @@ export default function BooksListPage() {
           <input
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder={t('admin.common.search')}
+            placeholder="Напишите название книги или автора"
             className="px-3 py-2 rounded-md border border-slate-200 text-sm min-w-[220px]"
           />
           <select

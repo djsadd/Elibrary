@@ -26,6 +26,7 @@ import EditBookPage from "../pages/admin/EditBookPage";
 import EditPlaylistPage from "../pages/admin/EditPlaylistPage";
 import UsersPage from "../pages/admin/sections/UsersPage";
 import AuthorsPage from "../pages/admin/sections/AuthorsPage";
+import EditAuthorPage from "../pages/admin/EditAuthorPage";
 import SubjectsPage from "../pages/admin/sections/SubjectsPage";
 import EditSubjectPage from "../pages/admin/EditSubjectPage";
 import FilesPage from "../pages/admin/sections/FilesPage";
@@ -78,6 +79,7 @@ const router = createBrowserRouter([
             { path: "playlists/:id/edit", element: <WithTitle title="Edit Playlist - TAU"><EditPlaylistPage /></WithTitle> },
             { path: "users", element: <WithTitle title="Admin Users - TAU"><UsersPage /></WithTitle> },
             { path: "authors", element: <WithTitle title="Admin Authors - TAU"><AuthorsPage /></WithTitle> },
+            { path: "authors/:id/edit", element: <WithTitle title="Edit Author - TAU"><EditAuthorPage /></WithTitle> },
             { path: "subjects", element: <WithTitle title="Admin Subjects - TAU"><SubjectsPage /></WithTitle> },
             { path: "subjects/:id/edit", element: <WithTitle title="Edit Subject - TAU"><EditSubjectPage /></WithTitle> },
             { path: "files", element: <WithTitle title="Admin Files - TAU"><FilesPage /></WithTitle> },
