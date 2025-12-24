@@ -27,7 +27,7 @@ from app.schemas.playlist import PlaylistCreate, PlaylistUpdate, PlaylistOut
 from app.schemas.userbook import UserBookOut, UserBookCreate, UserBookUpdate, BookMinimal, UserBookWithBookOut
 from app.schemas.userbook_note import UserBookNoteOut, UserBookNoteCreate, UserBookNoteUpdate
 from app.schemas.authors import AuthorCreate
-from app.schemas.subjects import SubjectCreate
+from app.schemas.subjects import SubjectCreate, SubjectUpdate
 
 router = APIRouter(prefix="/catalog", tags=["catalog"])
 
@@ -359,6 +359,34 @@ def create_subject(payload: SubjectCreate, db: Session = Depends(get_db)):
     return subject.name
 
 
+@router.patch("/subjects/{subject_id}", response_model=str)
+def update_subject(
+    subject_id: int,
+    payload: SubjectUpdate,
+    db: Session = Depends(get_db),
+):
+    subject = db.get(Subject, subject_id)
+    if not subject:
+        raise HTTPException(status_code=404, detail="Subject not found")
+
+    new_name = payload.name.strip()
+    if not new_name:
+        raise HTTPException(status_code=400, detail="Subject name is required")
+
+    subject.name = new_name
+    try:
+        db.commit()
+        db.refresh(subject)
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(
+            status_code=400,
+            detail=f"Subject '{payload.name}' already exists.",
+        )
+
+    return subject.name
+
+
 @router.get("/subjects", response_model=List[str])
 def list_subjects(
     db: Session = Depends(get_db),
@@ -370,6 +398,27 @@ def list_subjects(
         query = query.filter(Subject.name.ilike(f"%{q}%"))
     subjects = query.order_by(Subject.name.asc()).limit(limit).all()
     return [s.name for s in subjects]
+
+
+@router.get("/subjects/details", response_model=List[SubjectOut])
+def list_subjects_details(
+    db: Session = Depends(get_db),
+    q: Optional[str] = None,
+    limit: int = Query(50, ge=1, le=200),
+):
+    query = db.query(Subject)
+    if q:
+        query = query.filter(Subject.name.ilike(f"%{q}%"))
+    subjects = query.order_by(Subject.name.asc()).limit(limit).all()
+    return subjects
+
+
+@router.get("/subjects/{subject_id}", response_model=SubjectOut)
+def get_subject(subject_id: int, db: Session = Depends(get_db)):
+    subject = db.get(Subject, subject_id)
+    if not subject:
+        raise HTTPException(status_code=404, detail="Subject not found")
+    return subject
 
 
 @router.get("/langs", response_model=List[str])

@@ -27,6 +27,7 @@ import EditPlaylistPage from "../pages/admin/EditPlaylistPage";
 import UsersPage from "../pages/admin/sections/UsersPage";
 import AuthorsPage from "../pages/admin/sections/AuthorsPage";
 import SubjectsPage from "../pages/admin/sections/SubjectsPage";
+import EditSubjectPage from "../pages/admin/EditSubjectPage";
 import FilesPage from "../pages/admin/sections/FilesPage";
 import SettingsPage from "../pages/admin/sections/SettingsPage";
 import IntegrationsPage from "../pages/admin/sections/IntegrationsPage";
@@ -78,6 +79,7 @@ const router = createBrowserRouter([
             { path: "users", element: <WithTitle title="Admin Users - TAU"><UsersPage /></WithTitle> },
             { path: "authors", element: <WithTitle title="Admin Authors - TAU"><AuthorsPage /></WithTitle> },
             { path: "subjects", element: <WithTitle title="Admin Subjects - TAU"><SubjectsPage /></WithTitle> },
+            { path: "subjects/:id/edit", element: <WithTitle title="Edit Subject - TAU"><EditSubjectPage /></WithTitle> },
             { path: "files", element: <WithTitle title="Admin Files - TAU"><FilesPage /></WithTitle> },
             { path: "roles", element: <WithTitle title="Admin Roles - TAU"><RolesPage /></WithTitle> },
             { path: "reports", element: <WithTitle title="Admin Reports - TAU"><ReportsPage /></WithTitle> },
