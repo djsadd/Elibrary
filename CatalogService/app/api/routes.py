@@ -27,7 +27,7 @@ from app.schemas.playlist import PlaylistCreate, PlaylistUpdate, PlaylistOut
 from app.schemas.userbook import UserBookOut, UserBookCreate, UserBookUpdate, BookMinimal, UserBookWithBookOut
 from app.schemas.userbook_note import UserBookNoteOut, UserBookNoteCreate, UserBookNoteUpdate
 from app.schemas.authors import AuthorCreate
-from app.schemas.subjects import SubjectCreate, SubjectUpdate
+from app.schemas.subjects import SubjectCreate, SubjectUpdate, SubjectDetail
 
 router = APIRouter(prefix="/catalog", tags=["catalog"])
 
@@ -359,7 +359,21 @@ def create_subject(payload: SubjectCreate, db: Session = Depends(get_db)):
     return subject.name
 
 
-@router.patch("/subjects/{subject_id}", response_model=str)
+def _subject_to_detail(subject: Subject) -> SubjectDetail:
+    books = [
+        BookMinimal(
+            id=b.id,
+            title=b.title,
+            cover=b.cover,
+            authors=[{"id": a.id, "name": a.name} for a in b.authors],
+            formats=b.formats_list,
+        )
+        for b in (subject.books or [])
+    ]
+    return SubjectDetail(id=subject.id, name=subject.name, books=books)
+
+
+@router.patch("/subjects/{subject_id}", response_model=SubjectDetail)
 def update_subject(
     subject_id: int,
     payload: SubjectUpdate,
@@ -384,7 +398,7 @@ def update_subject(
             detail=f"Subject '{payload.name}' already exists.",
         )
 
-    return subject.name
+    return _subject_to_detail(subject)
 
 
 @router.get("/subjects", response_model=List[str])
@@ -413,12 +427,12 @@ def list_subjects_details(
     return subjects
 
 
-@router.get("/subjects/{subject_id}", response_model=SubjectOut)
+@router.get("/subjects/{subject_id}", response_model=SubjectDetail)
 def get_subject(subject_id: int, db: Session = Depends(get_db)):
     subject = db.get(Subject, subject_id)
     if not subject:
         raise HTTPException(status_code=404, detail="Subject not found")
-    return subject
+    return _subject_to_detail(subject)
 
 
 @router.get("/langs", response_model=List[str])

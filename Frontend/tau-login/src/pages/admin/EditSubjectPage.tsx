@@ -2,12 +2,19 @@ import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { api } from "@/shared/api/client";
 
-type Subject = { id: number | string; name: string };
+type SubjectBook = {
+  id: number | string;
+  title: string;
+  authors?: { id: number | string; name: string }[];
+  formats?: string[];
+  cover?: string | null;
+};
+type SubjectDetail = { id: number | string; name: string; books?: SubjectBook[] };
 
 export default function EditSubjectPage() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const [item, setItem] = useState<Subject | null>(null);
+  const [item, setItem] = useState<SubjectDetail | null>(null);
   const [name, setName] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -20,7 +27,7 @@ export default function EditSubjectPage() {
         setLoading(true);
         setError(null);
         if (!id) throw new Error("Missing subject id");
-        const data = await api<Subject>(`/api/catalog/subjects/${id}`);
+        const data = await api<SubjectDetail>(`/api/catalog/subjects/${id}`);
         if (!cancelled) {
           setItem(data || null);
           setName(data?.name || "");
@@ -99,6 +106,35 @@ export default function EditSubjectPage() {
       ) : (
         <div className="text-slate-500">Not found</div>
       )}
+
+      {!loading && item ? (
+        <div className="bg-white border rounded-md shadow-sm p-4 max-w-2xl">
+          <div className="flex items-center justify-between">
+            <div className="text-sm font-medium text-slate-700">Books in this subject</div>
+            <div className="text-xs text-slate-500">{item.books?.length || 0} items</div>
+          </div>
+          <div className="mt-3 border rounded-md divide-y max-h-80 overflow-auto">
+            {(item.books || []).map((b) => (
+              <div key={String(b.id)} className="px-3 py-2 flex items-center gap-3">
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm text-slate-800 truncate">{b.title}</div>
+                  {b.authors?.length ? (
+                    <div className="text-xs text-slate-500 truncate">
+                      {b.authors.map((a) => a.name).filter(Boolean).join(", ")}
+                    </div>
+                  ) : null}
+                </div>
+                {b.formats?.length ? (
+                  <div className="text-xs text-slate-500">{b.formats.join(", ")}</div>
+                ) : null}
+              </div>
+            ))}
+            {!item.books?.length ? (
+              <div className="px-3 py-6 text-center text-slate-500 text-sm">No books linked yet</div>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
