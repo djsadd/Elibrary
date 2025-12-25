@@ -11,7 +11,7 @@ from fastapi import File, UploadFile, Form
 from app.core.db import SessionLocal
 from app.models.book import Book, Author, Subject, Playlist, UserBook, UserBookNote
 from app.schemas.book import BookCreate, BookUpdate, BookOut, BookList, AuthorOut, SubjectOut
-from app.schemas.files import FileWithBooksOut
+from app.schemas.files import FileWithBooksOut, FilesList
 from app.utils.pagination import clamp_limit, clamp_offset
 from app.core.config import settings
 from app.utils.authz import require_roles, AuthUser
@@ -234,21 +234,49 @@ def _to_out(b: Book) -> BookOut:
 
 
 # ---- files with books ----
-@router.get("/files", response_model=List[FileWithBooksOut])
+@router.get("/files", response_model=FilesList)
 def list_files_with_books(
     db: Session = Depends(get_db),
     q: Optional[str] = None,
+    limit: int = Query(20, ge=1, le=100),
+    offset: int = Query(0, ge=0),
 ):
-    query = db.query(Book).filter(Book.file_id.isnot(None)).filter(Book.file_id != "")
+    limit = clamp_limit(limit)
+    offset = clamp_offset(offset)
+
+    base = db.query(Book).filter(Book.file_id.isnot(None)).filter(Book.file_id != "")
     if q:
         like = f"%{q}%"
-        query = query.filter(
-            or_(
-                Book.file_id.ilike(like),
-                Book.title.ilike(like),
-            )
+        base = base.filter(or_(Book.file_id.ilike(like), Book.title.ilike(like)))
+
+    total = (
+        db.query(func.count(func.distinct(Book.file_id)))
+        .filter(Book.file_id.isnot(None))
+        .filter(Book.file_id != "")
+    )
+    if q:
+        like = f"%{q}%"
+        total = total.filter(or_(Book.file_id.ilike(like), Book.title.ilike(like)))
+    total_count = total.scalar() or 0
+
+    file_ids = [
+        r[0]
+        for r in base.with_entities(Book.file_id)
+        .distinct()
+        .order_by(Book.file_id.asc())
+        .offset(offset)
+        .limit(limit)
+        .all()
+    ]
+
+    rows = []
+    if file_ids:
+        rows = (
+            db.query(Book)
+            .filter(Book.file_id.in_(file_ids))
+            .order_by(Book.file_id.asc(), Book.id.asc())
+            .all()
         )
-    rows = query.order_by(Book.file_id.asc(), Book.id.asc()).all()
 
     grouped: dict[str, FileWithBooksOut] = {}
     for b in rows:
@@ -271,7 +299,10 @@ def list_files_with_books(
             )
         )
 
-    return list(grouped.values())
+    return FilesList(
+        items=[grouped[fid] for fid in file_ids if fid in grouped],
+        page={"limit": limit, "offset": offset, "total": total_count},
+    )
 
 # ---- public list ----
 @router.get("/books", response_model=BookList)
