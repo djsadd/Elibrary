@@ -12,6 +12,12 @@ function readAsDataUrl(file: File): Promise<string> {
   });
 }
 
+function getApiBase(): string {
+  const raw = import.meta.env.VITE_API_URL as string | undefined;
+  if (raw && /^https?:\/\//i.test(raw)) return raw.replace(/\/$/, "");
+  return window.location.origin;
+}
+
 export default function CreateBookPage() {
   const [title, setTitle] = useState("");
   const [year, setYear] = useState("");
@@ -63,8 +69,8 @@ export default function CreateBookPage() {
 
   // fetch server lists on mount and whenever local additions change
   useEffect(() => {
-    const BASE = import.meta.env.VITE_API_URL ?? "http://localhost:8000";
-    const base = `${BASE}/api/catalog`;
+    const apiBase = getApiBase();
+    const base = `${apiBase}/api/catalog`;
     const token = localStorage.getItem('token');
     const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
 
@@ -130,7 +136,7 @@ export default function CreateBookPage() {
     e.preventDefault();
     // New flow: if a PDF is attached, upload it as a RAW request first to bypass part-size limits,
     // then POST book metadata as multipart/form-data including returned file_id/download_url.
-    const BASE = import.meta.env.VITE_API_URL ?? "http://localhost:8000";
+    const BASE = getApiBase();
     const apiBooksPath = "/api/catalog/books";
     const uploadRawUrl = `${BASE}/api/catalog/upload/raw`; // raw upload endpoint
 

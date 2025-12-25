@@ -23,6 +23,12 @@ type Book = {
 
 type Review = { id: string; rating: number; text: string; author?: string; created_at: string };
 
+function getApiBase(): string {
+  const raw = import.meta.env.VITE_API_URL as string | undefined;
+  if (raw && /^https?:\/\//i.test(raw)) return raw.replace(/\/$/, "");
+  return window.location.origin;
+}
+
 export default function CatalogDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -40,7 +46,7 @@ export default function CatalogDetailPage() {
   const [rating, setRating] = useState<number>(0);
   const [reviewText, setReviewText] = useState<string>("");
 
-  const BASE = import.meta.env.VITE_API_URL ?? "http://localhost:8000";
+  const BASE = getApiBase();
 
   function humanizeFormat(val?: string | null): string {
     const v = String(val || "").toUpperCase();

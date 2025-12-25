@@ -34,6 +34,12 @@ function readAsDataUrl(file: File): Promise<string> {
   });
 }
 
+function getApiBase(): string {
+  const raw = import.meta.env.VITE_API_URL as string | undefined;
+  if (raw && /^https?:\/\//i.test(raw)) return raw.replace(/\/$/, "");
+  return window.location.origin;
+}
+
 export default function EditBookPage() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -71,8 +77,8 @@ export default function EditBookPage() {
   // fetch lists + book
   useEffect(() => {
     let cancelled = false;
-    const BASE = import.meta.env.VITE_API_URL ?? "http://localhost:8000";
-    const base = `${BASE}/api/catalog`;
+    const apiBase = getApiBase();
+    const base = `${apiBase}/api/catalog`;
     const token = localStorage.getItem('token');
     const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
 
@@ -134,7 +140,7 @@ export default function EditBookPage() {
     e.preventDefault();
     try {
       // optionally upload new PDF first
-      const BASE = import.meta.env.VITE_API_URL ?? "http://localhost:8000";
+      const BASE = getApiBase();
       const uploadRawUrl = `${BASE}/api/catalog/upload/raw`;
       let fileMeta: any = null;
       if (pdfFile) {
