@@ -70,3 +70,25 @@ class IntrospectResponse(BaseModel):
     user_id: Optional[int] = None
     roles: List[str] = []
     exp: Optional[int] = None
+
+
+class UserAdminOut(BaseModel):
+    id: int
+    email: EmailStr
+    iin: Optional[str] = None
+    phone: Optional[str] = None
+    role: Optional[str] = None
+    permissions: Optional[str] = None
+    institution: Optional[str] = None
+    faculty: Optional[str] = None
+    group_name: Optional[str] = None
+    subscription_type: Optional[str] = None
+    is_active: Optional[bool] = None
+    created_at: Optional[datetime] = None
+
+
+class UsersListResponse(BaseModel):
+    items: List[UserAdminOut]
+    total: int
+    limit: int
+    offset: int

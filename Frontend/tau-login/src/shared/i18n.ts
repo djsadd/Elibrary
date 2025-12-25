@@ -71,6 +71,22 @@ const dict: Record<Lang, Record<string, any>> = {
           failed: 'Failed to load books',
         },
       },
+      users: {
+        searchPlaceholder: 'Search users',
+        total: 'Total',
+        empty: 'No users found',
+        table: {
+          id: 'ID',
+          email: 'Email',
+          role: 'Role',
+          iin: 'IIN',
+          institution: 'Institution',
+          faculty: 'Faculty',
+          group: 'Group',
+          active: 'Active',
+          created: 'Created',
+        },
+      },
       taxonomy: {
         authors: {
           heading: 'Authors',

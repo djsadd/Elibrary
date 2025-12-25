@@ -1,5 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
+from sqlalchemy import or_
+from typing import Optional
 import random
 import requests
 from app.core.db import SessionLocal
@@ -15,6 +17,8 @@ from app.schemas.auth import (
     IntrospectResponse,
     UpdateProfileRequest,
     VerifyCodeRequest,
+    UserAdminOut,
+    UsersListResponse,
 )
 from app.utils.security import hash_password, verify_password
 from app.utils.tokens import create_access, create_refresh, decode
@@ -28,6 +32,21 @@ def get_db():
         yield db
     finally:
         db.close()
+
+
+def require_admin(request: Request) -> dict:
+    auth = request.headers.get("authorization", "")
+    tok = auth.split(" ", 1)[1] if auth.lower().startswith("bearer ") else None
+    data = decode(tok) if tok else None
+    if not data:
+        raise HTTPException(401, "Invalid token")
+    roles = data.get("roles") or []
+    if isinstance(roles, str):
+        roles = [roles]
+    role_set = {str(r).strip().lower() for r in roles if r}
+    if not role_set.intersection({"admin", "librarian"}):
+        raise HTTPException(403, "Forbidden")
+    return data
 
 
 @router.post("/register", status_code=201)
@@ -306,3 +325,59 @@ def get_profile(request: Request, db: Session = Depends(get_db)):
         "github_id": u.github_id,
         "created_at": u.created_at if hasattr(u, "created_at") else None,
     }
+
+
+@router.get("/users", response_model=UsersListResponse)
+def list_users(
+    request: Request,
+    db: Session = Depends(get_db),
+    q: Optional[str] = None,
+    limit: int = 100,
+    offset: int = 0,
+):
+    require_admin(request)
+    safe_limit = max(1, min(limit, 200))
+    safe_offset = max(0, offset)
+    query = db.query(User)
+    if q:
+        like = f"%{q.strip()}%"
+        query = query.filter(
+            or_(
+                User.email.ilike(like),
+                User.iin.ilike(like),
+                User.role.ilike(like),
+                User.institution.ilike(like),
+                User.faculty.ilike(like),
+                User.group_name.ilike(like),
+            )
+        )
+    total = query.count()
+    users = (
+        query.order_by(User.id.desc())
+        .offset(safe_offset)
+        .limit(safe_limit)
+        .all()
+    )
+    items = [
+        UserAdminOut(
+            id=u.id,
+            email=u.email,
+            iin=u.iin,
+            phone=u.phone,
+            role=u.role,
+            permissions=u.permissions,
+            institution=u.institution,
+            faculty=u.faculty,
+            group_name=u.group_name,
+            subscription_type=u.subscription_type,
+            is_active=u.is_active,
+            created_at=u.created_at if hasattr(u, "created_at") else None,
+        )
+        for u in users
+    ]
+    return UsersListResponse(
+        items=items,
+        total=total,
+        limit=safe_limit,
+        offset=safe_offset,
+    )
