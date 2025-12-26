@@ -1,0 +1,23 @@
+{
+  "expo": {
+    "name": "E-Lib Mobile",
+    "slug": "elib-mobile",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "android": {
+      "package": "com.elib.mobile"
+    },
+    "ios": {
+      "bundleIdentifier": "com.elib.mobile",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
+    },
+    "extra": {
+      "eas": {
+        "projectId": "3b5e0782-674a-49d7-b61d-3365cbc467c8"
+      }
+    }
+  }
+}
