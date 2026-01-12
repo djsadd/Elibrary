@@ -34,6 +34,7 @@ import SettingsPage from "../pages/admin/sections/SettingsPage";
 import IntegrationsPage from "../pages/admin/sections/IntegrationsPage";
 import ReportsPage from "../pages/admin/sections/ReportsPage";
 import RolesPage from "../pages/admin/sections/RolesPage";
+import NotFoundPage from "../pages/NotFoundPage";
 
 function WithTitle({ title, children }: { title: string; children: JSX.Element }) {
   useEffect(() => {
@@ -47,6 +48,7 @@ const router = createBrowserRouter([
   { path: "/auth/login", element: <PublicRouteSync><WithTitle title="Login - TAU"><LoginPage /></WithTitle></PublicRouteSync> },
   { path: "/auth/register", element: <PublicRouteSync><WithTitle title="Register - TAU"><RegisterPage /></WithTitle></PublicRouteSync> },
   { path: "/auth/forgot", element: <PublicRouteSync><WithTitle title="Forgot Password - TAU"><ForgotPasswordPage /></WithTitle></PublicRouteSync> },
+  { path: "*", element: <WithTitle title="404 - TAU"><NotFoundPage /></WithTitle> },
   {
     path: "/",
     element: (
