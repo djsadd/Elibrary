@@ -115,7 +115,7 @@ def auth(username: str, password: str) -> Dict[str, Any]:
       print("student_info_response:", student_info)
       browser.close()
       return {"role": "студент", "info": student_info}
-    if "преподаватель" in role_names:
+    if "преподаватель" in role_names or "библиотека" in role_names:
       employee_info_response = page.request.get(
         f"https://platonus.tau-edu.kz/rest/employee/employeeInfo/{person_id}/3/ru?dn=1",
         headers=headers,
@@ -129,7 +129,8 @@ def auth(username: str, password: str) -> Dict[str, Any]:
         raise RuntimeError("employeeInfo response is not JSON")
       print("employee_info_response:", employee_info)
       browser.close()
-      return {"role": "преподаватель", "info": employee_info}
+      role = "преподаватель" if "преподаватель" in role_names else "библиотека"
+      return {"role": role, "info": employee_info}
     if "деканат" in role_names:
       browser.close()
       raise RuntimeError("Временно отключено для выбранной роли.")

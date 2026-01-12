@@ -188,7 +188,8 @@ def platonus_login(req: PlatonusLoginRequest, db: Session = Depends(get_db)):
     if not info:
         raise HTTPException(502, "Invalid response from Platonus auth")
 
-    if role == "преподаватель":
+    desired_role = None
+    if role in {"преподаватель", "библиотека"}:
         employee = info.get("employee") or info.get("person") or {}
         iin = employee.get("iin") or info.get("iin")
         corporate_email = (
@@ -198,6 +199,10 @@ def platonus_login(req: PlatonusLoginRequest, db: Session = Depends(get_db)):
             or info.get("mail")
             or info.get("email")
         )
+        if role == "библиотека":
+            desired_role = "librarian"
+        elif role == "преподаватель":
+            desired_role = "teacher"
     else:
         student = info.get("student") or {}
         iin = student.get("iin") or info.get("iin")
@@ -214,6 +219,7 @@ def platonus_login(req: PlatonusLoginRequest, db: Session = Depends(get_db)):
             hashed_password=hash_password(req.password),
             iin=iin,
             is_active=True,
+            role=desired_role or "student",
         )
         db.add(u)
         db.commit()
@@ -222,6 +228,12 @@ def platonus_login(req: PlatonusLoginRequest, db: Session = Depends(get_db)):
         u.is_active = True
         db.commit()
         db.refresh(u)
+    if desired_role:
+        current_role = (u.role or "").strip().lower()
+        if not current_role or current_role == "student" or (current_role == "teacher" and desired_role == "librarian"):
+            u.role = desired_role
+            db.commit()
+            db.refresh(u)
 
     access, exp = create_access(u.id, u.role or "")
     refresh, _ = create_refresh(u.id)
