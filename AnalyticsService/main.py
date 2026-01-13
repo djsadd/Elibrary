@@ -11,6 +11,9 @@ app = FastAPI(title="Analytics Service")
 def startup() -> None:
     ensure_database_exists()
     run_migrations()
-    ensure_schema()
+    try:
+        ensure_schema()
+    except Exception:
+        pass
 
 app.include_router(api_router)
