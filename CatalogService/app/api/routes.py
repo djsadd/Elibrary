@@ -334,8 +334,16 @@ def list_books(
     if subject:
         query = query.join(Book.subjects).filter(Subject.name.ilike(f"%{subject}%"))
 
-    total = query.count()
-    rows = query.offset(offset).limit(limit).all()
+    popularity_subq = (
+        db.query(UserBook.book_id, func.count(UserBook.id).label("popularity"))
+        .group_by(UserBook.book_id)
+        .subquery()
+    )
+    popularity_order = func.coalesce(popularity_subq.c.popularity, 0).desc()
+    query = query.outerjoin(popularity_subq, Book.id == popularity_subq.c.book_id)
+
+    total = query.order_by(None).count()
+    rows = query.order_by(popularity_order, Book.title.asc()).offset(offset).limit(limit).all()
 
     return BookList(
         items=[_to_out(b) for b in rows],
@@ -374,12 +382,20 @@ def search_books(
     if year:
         query = query.filter(Book.year == year)
 
-    total = query.count()
+    popularity_subq = (
+        db.query(UserBook.book_id, func.count(UserBook.id).label("popularity"))
+        .group_by(UserBook.book_id)
+        .subquery()
+    )
+    popularity_order = func.coalesce(popularity_subq.c.popularity, 0).desc()
+    query = query.outerjoin(popularity_subq, Book.id == popularity_subq.c.book_id)
+
+    total = query.order_by(None).count()
     if limit is None:
-        rows = query.offset(offset).all()
+        rows = query.order_by(popularity_order, Book.title.asc()).offset(offset).all()
         page_limit = len(rows)
     else:
-        rows = query.offset(offset).limit(limit).all()
+        rows = query.order_by(popularity_order, Book.title.asc()).offset(offset).limit(limit).all()
         page_limit = limit
 
     return BookList(
