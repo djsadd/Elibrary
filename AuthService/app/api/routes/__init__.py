@@ -201,6 +201,18 @@ def platonus_login(req: PlatonusLoginRequest, db: Session = Depends(get_db)):
             or info.get("mail")
             or info.get("email")
         )
+        first_name = (
+            employee.get("firstname")
+            or employee.get("first_name")
+            or info.get("firstname")
+            or info.get("first_name")
+        )
+        last_name = (
+            employee.get("lastname")
+            or employee.get("last_name")
+            or info.get("lastname")
+            or info.get("last_name")
+        )
         if role == "библиотека":
             desired_role = "librarian"
         elif role == "преподаватель":
@@ -209,6 +221,18 @@ def platonus_login(req: PlatonusLoginRequest, db: Session = Depends(get_db)):
         student = info.get("student") or {}
         iin = student.get("iin") or info.get("iin")
         corporate_email = student.get("mail") or info.get("mail")
+        first_name = (
+            student.get("firstname")
+            or student.get("first_name")
+            or info.get("firstname")
+            or info.get("first_name")
+        )
+        last_name = (
+            student.get("lastname")
+            or student.get("last_name")
+            or info.get("lastname")
+            or info.get("last_name")
+        )
     print("iin:", iin)
     if not iin:
         raise HTTPException(502, "Platonus auth response missing required fields")
@@ -222,6 +246,8 @@ def platonus_login(req: PlatonusLoginRequest, db: Session = Depends(get_db)):
             iin=iin,
             is_active=True,
             role=desired_role or "student",
+            first_name=first_name,
+            last_name=last_name,
         )
         db.add(u)
         db.commit()
@@ -234,6 +260,18 @@ def platonus_login(req: PlatonusLoginRequest, db: Session = Depends(get_db)):
         current_role = (u.role or "").strip().lower()
         if not current_role or current_role == "student" or (current_role == "teacher" and desired_role == "librarian"):
             u.role = desired_role
+            db.commit()
+            db.refresh(u)
+    # backfill missing names from Platonus
+    if u and (first_name or last_name):
+        changed = False
+        if first_name and not u.first_name:
+            u.first_name = first_name
+            changed = True
+        if last_name and not u.last_name:
+            u.last_name = last_name
+            changed = True
+        if changed:
             db.commit()
             db.refresh(u)
 
