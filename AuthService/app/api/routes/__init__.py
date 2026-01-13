@@ -233,9 +233,16 @@ def platonus_login(req: PlatonusLoginRequest, db: Session = Depends(get_db)):
             or info.get("lastname")
             or info.get("last_name")
         )
-    print("iin:", iin)
+    missing_fields = []
     if not iin:
-        raise HTTPException(502, "Platonus auth response missing required fields")
+        missing_fields.append("iin")
+    if not corporate_email:
+        missing_fields.append("email")
+    if missing_fields:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Platonus auth missing fields: {', '.join(missing_fields)}",
+        )
 
     u = db.query(User).filter_by(iin=iin).first()
     if not u:
