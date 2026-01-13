@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { api } from "@/shared/api/client";
+import { t } from "@/shared/i18n";
 
 type AdminUser = {
   id: number;
@@ -73,6 +74,7 @@ export default function UserDetailPage() {
   const [notes, setNotes] = useState<UserNote[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const td = (key: string, vars?: Record<string, any>) => t(`admin.userDetails.${key}`, vars);
 
   useEffect(() => {
     if (!id) return;
@@ -94,7 +96,7 @@ export default function UserDetailPage() {
       })
       .catch((e) => {
         if (!alive) return;
-        setError(e?.message || "Failed to load user details");
+        setError(e?.message || td("failed"));
       })
       .finally(() => {
         if (!alive) return;
@@ -177,11 +179,11 @@ export default function UserDetailPage() {
 
   const formatMinutes = (value?: number | null) => {
     const minutes = Math.round(value || 0);
-    if (minutes <= 0) return "0 min";
-    if (minutes < 60) return `${minutes} min`;
+    if (minutes <= 0) return `0 ${td("time.min")}`;
+    if (minutes < 60) return `${minutes} ${td("time.min")}`;
     const h = Math.floor(minutes / 60);
     const m = minutes % 60;
-    return `${h}h ${m}m`;
+    return `${h}${td("time.h")} ${m}${td("time.min")}`;
   };
 
   const formatProgress = (ub: UserBook) => {
@@ -195,136 +197,139 @@ export default function UserDetailPage() {
 
   const statusLabel = (value?: string | null) => {
     if (!value) return "reading";
-    if (value === "readed") return "completed";
+    if (value === "readed") return td("status.completed");
+    if (value === "reading") return td("status.reading");
+    if (value === "dropped") return td("status.dropped");
     return value;
   };
 
   if (!id) {
-    return <div className="text-slate-600">Missing user id.</div>;
+    return <div className="text-slate-600">{td("missingId")}</div>;
   }
 
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <div className="text-lg font-semibold">User Profile</div>
-          <div className="text-sm text-slate-500">ID: {id}</div>
+          <div className="text-lg font-semibold">{td("title")}</div>
+          <div className="text-sm text-slate-500">{td("id")}: {id}</div>
         </div>
         <div className="flex items-center gap-2">
           <button onClick={() => navigate(-1)} className="px-3 py-2 border rounded-md hover:bg-slate-50">
-            Back
+            {td("back")}
           </button>
           {user?.email && (
             <a href={`mailto:${user.email}`} className="px-3 py-2 border rounded-md hover:bg-slate-50">
-              Email
+              {td("emailAction")}
             </a>
           )}
         </div>
       </div>
 
-      {loading && <div className="text-slate-500 text-sm">Loading...</div>}
+      {loading && <div className="text-slate-500 text-sm">{td("loading")}</div>}
       {!loading && error && <div className="text-red-600 text-sm">{error}</div>}
       {!loading && !error && (
         <>
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
             <div className="bg-white border rounded-md p-4 shadow-sm lg:col-span-2">
-              <div className="text-sm font-semibold text-slate-700 mb-3">Account</div>
+              <div className="text-sm font-semibold text-slate-700 mb-3">{td("sections.account")}</div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
                 <div>
-                  <div className="text-slate-500">Email</div>
+                  <div className="text-slate-500">{td("fields.email")}</div>
                   <div className="font-medium">{user?.email || "-"}</div>
                 </div>
                 <div>
-                  <div className="text-slate-500">Role</div>
+                  <div className="text-slate-500">{td("fields.role")}</div>
                   <div className="font-medium">{user?.role || "-"}</div>
                 </div>
                 <div>
-                  <div className="text-slate-500">Phone</div>
+                  <div className="text-slate-500">{td("fields.phone")}</div>
                   <div className="font-medium">{user?.phone || "-"}</div>
                 </div>
                 <div>
-                  <div className="text-slate-500">IIN</div>
+                  <div className="text-slate-500">{td("fields.iin")}</div>
                   <div className="font-medium">{user?.iin || "-"}</div>
                 </div>
                 <div>
-                  <div className="text-slate-500">Institution</div>
+                  <div className="text-slate-500">{td("fields.institution")}</div>
                   <div className="font-medium">{user?.institution || "-"}</div>
                 </div>
                 <div>
-                  <div className="text-slate-500">Faculty / Group</div>
+                  <div className="text-slate-500">{td("fields.facultyGroup")}</div>
                   <div className="font-medium">
                     {user?.faculty || "-"} {user?.group_name ? `- ${user.group_name}` : ""}
                   </div>
                 </div>
                 <div>
-                  <div className="text-slate-500">Subscription</div>
+                  <div className="text-slate-500">{td("fields.subscription")}</div>
                   <div className="font-medium">
-                    {user?.subscription_type || "-"} {user?.subscription_expire_at ? `- until ${formatDate(user.subscription_expire_at)}` : ""}
+                    {user?.subscription_type || "-"} {user?.subscription_expire_at ? `- ${td("until")} ${formatDate(user.subscription_expire_at)}` : ""}
                   </div>
                 </div>
                 <div>
-                  <div className="text-slate-500">Status</div>
+                  <div className="text-slate-500">{td("fields.status")}</div>
                   <div className="font-medium">
-                    {user?.is_active ? "Active" : "Inactive"} | Email {user?.email_verified ? "verified" : "not verified"} | Phone{" "}
-                    {user?.phone_verified ? "verified" : "not verified"}
+                    {user?.is_active ? td("status.active") : td("status.inactive")} | {td("status.email")}{" "}
+                    {user?.email_verified ? td("status.verified") : td("status.notVerified")} | {td("status.phone")}{" "}
+                    {user?.phone_verified ? td("status.verified") : td("status.notVerified")}
                   </div>
                 </div>
                 <div>
-                  <div className="text-slate-500">Last login</div>
+                  <div className="text-slate-500">{td("fields.lastLogin")}</div>
                   <div className="font-medium">{formatDate(user?.last_login_at)}</div>
                 </div>
                 <div>
-                  <div className="text-slate-500">Last activity</div>
+                  <div className="text-slate-500">{td("fields.lastActivity")}</div>
                   <div className="font-medium">{formatDate(user?.last_activity_at)}</div>
                 </div>
                 <div>
-                  <div className="text-slate-500">Created</div>
+                  <div className="text-slate-500">{td("fields.created")}</div>
                   <div className="font-medium">{formatDate(user?.created_at)}</div>
                 </div>
                 <div>
-                  <div className="text-slate-500">Updated</div>
+                  <div className="text-slate-500">{td("fields.updated")}</div>
                   <div className="font-medium">{formatDate(user?.updated_at)}</div>
                 </div>
               </div>
             </div>
 
             <div className="bg-white border rounded-md p-4 shadow-sm">
-              <div className="text-sm font-semibold text-slate-700 mb-3">Reading Pulse</div>
+              <div className="text-sm font-semibold text-slate-700 mb-3">{td("sections.pulse")}</div>
               <div className="space-y-2 text-sm">
                 <div className="flex items-center justify-between">
-                  <span className="text-slate-500">Total books</span>
+                  <span className="text-slate-500">{td("metrics.totalBooks")}</span>
                   <span className="font-medium">{derivedStats.total}</span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-slate-500">Reading</span>
+                  <span className="text-slate-500">{td("metrics.reading")}</span>
                   <span className="font-medium">{derivedStats.reading}</span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-slate-500">Completed</span>
+                  <span className="text-slate-500">{td("metrics.completed")}</span>
                   <span className="font-medium">{derivedStats.completed}</span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-slate-500">Dropped</span>
+                  <span className="text-slate-500">{td("metrics.dropped")}</span>
                   <span className="font-medium">{derivedStats.dropped}</span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-slate-500">Avg progress</span>
+                  <span className="text-slate-500">{td("metrics.avgProgress")}</span>
                   <span className="font-medium">{Math.round(derivedStats.avgProgress || 0)}%</span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-slate-500">Reading time</span>
+                  <span className="text-slate-500">{td("metrics.readingTime")}</span>
                   <span className="font-medium">{formatMinutes(derivedStats.totalReadingTime)}</span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-slate-500">Notes</span>
+                  <span className="text-slate-500">{td("metrics.notes")}</span>
                   <span className="font-medium">{derivedStats.notesCount}</span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-slate-500">First started</span>
+                  <span className="text-slate-500">{td("metrics.firstStarted")}</span>
                   <span className="font-medium">{formatDate(derivedStats.firstStartedAt)}</span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-slate-500">Last opened</span>
+                  <span className="text-slate-500">{td("metrics.lastOpened")}</span>
                   <span className="font-medium">{formatDate(derivedStats.lastOpenedAt)}</span>
                 </div>
               </div>
@@ -333,9 +338,9 @@ export default function UserDetailPage() {
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             <div className="bg-white border rounded-md p-4 shadow-sm">
-              <div className="text-sm font-semibold text-slate-700 mb-3">Top Formats</div>
+              <div className="text-sm font-semibold text-slate-700 mb-3">{td("sections.topFormats")}</div>
               {topFormats.length === 0 ? (
-                <div className="text-sm text-slate-500">No reading formats yet.</div>
+                <div className="text-sm text-slate-500">{td("empty.formats")}</div>
               ) : (
                 <div className="flex flex-wrap gap-2">
                   {topFormats.map(([format, count]) => (
@@ -348,9 +353,9 @@ export default function UserDetailPage() {
             </div>
 
             <div className="bg-white border rounded-md p-4 shadow-sm">
-              <div className="text-sm font-semibold text-slate-700 mb-3">Top Authors</div>
+              <div className="text-sm font-semibold text-slate-700 mb-3">{td("sections.topAuthors")}</div>
               {topAuthors.length === 0 ? (
-                <div className="text-sm text-slate-500">No authors yet.</div>
+                <div className="text-sm text-slate-500">{td("empty.authors")}</div>
               ) : (
                 <div className="flex flex-wrap gap-2">
                   {topAuthors.map(([name, count]) => (
@@ -364,19 +369,19 @@ export default function UserDetailPage() {
           </div>
 
           <div className="bg-white border rounded-md p-4 shadow-sm">
-            <div className="text-sm font-semibold text-slate-700 mb-3">Reading List</div>
+            <div className="text-sm font-semibold text-slate-700 mb-3">{td("sections.readingList")}</div>
             {userbooks.length === 0 ? (
-              <div className="text-sm text-slate-500">No books in the reading list.</div>
+              <div className="text-sm text-slate-500">{td("empty.readingList")}</div>
             ) : (
               <div className="overflow-auto">
                 <table className="min-w-full text-sm">
                   <thead className="text-slate-500">
                     <tr>
-                      <th className="text-left px-3 py-2">Book</th>
-                      <th className="text-left px-3 py-2">Status</th>
-                      <th className="text-left px-3 py-2">Progress</th>
-                      <th className="text-left px-3 py-2">Formats</th>
-                      <th className="text-left px-3 py-2">Authors</th>
+                      <th className="text-left px-3 py-2">{td("table.book")}</th>
+                      <th className="text-left px-3 py-2">{td("table.status")}</th>
+                      <th className="text-left px-3 py-2">{td("table.progress")}</th>
+                      <th className="text-left px-3 py-2">{td("table.formats")}</th>
+                      <th className="text-left px-3 py-2">{td("table.authors")}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -400,9 +405,9 @@ export default function UserDetailPage() {
           </div>
 
           <div className="bg-white border rounded-md p-4 shadow-sm">
-            <div className="text-sm font-semibold text-slate-700 mb-3">Notes & Highlights</div>
+            <div className="text-sm font-semibold text-slate-700 mb-3">{td("sections.notes")}</div>
             {notes.length === 0 ? (
-              <div className="text-sm text-slate-500">No notes yet.</div>
+              <div className="text-sm text-slate-500">{td("empty.notes")}</div>
             ) : (
               <div className="space-y-3">
                 {notes.slice(0, 20).map((n) => {
@@ -411,8 +416,10 @@ export default function UserDetailPage() {
                     <div key={n.id} className="border border-slate-100 rounded-md p-3">
                       <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500">
                         <div>
-                          <span className="font-medium text-slate-700">{book?.title || `Book ${n.book_id}`}</span>
-                          {n.page != null ? ` - page ${n.page}` : ""}
+                          <span className="font-medium text-slate-700">
+                            {book?.title || td("bookFallback", { id: n.book_id })}
+                          </span>
+                          {n.page != null ? ` - ${td("page")} ${n.page}` : ""}
                         </div>
                         <div>{formatDate(n.created_at)}</div>
                       </div>
