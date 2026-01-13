@@ -116,13 +116,41 @@ export default function CatalogDetailPage() {
   }, [id]);
 
   useEffect(() => {
+    if (!id) return;
+    let cancelled = false;
+    const sid = String(id);
+    // quick local cache first
     try {
       const favs = JSON.parse(localStorage.getItem("favorites") || "[]");
-      const isFav = Array.isArray(favs) && id ? favs.includes(String(id)) : false;
-      setFavorite(Boolean(isFav));
+      const isFav = Array.isArray(favs) && sid ? favs.includes(sid) : false;
+      if (!cancelled) setFavorite(Boolean(isFav));
     } catch {
-      setFavorite(false);
+      if (!cancelled) setFavorite(false);
     }
+    // then sync with API
+    (async () => {
+      try {
+        const list = (await api<any[]>("/api/favourites")) || [];
+        if (cancelled) return;
+        const ids = new Set(
+          list
+            .map((f) => f?.book_id)
+            .filter((v) => v != null)
+            .map(String)
+        );
+        setFavorite(ids.has(sid));
+        try { localStorage.setItem("favorites", JSON.stringify(Array.from(ids))); } catch {}
+      } catch (e: any) {
+        if (!cancelled) {
+          try {
+            console.warn("[CatalogDetail] favourites fetch failed:", e?.message || String(e));
+          } catch {}
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [id]);
 
   const coverUrl = useMemo(() => (book?.cover ? book.cover : placeholder), [book]);
@@ -137,18 +165,18 @@ export default function CatalogDetailPage() {
   const toggleFavorite = async () => {
     if (!id) return;
     const sid = String(id);
+    const wasFav = favorite;
+    const nextFav = !wasFav;
+    setFavorite(nextFav);
     try {
-      // sync with localStorage
       const key = "favorites";
       const raw = localStorage.getItem(key);
       const arr: string[] = raw ? JSON.parse(raw) : [];
-      const alreadyFav = arr.includes(sid);
-      const next = alreadyFav ? arr.filter((x) => x !== sid) : [...arr, sid];
-      localStorage.setItem(key, JSON.stringify(next));
-      setFavorite(next.includes(sid));
+      const next = nextFav ? Array.from(new Set([...arr, sid])) : arr.filter((x) => x !== sid);
+      try { localStorage.setItem(key, JSON.stringify(next)); } catch {}
 
       // backend: POST on add, DELETE /{book_id} on remove
-      if (!alreadyFav) {
+      if (nextFav) {
         await api<any>(`/api/favourites/`, {
           method: "POST",
           body: JSON.stringify({ book_id: Number(id) }),
@@ -159,6 +187,15 @@ export default function CatalogDetailPage() {
         });
       }
     } catch (err) {
+      // revert on failure
+      setFavorite(wasFav);
+      try {
+        const key = "favorites";
+        const raw = localStorage.getItem(key);
+        const arr: string[] = raw ? JSON.parse(raw) : [];
+        const reverted = wasFav ? Array.from(new Set([...arr, sid])) : arr.filter((x) => x !== sid);
+        localStorage.setItem(key, JSON.stringify(reverted));
+      } catch {}
       try {
         console.warn("[CatalogDetail] favourite toggle failed:", (err as any)?.message || String(err));
       } catch {}
