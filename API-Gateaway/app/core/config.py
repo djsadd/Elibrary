@@ -20,6 +20,7 @@ class Settings(BaseSettings):
     FAVOURITES_SERVICE_URL: AnyHttpUrl = "http://localhost:8008"
     LIBTAU_INTEGRATE_SERVICE: AnyHttpUrl = "http://libtau:8009"
     AI_SERVICE_URL: AnyHttpUrl = "http://ai:8010"
+    ANALYTICS_SERVICE_URL: AnyHttpUrl = "http://localhost:8011"
 
     CORS_ALLOW_ORIGINS: List[str] = ["*"]
 
@@ -27,6 +28,13 @@ class Settings(BaseSettings):
     PROXY_RETRIES: int = 2
     PROXY_RETRY_BACKOFF_S: float = 0.3
     JWT_SECRET: str = "some-super-secret-key"
+
+    ANALYTICS_ENABLED: bool = True
+    ANALYTICS_TIMEOUT_S: float = 0.2
+    ANALYTICS_SKIP_PATHS: List[str] = ["/health", "/docs", "/openapi.json", "/analytics", "/api/analytics"]
+    ANALYTICS_COOKIE_MAX_AGE_DAYS: int = 365
+    ANALYTICS_SESSION_MAX_AGE_HOURS: int = 24
+    ANALYTICS_IP_HASH_SECRET: str = "change-me"
 
     @field_validator("CORS_ALLOW_ORIGINS", mode="before")
     @classmethod

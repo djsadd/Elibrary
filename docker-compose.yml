@@ -18,6 +18,28 @@ services:
     ports:
       - "6379:6379"
 
+  clickhouse:
+    image: clickhouse/clickhouse-server:24.3
+    container_name: clickhouse
+    environment:
+      - CLICKHOUSE_DB=analytics
+    volumes:
+      - clickhouse_data:/var/lib/clickhouse
+    ports:
+      - "8123:8123"
+      - "9000:9000"
+
+  analytics:
+    build: ./AnalyticsService
+    container_name: analytics
+    env_file:
+      - AnalyticsService/.env.prod
+    depends_on:
+      - postgres
+      - clickhouse
+    ports:
+      - "8011:8011"
+
   gateway:
     build: ./API-Gateaway
     container_name: gateway
@@ -30,6 +52,7 @@ services:
       - notifications
       - reviews
       - favourites
+      - analytics
     ports:
       - "8000:8000"
 
@@ -155,3 +178,4 @@ services:
 volumes:
   pgdata: {}
   filestorage_data: {}
+  clickhouse_data: {}

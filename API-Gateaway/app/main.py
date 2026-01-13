@@ -8,6 +8,7 @@ from app.api.routes import router as api_router
 from app.utils.request_id import RequestIDMiddleware
 from app.utils.logging import setup_logging
 from app.utils.rate_limit import RateLimitMiddleware
+from app.utils.analytics import AnalyticsMiddleware
 from app.services.proxy import forward
 from app.services.auth_guard import auth_required
 
@@ -15,6 +16,13 @@ app = FastAPI(title="Elib API Gateway", version="0.1.0", redirect_slashes=False)
 
 app.add_middleware(RequestIDMiddleware)
 app.add_middleware(RateLimitMiddleware, rate=settings.RATE_LIMIT_RPS, burst=settings.RATE_LIMIT_BURST)
+app.add_middleware(
+    AnalyticsMiddleware,
+    endpoint=str(settings.ANALYTICS_SERVICE_URL),
+    skip_paths=settings.ANALYTICS_SKIP_PATHS,
+    timeout_s=settings.ANALYTICS_TIMEOUT_S,
+    ip_hash_secret=settings.ANALYTICS_IP_HASH_SECRET,
+)
 
 app.add_middleware(
     CORSMiddleware,

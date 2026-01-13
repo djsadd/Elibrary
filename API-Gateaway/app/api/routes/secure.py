@@ -5,6 +5,20 @@ from app.services.auth_guard import auth_required
 
 router = APIRouter(tags=["secure"])
 
+# ======== Analytics ========
+
+
+@router.api_route("/analytics", methods=["GET", "POST", "PUT", "PATCH", "DELETE"])
+@router.api_route("/analytics/", methods=["GET", "POST", "PUT", "PATCH", "DELETE"])
+async def analytics_root_proxy(request: Request, _=Depends(auth_required)):
+    return await forward(request, settings.ANALYTICS_SERVICE_URL, path_suffix="analytics")
+
+
+@router.api_route("/analytics/{path:path}", methods=["GET", "POST", "PUT", "PATCH", "DELETE"])
+@router.api_route("/analytics/{path:path}/", methods=["GET", "POST", "PUT", "PATCH", "DELETE"])
+async def analytics_proxy(path: str, request: Request, _=Depends(auth_required)):
+    return await forward(request, settings.ANALYTICS_SERVICE_URL, path_suffix=f"analytics/{path}")
+
 # ======== AI ========
 
 

@@ -4,4 +4,4 @@ CREATE DATABASE catalog_db;
 CREATE DATABASE reviews_db;
 CREATE DATABASE favourites_db;
 CREATE DATABASE notifications_db;
-
+CREATE DATABASE analytics_db;
