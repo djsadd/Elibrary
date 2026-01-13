@@ -10,6 +10,8 @@ class User(Base):
     email = Column(String(255), unique=True, nullable=False, index=True)
     hashed_password = Column(String(255), nullable=False)
     iin = Column(String(12), nullable=True)
+    first_name = Column(String(255), nullable=True)
+    last_name = Column(String(255), nullable=True)
 
     # Контакты
     phone = Column(String(50), nullable=True)

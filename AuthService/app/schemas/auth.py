@@ -6,6 +6,8 @@ class RegisterRequest(BaseModel):
     email: EmailStr
     password: str
     iin: Optional[str] = None
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
     phone: Optional[str] = None
     avatar_url: Optional[str] = None
     role: Optional[str] = "student"
@@ -21,6 +23,8 @@ class RegisterRequest(BaseModel):
 
 class UpdateProfileRequest(BaseModel):
     iin: Optional[str] = None
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
     phone: Optional[str] = None
     avatar_url: Optional[str] = None
     role: Optional[str] = None
@@ -76,6 +80,8 @@ class UserAdminOut(BaseModel):
     id: int
     email: EmailStr
     iin: Optional[str] = None
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
     phone: Optional[str] = None
     avatar_url: Optional[str] = None
     role: Optional[str] = None

@@ -530,6 +530,7 @@ export function t(path: string, vars?: Record<string, any>): string {
       notes: "Notes & Highlights",
     },
     fields: {
+      fullName: "Full name",
       email: "Email",
       role: "Role",
       phone: "Phone",
@@ -604,6 +605,7 @@ export function t(path: string, vars?: Record<string, any>): string {
       notes: "Заметки и выделения",
     },
     fields: {
+      fullName: "ФИО",
       email: "Email",
       role: "Роль",
       phone: "Телефон",
@@ -678,6 +680,7 @@ export function t(path: string, vars?: Record<string, any>): string {
       notes: "Жазбалар мен белгілер",
     },
     fields: {
+      fullName: "Аты-жөні",
       email: "Email",
       role: "Рөл",
       phone: "Телефон",

@@ -7,6 +7,8 @@ type AdminUser = {
   id: number;
   email: string;
   iin?: string | null;
+  first_name?: string | null;
+  last_name?: string | null;
   phone?: string | null;
   avatar_url?: string | null;
   role?: string | null;
@@ -234,6 +236,12 @@ export default function UserDetailPage() {
             <div className="bg-white border rounded-md p-4 shadow-sm lg:col-span-2">
               <div className="text-sm font-semibold text-slate-700 mb-3">{td("sections.account")}</div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+                <div>
+                  <div className="text-slate-500">{td("fields.fullName")}</div>
+                  <div className="font-medium">
+                    {([user?.first_name, user?.last_name].filter(Boolean).join(" ") || "-")}
+                  </div>
+                </div>
                 <div>
                   <div className="text-slate-500">{td("fields.email")}</div>
                   <div className="font-medium">{user?.email || "-"}</div>
