@@ -396,6 +396,76 @@ def get_book(book_id: int, db: Session = Depends(get_db)):
         raise HTTPException(404, "Book not found")
     return _to_out(b)
 
+
+@router.post("/books", response_model=BookOut, status_code=status.HTTP_201_CREATED)
+def create_book(payload: BookCreate, db: Session = Depends(get_db)):
+    book = Book(
+        title=payload.title,
+        year=payload.year,
+        lang=payload.lang,
+        pub_info=payload.pub_info,
+        summary=payload.summary,
+        cover=payload.cover,
+        file_id=payload.file_id,
+        download_url=payload.download_url,
+        source=payload.source,
+        isbn=payload.isbn,
+        edition=payload.edition,
+        page_count=payload.page_count,
+        available_copies=payload.available_copies,
+        is_public=payload.is_public,
+    )
+    book.formats_list = payload.formats or []
+    book.authors = _ensure_authors(db, payload.authors or [])
+    book.subjects = _ensure_subjects(db, payload.subjects or [])
+
+    db.add(book)
+    try:
+        db.commit()
+        db.refresh(book)
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status_code=400, detail="Book already exists")
+    return _to_out(book)
+
+
+@router.patch("/books/{book_id}", response_model=BookOut)
+def update_book(
+    book_id: int,
+    payload: BookUpdate,
+    db: Session = Depends(get_db),
+):
+    book = db.get(Book, book_id)
+    if not book:
+        raise HTTPException(status_code=404, detail="Book not found")
+
+    data = payload.model_dump(exclude_unset=True) if hasattr(payload, "model_dump") else payload.dict(exclude_unset=True)
+    authors = data.pop("authors", None)
+    subjects = data.pop("subjects", None)
+    formats = data.pop("formats", None)
+    source = data.pop("source", None)
+
+    for key, value in data.items():
+        setattr(book, key, value)
+
+    if source is not None:
+        book.source = source
+    if formats is not None:
+        book.formats_list = [str(f).strip().upper() for f in formats if str(f).strip()]
+    if authors is not None:
+        book.authors = _ensure_authors(db, authors)
+    if subjects is not None:
+        book.subjects = _ensure_subjects(db, subjects)
+
+    try:
+        db.commit()
+        db.refresh(book)
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status_code=400, detail="Failed to update book")
+
+    return _to_out(book)
+
 @router.get("/authors", response_model=List[str])
 def list_authors(
     db: Session = Depends(get_db),
