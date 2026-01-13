@@ -58,10 +58,18 @@ class AnalyticsMiddleware(BaseHTTPMiddleware):
         except (JWTError, ValueError):
             return None
 
-    def _ensure_cookie(self, request: Request, name: str, ttl_seconds: int) -> str:
+    def _derive_anon_id(self, ip_hash: str | None, user_agent: str | None) -> str | None:
+        if not ip_hash and not user_agent:
+            return None
+        seed = f"{self.ip_hash_secret}:{ip_hash or ''}:{user_agent or ''}"
+        return hashlib.sha256(seed.encode("utf-8")).hexdigest()[:32]
+
+    def _ensure_cookie(self, request: Request, name: str, ttl_seconds: int, fallback: str | None = None) -> str:
         value = request.cookies.get(name)
         if value:
             return value
+        if fallback:
+            return fallback
         seed = f"{time.time_ns()}:{request.client.host if request.client else ''}:{name}"
         return hashlib.sha256(seed.encode("utf-8")).hexdigest()[:32]
 
@@ -83,7 +91,13 @@ class AnalyticsMiddleware(BaseHTTPMiddleware):
         ip_hash = self._hash_ip(request.client.host if request.client else None)
         user_id = self._extract_user_id(request)
 
-        anon_id = self._ensure_cookie(request, self.anon_cookie, settings.ANALYTICS_COOKIE_MAX_AGE_DAYS * 86400)
+        derived_anon_id = self._derive_anon_id(ip_hash, user_agent)
+        anon_id = self._ensure_cookie(
+            request,
+            self.anon_cookie,
+            settings.ANALYTICS_COOKIE_MAX_AGE_DAYS * 86400,
+            fallback=derived_anon_id,
+        )
         session_id = self._ensure_cookie(request, self.session_cookie, settings.ANALYTICS_SESSION_MAX_AGE_HOURS * 3600)
 
         response: Response = await call_next(request)

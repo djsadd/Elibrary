@@ -58,11 +58,12 @@ def summary_stats(
 
     total = query.count()
     users = query.with_entities(func.count(func.distinct(Event.user_id))).scalar() or 0
+    guest_key = func.coalesce(func.nullif(Event.anon_id, ""), func.nullif(Event.ip_hash, ""))
     guests = (
         query.with_entities(
             func.count(
                 func.distinct(
-                    case((Event.user_id.is_(None), Event.anon_id))
+                    case((Event.user_id.is_(None), guest_key))
                 )
             )
         ).scalar() or 0
@@ -82,6 +83,7 @@ def daily_stats(
 
     day_expr = func.date_trunc("day", func.timezone(settings.TIMEZONE, Event.event_time)).label("day")
 
+    guest_key = func.coalesce(func.nullif(Event.anon_id, ""), func.nullif(Event.ip_hash, ""))
     query = (
         db.query(
             day_expr,
@@ -89,7 +91,7 @@ def daily_stats(
             func.count(func.distinct(Event.user_id)).label("users"),
             func.count(
                 func.distinct(
-                    case((Event.user_id.is_(None), Event.anon_id))
+                    case((Event.user_id.is_(None), guest_key))
                 )
             ).label("guests"),
         )

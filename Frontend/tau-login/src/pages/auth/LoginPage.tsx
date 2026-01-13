@@ -19,7 +19,7 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [step, setStep] = useState<1 | 2>(1);
   const [verificationCode, setVerificationCode] = useState("");
-  const [isPlatonusMode, setIsPlatonusMode] = useState(false);
+  const [isPlatonusMode, setIsPlatonusMode] = useState(true);
   const [platonusLogin, setPlatonusLogin] = useState("");
   const [platonusPassword, setPlatonusPassword] = useState("");
 
@@ -386,9 +386,6 @@ export default function LoginPage() {
               {t("auth.login.actionLink")}
             </Link>
           </div>
-          <a href="#" className="text-slate-500 hover:text-slate-700">
-            {t("auth.login.guest")}
-          </a>
         </div>
       </div>
     </div>

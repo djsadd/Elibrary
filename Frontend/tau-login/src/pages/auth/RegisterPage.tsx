@@ -181,7 +181,6 @@ export default function RegisterPage() {
             Already a User?{" "}
             <Link to="/auth/login" className="text-[#7b0f2b] hover:underline">{t("auth.register.actionLink")}</Link>
           </div>
-          <Link to="/" className="text-slate-500 hover:text-slate-700">{t("auth.register.guest")}</Link>
         </div>
       </div>
     </div>
