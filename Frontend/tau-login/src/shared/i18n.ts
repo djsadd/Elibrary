@@ -585,6 +585,41 @@ export function t(path: string, vars?: Record<string, any>): string {
     },
   };
 
+  dict.en.admin.analytics = {
+    loading: "Loading...",
+    failed: "Failed to load analytics",
+    lastUpdated: "Last updated",
+    cards: {
+      totalUsers: "Total users",
+      activeUsers: "Active users",
+      booksTotal: "Books total",
+    },
+    sections: {
+      users: "Users",
+      catalog: "Catalog",
+      reading: "Reading",
+    },
+    metrics: {
+      totalUsers: "Total users",
+      activeUsers: "Active users",
+      inactiveUsers: "Inactive users",
+      roles: "Roles",
+      totalBooks: "Total books",
+      publicBooks: "Public books",
+      authors: "Authors",
+      subjects: "Subjects",
+      playlists: "Playlists",
+      files: "Files",
+      userbooks: "Userbooks",
+      notes: "Notes",
+      reading: "Reading now",
+      completed: "Completed",
+    },
+    empty: {
+      roles: "No roles data.",
+    },
+  };
+
   dict.ru.admin.userDetails = {
     title: "Профиль пользователя",
     id: "ID",
@@ -660,6 +695,41 @@ export function t(path: string, vars?: Record<string, any>): string {
     },
   };
 
+  dict.ru.admin.analytics = {
+    loading: "Загрузка...",
+    failed: "Не удалось загрузить аналитику",
+    lastUpdated: "Обновлено",
+    cards: {
+      totalUsers: "Всего пользователей",
+      activeUsers: "Активные пользователи",
+      booksTotal: "Всего книг",
+    },
+    sections: {
+      users: "Пользователи",
+      catalog: "Каталог",
+      reading: "Чтение",
+    },
+    metrics: {
+      totalUsers: "Всего пользователей",
+      activeUsers: "Активные пользователи",
+      inactiveUsers: "Неактивные пользователи",
+      roles: "Роли",
+      totalBooks: "Всего книг",
+      publicBooks: "Публичные книги",
+      authors: "Авторы",
+      subjects: "Темы",
+      playlists: "Плейлисты",
+      files: "Файлы",
+      userbooks: "Читают книги",
+      notes: "Заметки",
+      reading: "Сейчас читают",
+      completed: "Прочитано",
+    },
+    empty: {
+      roles: "Нет данных по ролям.",
+    },
+  };
+
   dict.kk.admin.userDetails = {
     title: "Пайдаланушы профилі",
     id: "ID",
@@ -732,6 +802,41 @@ export function t(path: string, vars?: Record<string, any>): string {
     time: {
       min: "мин",
       h: "сағ",
+    },
+  };
+
+  dict.kk.admin.analytics = {
+    loading: "Жүктелуде...",
+    failed: "Аналитиканы жүктеу мүмкін болмады",
+    lastUpdated: "Жаңартылған",
+    cards: {
+      totalUsers: "Пайдаланушылар саны",
+      activeUsers: "Белсенді пайдаланушылар",
+      booksTotal: "Кітаптар саны",
+    },
+    sections: {
+      users: "Пайдаланушылар",
+      catalog: "Каталог",
+      reading: "Оқу",
+    },
+    metrics: {
+      totalUsers: "Пайдаланушылар саны",
+      activeUsers: "Белсенді пайдаланушылар",
+      inactiveUsers: "Белсенді емес пайдаланушылар",
+      roles: "Рөлдер",
+      totalBooks: "Кітаптар саны",
+      publicBooks: "Қоғамдық кітаптар",
+      authors: "Авторлар",
+      subjects: "Тақырыптар",
+      playlists: "Плейлистер",
+      files: "Файлдар",
+      userbooks: "Оқу жазбалары",
+      notes: "Жазбалар",
+      reading: "Қазір оқып жатыр",
+      completed: "Аяқталған",
+    },
+    empty: {
+      roles: "Рөлдер бойынша дерек жоқ.",
     },
   };
 

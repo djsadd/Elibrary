@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
-from sqlalchemy import or_
+from sqlalchemy import or_, func
 from typing import Optional
 import random
 import requests
@@ -444,6 +444,25 @@ def list_users(
         limit=safe_limit,
         offset=safe_offset,
     )
+
+
+@router.get("/admin/stats")
+def admin_stats(
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    require_admin(request)
+    total_users = db.query(func.count(User.id)).scalar() or 0
+    active_users = db.query(func.count(User.id)).filter(User.is_active.is_(True)).scalar() or 0
+    inactive_users = db.query(func.count(User.id)).filter(User.is_active.is_(False)).scalar() or 0
+    roles_rows = db.query(User.role, func.count(User.id)).group_by(User.role).all()
+    roles = {str(role or "unknown"): int(count) for role, count in roles_rows}
+    return {
+        "total_users": int(total_users),
+        "active_users": int(active_users),
+        "inactive_users": int(inactive_users),
+        "roles": roles,
+    }
 
 
 @router.get("/users/{user_id}", response_model=UserAdminOut)

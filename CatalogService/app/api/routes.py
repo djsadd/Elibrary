@@ -397,6 +397,41 @@ def get_book(book_id: int, db: Session = Depends(get_db)):
     return _to_out(b)
 
 
+@router.get(
+    "/admin/stats",
+    dependencies=[Depends(require_roles("admin", "librarian"))],
+)
+def catalog_admin_stats(db: Session = Depends(get_db)):
+    total_books = db.query(func.count(Book.id)).scalar() or 0
+    public_books = db.query(func.count(Book.id)).filter(Book.is_public.is_(True)).scalar() or 0
+    authors_count = db.query(func.count(Author.id)).scalar() or 0
+    subjects_count = db.query(func.count(Subject.id)).scalar() or 0
+    playlists_count = db.query(func.count(Playlist.id)).scalar() or 0
+    files_count = (
+        db.query(func.count(func.distinct(Book.file_id)))
+        .filter(Book.file_id.isnot(None))
+        .filter(Book.file_id != "")
+        .scalar()
+        or 0
+    )
+    userbooks_count = db.query(func.count(UserBook.id)).scalar() or 0
+    notes_count = db.query(func.count(UserBookNote.id)).scalar() or 0
+    reading_count = db.query(func.count(UserBook.id)).filter(UserBook.status == "reading").scalar() or 0
+    completed_count = db.query(func.count(UserBook.id)).filter(UserBook.status == "readed").scalar() or 0
+    return {
+        "total_books": int(total_books),
+        "public_books": int(public_books),
+        "authors": int(authors_count),
+        "subjects": int(subjects_count),
+        "playlists": int(playlists_count),
+        "files": int(files_count),
+        "userbooks": int(userbooks_count),
+        "notes": int(notes_count),
+        "reading": int(reading_count),
+        "completed": int(completed_count),
+    }
+
+
 @router.post("/books", response_model=BookOut, status_code=status.HTTP_201_CREATED)
 def create_book(payload: BookCreate, db: Session = Depends(get_db)):
     book = Book(
