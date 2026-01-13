@@ -1,5 +1,7 @@
+import os
 from pydantic_settings import BaseSettings
-from pydantic import Field
+from pydantic import Field, field_validator
+from sqlalchemy.engine import make_url
 
 
 class Settings(BaseSettings):
@@ -19,6 +21,16 @@ class Settings(BaseSettings):
     class Config:
         env_file = ".env"
         case_sensitive = False
+
+    @field_validator("DATABASE_URL")
+    @classmethod
+    def normalize_database_url(cls, value: str) -> str:
+        if os.path.exists("/.dockerenv"):
+            url = make_url(value)
+            if url.host in {"localhost", "127.0.0.1", "::1"}:
+                url = url.set(host="postgres")
+                return str(url)
+        return value
 
 
 settings = Settings()
