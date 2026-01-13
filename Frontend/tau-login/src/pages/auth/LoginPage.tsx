@@ -333,6 +333,7 @@ export default function LoginPage() {
                 </label>
                 <input
                   className="w-full rounded-lg border border-slate-200 focus:border-[#7b0f2b] focus:ring-[#7b0f2b] px-3 py-2 outline-none"
+                  placeholder={t("auth.login.platonusLoginPlaceholder")}
                   value={platonusLogin}
                   onChange={(e) => setPlatonusLogin(e.target.value)}
                 />
