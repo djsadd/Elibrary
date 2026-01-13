@@ -4,3 +4,4 @@ pydantic-settings==2.6.1
 SQLAlchemy==2.0.36
 psycopg2-binary==2.9.9
 clickhouse-connect==0.7.19
+alembic==1.13.3

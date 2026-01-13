@@ -1,11 +1,16 @@
 from fastapi import FastAPI
 from api import router as api_router
-from core.db import init_db
 from core.clickhouse import ensure_schema
+from core.ensure_db import ensure_database_exists
+from core.migrate import run_migrations
 
 app = FastAPI(title="Analytics Service")
 
-init_db()
-ensure_schema()
+
+@app.on_event("startup")
+def startup() -> None:
+    ensure_database_exists()
+    run_migrations()
+    ensure_schema()
 
 app.include_router(api_router)
