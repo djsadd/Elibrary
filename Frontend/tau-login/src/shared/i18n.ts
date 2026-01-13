@@ -598,6 +598,9 @@ export function t(path: string, vars?: Record<string, any>): string {
       users: "Users",
       catalog: "Catalog",
       reading: "Reading",
+      traffic: "Traffic",
+      daily: "Daily activity",
+      topPaths: "Top paths",
     },
     metrics: {
       totalUsers: "Total users",
@@ -614,9 +617,20 @@ export function t(path: string, vars?: Record<string, any>): string {
       notes: "Notes",
       reading: "Reading now",
       completed: "Completed",
+      totalEvents: "Total events",
+      uniqueUsers: "Unique users",
+      uniqueGuests: "Unique guests",
+    },
+    range: {
+      label: "Range",
+      "7d": "7d",
+      "30d": "30d",
+      "90d": "90d",
     },
     empty: {
       roles: "No roles data.",
+      daily: "No daily data.",
+      topPaths: "No paths data.",
     },
   };
 
@@ -708,6 +722,9 @@ export function t(path: string, vars?: Record<string, any>): string {
       users: "Пользователи",
       catalog: "Каталог",
       reading: "Чтение",
+      traffic: "Traffic",
+      daily: "Daily activity",
+      topPaths: "Top paths",
     },
     metrics: {
       totalUsers: "Всего пользователей",
@@ -724,9 +741,20 @@ export function t(path: string, vars?: Record<string, any>): string {
       notes: "Заметки",
       reading: "Сейчас читают",
       completed: "Прочитано",
+      totalEvents: "Total events",
+      uniqueUsers: "Unique users",
+      uniqueGuests: "Unique guests",
+    },
+    range: {
+      label: "Range",
+      "7d": "7d",
+      "30d": "30d",
+      "90d": "90d",
     },
     empty: {
       roles: "Нет данных по ролям.",
+      daily: "No daily data.",
+      topPaths: "No paths data.",
     },
   };
 
@@ -839,6 +867,16 @@ export function t(path: string, vars?: Record<string, any>): string {
       roles: "Рөлдер бойынша дерек жоқ.",
     },
   };
+
+  dict.kk.admin.analytics.sections.traffic = "Traffic";
+  dict.kk.admin.analytics.sections.daily = "Daily activity";
+  dict.kk.admin.analytics.sections.topPaths = "Top paths";
+  dict.kk.admin.analytics.metrics.totalEvents = "Total events";
+  dict.kk.admin.analytics.metrics.uniqueUsers = "Unique users";
+  dict.kk.admin.analytics.metrics.uniqueGuests = "Unique guests";
+  dict.kk.admin.analytics.range = { label: "Range", "7d": "7d", "30d": "30d", "90d": "90d" };
+  dict.kk.admin.analytics.empty.daily = "No daily data.";
+  dict.kk.admin.analytics.empty.topPaths = "No paths data.";
 
 dict.en.common.catalogSearchPlaceholder = "Search catalog";
 dict.ru.common.catalogSearchPlaceholder = "Поиск по каталогу";
