@@ -1,3 +1,5 @@
+import os
+from urllib.parse import urlparse, urlunparse
 from pydantic_settings import BaseSettings
 from pydantic import AnyHttpUrl, field_validator
 from typing import List
@@ -41,6 +43,18 @@ class Settings(BaseSettings):
     def split_origins(cls, v):
         if isinstance(v, str):
             return [o.strip() for o in v.split(",") if o.strip()]
+        return v
+
+    @field_validator("ANALYTICS_SERVICE_URL")
+    @classmethod
+    def normalize_analytics_url(cls, v):
+        if not os.path.exists("/.dockerenv"):
+            return v
+        raw = str(v)
+        parsed = urlparse(raw)
+        if parsed.hostname in {"localhost", "127.0.0.1", "::1"}:
+            netloc = f"analytics:{parsed.port}" if parsed.port else "analytics"
+            return urlunparse(parsed._replace(netloc=netloc))
         return v
 
 
