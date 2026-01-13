@@ -393,3 +393,38 @@ def list_users(
         limit=safe_limit,
         offset=safe_offset,
     )
+
+
+@router.get("/users/{user_id}", response_model=UserAdminOut)
+def get_user_admin(
+    user_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    require_admin(request)
+    u = db.get(User, user_id)
+    if not u:
+        raise HTTPException(404, "User not found")
+    return UserAdminOut(
+        id=u.id,
+        email=u.email,
+        iin=u.iin,
+        phone=u.phone,
+        avatar_url=u.avatar_url,
+        role=u.role,
+        permissions=u.permissions,
+        institution=u.institution,
+        faculty=u.faculty,
+        group_name=u.group_name,
+        student_id=u.student_id,
+        subscription_type=u.subscription_type,
+        subscription_expire_at=u.subscription_expire_at,
+        is_active=u.is_active,
+        email_verified=u.email_verified,
+        phone_verified=u.phone_verified,
+        last_login_at=u.last_login_at,
+        last_activity_at=u.last_activity_at,
+        reading_history_count=u.reading_history_count,
+        created_at=u.created_at if hasattr(u, "created_at") else None,
+        updated_at=u.updated_at if hasattr(u, "updated_at") else None,
+    )

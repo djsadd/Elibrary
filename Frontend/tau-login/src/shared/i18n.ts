@@ -75,6 +75,7 @@ const dict: Record<Lang, Record<string, any>> = {
         searchPlaceholder: 'Search users',
         total: 'Total',
         empty: 'No users found',
+        details: 'Details',
         table: {
           id: 'ID',
           email: 'Email',
@@ -85,6 +86,7 @@ const dict: Record<Lang, Record<string, any>> = {
           group: 'Group',
           active: 'Active',
           created: 'Created',
+          actions: 'Actions',
         },
       },
       taxonomy: {

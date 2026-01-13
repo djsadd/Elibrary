@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import { api } from "@/shared/api/client";
 import { t } from "@/shared/i18n";
 
@@ -113,12 +114,13 @@ export default function UsersPage() {
                 <th className="text-left px-3 py-2">{t("admin.users.table.group")}</th>
                 <th className="text-left px-3 py-2">{t("admin.users.table.active")}</th>
                 <th className="text-left px-3 py-2">{t("admin.users.table.created")}</th>
+                <th className="text-left px-3 py-2">{t("admin.users.table.actions")}</th>
               </tr>
             </thead>
             <tbody>
               {filtered.length === 0 && (
                 <tr>
-                  <td colSpan={9} className="text-center text-slate-500 py-6">
+                  <td colSpan={10} className="text-center text-slate-500 py-6">
                     {t("admin.users.empty")}
                   </td>
                 </tr>
@@ -134,6 +136,11 @@ export default function UsersPage() {
                   <td className="px-3 py-2">{u.group_name || "-"}</td>
                   <td className="px-3 py-2">{u.is_active ? "Yes" : "No"}</td>
                   <td className="px-3 py-2">{formatDate(u.created_at)}</td>
+                  <td className="px-3 py-2">
+                    <Link to={`/admin/users/${encodeURIComponent(String(u.id))}`} className="text-[#7b0f2b] hover:underline">
+                      {t("admin.users.details")}
+                    </Link>
+                  </td>
                 </tr>
               ))}
             </tbody>

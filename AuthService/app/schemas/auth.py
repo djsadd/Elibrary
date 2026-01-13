@@ -77,14 +77,23 @@ class UserAdminOut(BaseModel):
     email: EmailStr
     iin: Optional[str] = None
     phone: Optional[str] = None
+    avatar_url: Optional[str] = None
     role: Optional[str] = None
     permissions: Optional[str] = None
     institution: Optional[str] = None
     faculty: Optional[str] = None
     group_name: Optional[str] = None
+    student_id: Optional[str] = None
     subscription_type: Optional[str] = None
     is_active: Optional[bool] = None
+    email_verified: Optional[bool] = None
+    phone_verified: Optional[bool] = None
+    last_login_at: Optional[datetime] = None
+    last_activity_at: Optional[datetime] = None
+    reading_history_count: Optional[int] = None
+    subscription_expire_at: Optional[datetime] = None
     created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
 
 
 class UsersListResponse(BaseModel):
