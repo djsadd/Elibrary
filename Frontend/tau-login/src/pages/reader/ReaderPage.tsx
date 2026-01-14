@@ -34,6 +34,8 @@ export default function ReaderPage() {
   const [notes, setNotes] = useState("");
   const notesMapRef = useRef<Map<number, string>>(new Map());
   const notesIdMapRef = useRef<Map<number, string | number>>(new Map());
+  const prefetchedRef = useRef<Set<number>>(new Set());
+  const inflightRef = useRef<Set<number>>(new Set());
   const lastSentRef = useRef<string>("");
   const [saving, setSaving] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const dragStartX = useRef<number | null>(null);
@@ -46,6 +48,7 @@ export default function ReaderPage() {
 
   const [userbookId, setUserbookId] = useState<string | null>(null);
   const [bookMeta, setBookMeta] = useState<any | null>(null);
+  const PREFETCH_RADIUS = 10;
 
   useEffect(() => {
     const token = localStorage.getItem("token") || sessionStorage.getItem("token");
@@ -432,6 +435,60 @@ export default function ReaderPage() {
       }
     }
   }, [pdf, page, scale, twoPage, pageCount]);
+
+  useEffect(() => {
+    if (!pdf) return;
+    prefetchedRef.current = new Set();
+    inflightRef.current = new Set();
+  }, [pdf]);
+
+  useEffect(() => {
+    if (!pdf || pageCount <= 0) return;
+    let cancelled = false;
+
+    const prefetchPage = async (pNum: number) => {
+      if (pNum < 1 || pNum > pageCount) return;
+      if (prefetchedRef.current.has(pNum) || inflightRef.current.has(pNum)) return;
+      inflightRef.current.add(pNum);
+      try {
+        await pdf.getPage(pNum);
+        prefetchedRef.current.add(pNum);
+      } catch {
+        // ignore prefetch errors; render will retry on demand
+      } finally {
+        inflightRef.current.delete(pNum);
+      }
+    };
+
+    const buildOrder = (center: number) => {
+      const order: number[] = [];
+      const seen = new Set<number>();
+      const push = (n: number) => {
+        if (n < 1 || n > pageCount || seen.has(n)) return;
+        seen.add(n);
+        order.push(n);
+      };
+      push(center);
+      if (twoPage) push(center + 1);
+      for (let i = 1; i <= PREFETCH_RADIUS; i += 1) {
+        push(center + i);
+        push(center - i);
+      }
+      return order;
+    };
+
+    const run = async () => {
+      for (const pNum of buildOrder(page)) {
+        if (cancelled) return;
+        await prefetchPage(pNum);
+      }
+    };
+
+    run();
+    return () => {
+      cancelled = true;
+    };
+  }, [pdf, page, pageCount, twoPage]);
 
   const prev = () => setPage((p) => Math.max(1, p - 1));
   const next = () => setPage((p) => Math.min(pageCount, p + 1));

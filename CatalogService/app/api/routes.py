@@ -4,7 +4,6 @@ from sqlalchemy.orm import Session
 from typing import List, Optional
 import requests
 from sqlalchemy import select, func, or_
-from fastapi.responses import StreamingResponse
 
 from app.utils.authz import get_current_user, AuthUser
 from fastapi import File, UploadFile, Form
@@ -202,17 +201,10 @@ def stream_book(book_id: int, db: Session = Depends(get_db)):
     if not os.path.exists(file_path):
         raise HTTPException(status_code=404, detail="File not found")
 
-    def iterfile():
-        with open(file_path, mode="rb") as f:
-            while chunk := f.read(1024 * 1024):   # 1MB чанки
-                yield chunk
-
-    return StreamingResponse(
-        iterfile(),
+    return FileResponse(
+        path=file_path,
         media_type="application/pdf",
-        headers={
-            "Content-Disposition": f"inline; filename={book.title}.pdf"
-        }
+        headers={"Content-Disposition": f"inline; filename={book.title}.pdf"},
     )
 
 
