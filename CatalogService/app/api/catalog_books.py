@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 from app.api.catalog_common import _ensure_authors, _ensure_subjects, _to_out, get_db
 from app.models.book import Author, Book, Subject, UserBook
 from app.schemas.book import BookCreate, BookList, BookOut, BookUpdate
+from app.utils.authz import require_roles
 from app.utils.pagination import clamp_limit, clamp_offset
 
 router = APIRouter()
@@ -34,7 +35,11 @@ def get_books_batch(
     return [_to_out(b) for b in books]
 
 
-@router.get("/books/{book_id}/download", response_class=FileResponse)
+@router.get(
+    "/books/{book_id}/download",
+    response_class=FileResponse,
+    dependencies=[Depends(require_roles("librarian", "admin"))],
+)
 def download_book(book_id: int, db: Session = Depends(get_db)):
     book = db.get(Book, book_id)
     if not book:
@@ -52,7 +57,10 @@ def download_book(book_id: int, db: Session = Depends(get_db)):
     )
 
 
-@router.get("/books/{book_id}/stream")
+@router.get(
+    "/books/{book_id}/stream",
+    dependencies=[Depends(require_roles("librarian", "admin"))],
+)
 def stream_book(book_id: int, db: Session = Depends(get_db)):
     book = db.get(Book, book_id)
     if not book:
