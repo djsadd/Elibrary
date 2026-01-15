@@ -1,8 +1,9 @@
-﻿import type React from "react";
+import type React from "react";
 import { useEffect, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import DashboardHeader from "../../components/layout/DashboardHeader";
 import { api } from "@/shared/api/client";
+import { t } from "@/shared/i18n";
 import { namesFrom } from "@/shared/ui/text";
 import bookPdf from "../../assets/books/book.pdf";
 
@@ -27,10 +28,9 @@ export default function ReaderPage() {
   const [pageCount, setPageCount] = useState(0);
   const [page, setPage] = useState(1);
   const [scale, setScale] = useState(1);
-  const [twoPage, setTwoPage] = useState(true);
+  const [twoPage, setTwoPage] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [notesOpen, setNotesOpen] = useState(false);
-  const [fav, setFav] = useState(false);
   const [notes, setNotes] = useState("");
   const notesMapRef = useRef<Map<number, string>>(new Map());
   const notesIdMapRef = useRef<Map<number, string | number>>(new Map());
@@ -49,10 +49,17 @@ export default function ReaderPage() {
   const [userbookId, setUserbookId] = useState<string | null>(null);
   const [bookMeta, setBookMeta] = useState<any | null>(null);
   const PREFETCH_RADIUS = 10;
+  const [, setLangTick] = useState(0);
 
   useEffect(() => {
     const token = localStorage.getItem("token") || sessionStorage.getItem("token");
     console.info("[ReaderPage] Bearer token:", token);
+  }, []);
+
+  useEffect(() => {
+    const handler = () => setLangTick((v) => v + 1);
+    window.addEventListener("lang:changed", handler);
+    return () => window.removeEventListener("lang:changed", handler);
   }, []);
 
   // detect mobile viewport and adapt layout (iPhone 13 target ~390px width)
@@ -590,16 +597,16 @@ export default function ReaderPage() {
               <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
                 <path d="M15 6l-6 6 6 6" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
-              <span>Back</span>
+              <span>{t("common.back")}</span>
             </Link>
             <div>
-              <div className="text-sm font-semibold">{bookMeta?.title || 'Book'}</div>
+              <div className="text-sm font-semibold">{bookMeta?.title || t("reader.book")}</div>
               <div className="text-xs opacity-80">
                 {(() => {
                   const authors = namesFrom((bookMeta as any)?.authors);
                   const authorLine = authors.length ? authors.join(', ') : '';
                   const year = (bookMeta as any)?.year || '';
-                  const sep = authorLine && year ? ' — ' : '';
+                  const sep = authorLine && year ? ' � ' : '';
                   return `${authorLine}${sep}${year}` || '-';
                 })()}
               </div>
@@ -607,7 +614,7 @@ export default function ReaderPage() {
           </div>
           <div className="hidden sm:flex items-center gap-2 sm:gap-3">
             <button onClick={prevSpread} className="p-2.5 rounded-md hover:bg-slate-600"><svg className="w-4 h-4" viewBox="0 0 24 24" fill="none"><path d="M15 6l-6 6 6 6" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/></svg></button>
-            <div className="text-sm">{page}{twoPage ? ` & ${Math.min(page + 1, pageCount)}` : ''} of {pageCount}</div>
+            <div className="text-sm">{page}{twoPage ? ` & ${Math.min(page + 1, pageCount)}` : ''} {t("reader.of")} {pageCount}</div>
             <button onClick={nextSpread} className="p-2.5 rounded-md hover:bg-slate-600"><svg className="w-4 h-4" viewBox="0 0 24 24" fill="none"><path d="M9 6l6 6-6 6" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/></svg></button>
 
             <div className="flex items-center gap-1">
@@ -617,11 +624,10 @@ export default function ReaderPage() {
             </div>
             <input type="range" min={0.5} max={2.5} step={0.05} value={scale} onChange={(e) => setScale(parseFloat(e.target.value))} className="w-32 sm:w-40" />
 
-            <button onClick={() => setFav((v) => !v)} className={`p-2 rounded-md ${fav ? 'bg-red-600 text-white' : 'hover:bg-slate-600'}`}>вќ¤</button>
 
-            <button onClick={toggleFullscreen} className="p-2 rounded-md hover:bg-slate-600">{(nativeFullscreen||overlayFullscreen)?'Exit':'Full'}</button>
+            <button onClick={toggleFullscreen} className="p-2 rounded-md hover:bg-slate-600">{(nativeFullscreen || overlayFullscreen) ? t("reader.exit") : t("reader.full")}</button>
 
-            <button onClick={() => setTwoPage((v) => !v)} className="p-2 rounded-md hover:bg-slate-600">{twoPage ? '2-up' : '1-up'}</button>
+            <button onClick={() => setTwoPage((v) => !v)} className="p-2 rounded-md hover:bg-slate-600">{twoPage ? t("reader.double") : t("reader.single")}</button>
           </div>
         </div>
 
@@ -637,40 +643,40 @@ export default function ReaderPage() {
 
           {!isMobile && (<aside className="w-full md:w-72 shrink-0 bg-white rounded-md p-3 sm:p-4 flex flex-col">
             <div className="mb-2 text-sm text-slate-500 flex items-center justify-between">
-              <span>Notes</span>
+              <span>{t("common.notes")}</span>
               <span className={`text-[11px] ${saving==='saving'?'text-amber-600': saving==='saved'?'text-emerald-600': saving==='error'?'text-red-600':'text-slate-400'}`}>
-                {saving === 'saving' ? 'SavingвЂ¦' : saving === 'saved' ? 'Saved' : saving === 'error' ? 'Error' : 'Auto-save'}
+                {saving === 'saving' ? t("common.saving") : saving === 'saved' ? t("common.saved") : saving === 'error' ? t("common.error") : t("common.autosave")}
               </span>
             </div>
-            <textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Write your notes here (per page)" className="flex-1 border rounded-md p-2 text-sm min-h-[8rem] md:min-h-0" />
-            <div className="text-xs text-slate-400 mt-2">Saved per page вЂў book {bookIdParam || '-'} вЂў page {page}</div>
+            <textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder={t("reader.notesPlaceholder")} className="flex-1 border rounded-md p-2 text-sm min-h-[8rem] md:min-h-0" />
+            <div className="text-xs text-slate-400 mt-2">{t("reader.savedPerPage", { book: bookIdParam || "-", page })}</div>
           </aside>)}
         </div>
 
         <div className="hidden sm:flex bg-slate-700 text-white rounded-b-md px-3 sm:px-4 py-3 mt-0 items-center justify-between">
           <div className="flex items-center gap-2 sm:gap-3">
             <button onClick={prevSpread} className="p-2.5 rounded-md hover:bg-slate-600"><svg className="w-4 h-4" viewBox="0 0 24 24" fill="none"><path d="M15 6l-6 6 6 6" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/></svg></button>
-            <div className="text-sm">{page}{twoPage ? ` & ${Math.min(page + 1, pageCount)}` : ''} of {pageCount}</div>
+            <div className="text-sm">{page}{twoPage ? ` & ${Math.min(page + 1, pageCount)}` : ''} {t("reader.of")} {pageCount}</div>
             <button onClick={nextSpread} className="p-2.5 rounded-md hover:bg-slate-600"><svg className="w-4 h-4" viewBox="0 0 24 24" fill="none"><path d="M9 6l6 6-6 6" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/></svg></button>
           </div>
           <div className="flex items-center gap-2">
             <button onClick={zoomOut} className="p-2.5 rounded-md hover:bg-slate-600">-</button>
             <input type="range" min={0.5} max={2.5} step={0.05} value={scale} onChange={(e) => setScale(parseFloat(e.target.value))} className="w-32 sm:w-40" />
             <button onClick={zoomIn} className="p-2.5 rounded-md hover:bg-slate-600">+</button>
-            <button onClick={() => setTwoPage((v) => !v)} className="ml-2 p-2 rounded-md hover:bg-slate-600">{twoPage ? '2-up' : '1-up'}</button>
+            <button onClick={() => setTwoPage((v) => !v)} className="ml-2 p-2 rounded-md hover:bg-slate-600">{twoPage ? t("reader.double") : t("reader.single")}</button>
           </div>
         </div>
 
         {isMobile && (
           <>
-            <button aria-label="Open notes" onClick={() => setNotesOpen(true)} className="fixed bottom-4 right-4 z-50 p-3 rounded-full bg-white shadow border text-slate-700">
+            <button aria-label={t("reader.openNotes")} onClick={() => setNotesOpen(true)} className="fixed bottom-4 right-4 z-50 p-3 rounded-full bg-white shadow border text-slate-700">
               <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6">
                 <path d="M4 4h16v12H7l-3 3V4z" />
                 <path d="M14 8l-4 4" />
                 <path d="M10 8l4 4" />
               </svg>
             </button>
-            <button aria-label="Toggle fullscreen" title="Fullscreen" onClick={toggleFullscreen} className="fixed bottom-4 left-4 z-50 p-3 rounded-full bg-white shadow border text-slate-700">
+            <button aria-label={t("reader.toggleFullscreen")} title={t("reader.full")} onClick={toggleFullscreen} className="fixed bottom-4 left-4 z-50 p-3 rounded-full bg-white shadow border text-slate-700">
               <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                 <path d="M15 3h6v6" />
                 <path d="M21 3l-7 7" />
@@ -683,14 +689,14 @@ export default function ReaderPage() {
                 <div className="absolute inset-0 bg-black/50" onClick={() => setNotesOpen(false)} />
                 <div className="absolute inset-x-4 top-16 bottom-16 bg-white rounded-lg shadow p-4 flex flex-col">
                   <div className="flex items-center justify-between mb-2">
-                    <div className="text-sm font-medium text-slate-700">Notes (page {page})</div>
+                    <div className="text-sm font-medium text-slate-700">{t("reader.notesPage", { page })}</div>
                     <button onClick={() => setNotesOpen(false)} className="p-2 rounded hover:bg-slate-100" aria-label="Close">
                       <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"><path d="M6 6l12 12M6 18L18 6"/></svg>
                     </button>
                   </div>
-                  <div className="text-[11px] text-slate-500 mb-2">{saving === 'saving' ? 'Saving…' : saving === 'saved' ? 'Saved' : saving === 'error' ? 'Error' : 'Auto-save'}</div>
-                  <textarea value={notes} onChange={(e)=>setNotes(e.target.value)} className="flex-1 border rounded-md p-2 text-sm" placeholder="Write your notes here (per page)" />
-                  <div className="mt-2 text-xs text-slate-400">book {bookIdParam || '-'} • page {page}</div>
+                  <div className="text-[11px] text-slate-500 mb-2">{saving === 'saving' ? t("common.saving") : saving === 'saved' ? t("common.saved") : saving === 'error' ? t("common.error") : t("common.autosave")}</div>
+                  <textarea value={notes} onChange={(e)=>setNotes(e.target.value)} className="flex-1 border rounded-md p-2 text-sm" placeholder={t("reader.notesPlaceholder")} />
+                  <div className="mt-2 text-xs text-slate-400">{t("reader.savedPerPage", { book: bookIdParam || "-", page })}</div>
                 </div>
               </div>
             )}

@@ -1,4 +1,4 @@
-type Lang = 'en' | 'ru' | 'kk';
+﻿type Lang = 'en' | 'ru' | 'kk';
 
 const dict: Record<Lang, Record<string, any>> = {
   en: {
@@ -167,6 +167,19 @@ const dict: Record<Lang, Record<string, any>> = {
       error: 'Error',
       autosave: 'Auto-save',
     },
+    reader: {
+      book: 'Book',
+      of: 'of',
+      full: 'Full',
+      exit: 'Exit',
+      single: '1-up',
+      double: '2-up',
+      openNotes: 'Open notes',
+      toggleFullscreen: 'Toggle fullscreen',
+      notesPage: 'Notes (page {{page}})',
+      notesPlaceholder: 'Write your notes here (per page)',
+      savedPerPage: 'Saved per page | book {{book}} | page {{page}}',
+    },
   },
   ru: {
     admin: {
@@ -314,6 +327,19 @@ const dict: Record<Lang, Record<string, any>> = {
       error: 'Ошибка',
       autosave: 'Автосохранение',
     },
+    reader: {
+      book: 'Книга',
+      of: 'из',
+      full: 'Полный',
+      exit: 'Выйти',
+      single: '1 стр.',
+      double: '2 стр.',
+      openNotes: 'Открыть заметки',
+      toggleFullscreen: 'Полноэкранный режим',
+      notesPage: 'Заметки (стр. {{page}})',
+      notesPlaceholder: 'Пишите заметки здесь (по страницам)',
+      savedPerPage: 'Сохранено по страницам | книга {{book}} | стр. {{page}}',
+    },
   },
   kk: {
     admin: {
@@ -460,6 +486,19 @@ const dict: Record<Lang, Record<string, any>> = {
       saved: 'Сақталды',
       error: 'Қате',
       autosave: 'Автоматты сақтау',
+    },
+    reader: {
+      book: 'Кітап',
+      of: 'ішінен',
+      full: 'Толық',
+      exit: 'Шығу',
+      single: '1 бет',
+      double: '2 бет',
+      openNotes: 'Ескертпелерді ашу',
+      toggleFullscreen: 'Толық экран',
+      notesPage: 'Ескертпелер (бет {{page}})',
+      notesPlaceholder: 'Ескертпені осында жазыңыз (бетке бөлек)',
+      savedPerPage: 'Бетке сақталды | кітап {{book}} | бет {{page}}',
     },
   },
 };
