@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import DashboardHeader from "@/components/layout/DashboardHeader";
 import { api } from "@/shared/api/client";
 import { namesFrom } from "@/shared/ui/text";
+import { searchBooks, type SearchResponse } from "@/shared/api/search";
 import bookImg from "@/assets/images/Image.png";
 
 type Book = {
@@ -35,26 +36,32 @@ export default function SearchResultsPage() {
       try {
         setLoading(true);
         setError(null);
-        const params = new URLSearchParams();
-        params.set('q', q);
-        const url = `/api/catalog/books/search?${params.toString()}`;
         let data: BookListResponse;
         try {
-          data = await api<BookListResponse>(url);
+          const s: SearchResponse = await searchBooks(q, { limit: 50 });
+          data = { items: (s.items || []) as any, page: s.page as any };
         } catch (e) {
-          // fallback: client-side filter of first 100 catalog items
-          try { console.warn('[Search] server search failed, fallback to client filter:', e); } catch {}
-          const url2 = `/api/catalog/books?limit=100&offset=0`;
-          const data2 = await api<BookListResponse>(url2);
-          const needle = q.toLocaleLowerCase();
-          const inText = (s?: string | null) => (s ? s.toLocaleLowerCase().includes(needle) : false);
-          const filtered = (Array.isArray(data2.items) ? data2.items : []).filter((b: any) => {
-            if (inText(b?.title)) return true;
-            const a = (b?.authors || []).map((x: any) => (typeof x === 'string' ? x : x?.name || '')).filter(Boolean);
-            const s = (b?.subjects || []).map((x: any) => (typeof x === 'string' ? x : x?.name || '')).filter(Boolean);
-            return a.some(inText) || s.some(inText);
-          });
-          data = { items: filtered, page: { limit: filtered.length, offset: 0, total: filtered.length } };
+          // fallback: catalog search endpoint (and then client-side filter if needed)
+          try { console.warn('[Search] search service failed, fallback to catalog search:', e); } catch {}
+          const params = new URLSearchParams();
+          params.set('q', q);
+          const url = `/api/catalog/books/search?${params.toString()}`;
+          try {
+            data = await api<BookListResponse>(url);
+          } catch (e2) {
+            try { console.warn('[Search] catalog search failed, fallback to client filter:', e2); } catch {}
+            const url2 = `/api/catalog/books?limit=100&offset=0`;
+            const data2 = await api<BookListResponse>(url2);
+            const needle = q.toLocaleLowerCase();
+            const inText = (s?: string | null) => (s ? s.toLocaleLowerCase().includes(needle) : false);
+            const filtered = (Array.isArray(data2.items) ? data2.items : []).filter((b: any) => {
+              if (inText(b?.title)) return true;
+              const a = (b?.authors || []).map((x: any) => (typeof x === 'string' ? x : x?.name || '')).filter(Boolean);
+              const s = (b?.subjects || []).map((x: any) => (typeof x === 'string' ? x : x?.name || '')).filter(Boolean);
+              return a.some(inText) || s.some(inText);
+            });
+            data = { items: filtered, page: { limit: filtered.length, offset: 0, total: filtered.length } };
+          }
         }
         if (cancelled) return;
         setItems(Array.isArray(data.items) ? data.items : []);

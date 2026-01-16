@@ -19,6 +19,8 @@ class Settings(BaseSettings):
 
     FILE_SERVICE_URL: str = "http://127.0.0.1:8082/files/upload"
     AUTH_SERVICE_URL: str = "http://127.0.0.1:8000/api/"
+    SEARCH_SERVICE_URL: str = "http://search:8004"
+    SEARCH_ADMIN_TOKEN: str = ""
 
     # CORS (через запятую)
     CORS_ALLOW_ORIGINS: str = ""

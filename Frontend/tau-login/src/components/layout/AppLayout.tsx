@@ -1,16 +1,20 @@
 import { Outlet, useNavigate } from "react-router-dom";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Footer from "./Footer";
 import Sidebar from "./Sidebar";
 import { SidebarProvider, useSidebar } from "../../shared/SidebarContext";
 import { t } from "@/shared/i18n";
+import { suggestBooks, type SuggestItem } from "@/shared/api/search";
 
 function LayoutInner() {
   const { isOpen, close, open } = useSidebar();
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [searchSuggestLoading, setSearchSuggestLoading] = useState(false);
+  const [searchSuggestItems, setSearchSuggestItems] = useState<SuggestItem[]>([]);
   const nav = useNavigate();
   const closeSearch = () => setSearchOpen(false);
+  const searchQueryTrimmed = useMemo(() => (searchQuery || "").trim(), [searchQuery]);
 
   useEffect(() => {
     if (!searchOpen) return;
@@ -26,7 +30,7 @@ function LayoutInner() {
     if (!searchOpen) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Enter') {
-        const q = (searchQuery || '').trim();
+        const q = searchQueryTrimmed;
         if (q) {
           nav(`/search?q=${encodeURIComponent(q)}`);
           setSearchOpen(false);
@@ -35,7 +39,33 @@ function LayoutInner() {
     };
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
-  }, [searchOpen, searchQuery]);
+  }, [searchOpen, searchQueryTrimmed]);
+
+  useEffect(() => {
+    if (!searchOpen) return;
+    if (searchQueryTrimmed.length < 2) {
+      setSearchSuggestItems([]);
+      setSearchSuggestLoading(false);
+      return;
+    }
+    const controller = new AbortController();
+    const t = window.setTimeout(async () => {
+      try {
+        setSearchSuggestLoading(true);
+        const resp = await suggestBooks(searchQueryTrimmed, { limit: 8, signal: controller.signal });
+        setSearchSuggestItems(Array.isArray(resp.items) ? resp.items : []);
+      } catch (e: any) {
+        if (e?.name === "AbortError") return;
+        setSearchSuggestItems([]);
+      } finally {
+        setSearchSuggestLoading(false);
+      }
+    }, 250);
+    return () => {
+      controller.abort();
+      window.clearTimeout(t);
+    };
+  }, [searchOpen, searchQueryTrimmed]);
 
   useEffect(() => {
     const handleKey = (event: KeyboardEvent) => {
@@ -115,6 +145,43 @@ function LayoutInner() {
                   Отмена
                 </button>
               </div>
+              {searchQueryTrimmed.length >= 2 ? (
+                <div className="mt-4 rounded-2xl bg-white/70 border border-white/40 overflow-hidden">
+                  <div className="px-4 py-2 text-xs text-slate-600 flex items-center justify-between">
+                    <span>Suggestions</span>
+                    {searchSuggestLoading ? <span className="animate-pulse">Searching…</span> : null}
+                  </div>
+                  <div className="max-h-72 overflow-auto">
+                    {searchSuggestItems.map((it) => (
+                      <button
+                        key={it.id}
+                        type="button"
+                        className="w-full text-left px-4 py-3 hover:bg-white/80 flex items-start gap-3"
+                        onClick={() => {
+                          nav(`/catalog/${it.id}`);
+                          setSearchOpen(false);
+                        }}
+                      >
+                        <span className="mt-0.5 w-8 h-8 rounded-full bg-slate-100 text-slate-600 flex items-center justify-center">
+                          <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6">
+                            <path d="M4 19.5A2.5 2.5 0 0 0 6.5 22H20" />
+                            <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2Z" />
+                          </svg>
+                        </span>
+                        <span className="flex-1 min-w-0">
+                          <div className="text-sm text-slate-900 truncate">{it.title}</div>
+                          {Array.isArray(it.authors) && it.authors.length ? (
+                            <div className="text-xs text-slate-500 truncate">{it.authors.join(", ")}</div>
+                          ) : null}
+                        </span>
+                      </button>
+                    ))}
+                    {!searchSuggestLoading && searchSuggestItems.length === 0 ? (
+                      <div className="px-4 py-4 text-sm text-slate-600">No suggestions</div>
+                    ) : null}
+                  </div>
+                </div>
+              ) : null}
               <p className="text-[11px] text-slate-600 text-center mt-3">
                 Пока модальное окно только визуальное — поиск подключим позже.
               </p>

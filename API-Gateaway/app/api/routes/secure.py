@@ -87,18 +87,15 @@ async def notification_proxy(path: str, request: Request, _=Depends(auth_require
 
 
 # ====== Catalog ======
-@router.get("/catalog/books/search")
-async def catalog_books_search(request: Request):
+@router.api_route("/catalog", methods=["GET", "POST", "PUT", "PATCH", "DELETE"])
+@router.api_route("/catalog/", methods=["GET", "POST", "PUT", "PATCH", "DELETE"])
+async def catalog_root_proxy(request: Request, _=Depends(auth_required)):
     return await forward(request, settings.CATALOG_SERVICE_URL)
 
 
-@router.get("/catalog/books")
-async def catalog_books(request: Request):
-    return await forward(request, settings.CATALOG_SERVICE_URL)
-
-
-@router.get("/catalog/books/{book_id}")
-async def catalog_book_by_id(request: Request, book_id: str, _=Depends(auth_required)):
+@router.api_route("/catalog/{path:path}", methods=["GET", "POST", "PUT", "PATCH", "DELETE"])
+@router.api_route("/catalog/{path:path}/", methods=["GET", "POST", "PUT", "PATCH", "DELETE"])
+async def catalog_proxy(path: str, request: Request, _=Depends(auth_required)):
     return await forward(request, settings.CATALOG_SERVICE_URL)
 
 
@@ -115,8 +112,14 @@ async def upload_file(request: Request, _=Depends(auth_required)):
 
 
 # ====== Search ======
-@router.get("/search")
-async def search(request: Request, _=Depends(auth_required)):
+@router.api_route("/search", methods=["GET", "POST", "PUT", "PATCH", "DELETE"])
+@router.api_route("/search/", methods=["GET", "POST", "PUT", "PATCH", "DELETE"])
+async def search_root_proxy(request: Request, _=Depends(auth_required)):
+    return await forward(request, settings.SEARCH_SERVICE_URL)
+
+@router.api_route("/search/{path:path}", methods=["GET", "POST", "PUT", "PATCH", "DELETE"])
+@router.api_route("/search/{path:path}/", methods=["GET", "POST", "PUT", "PATCH", "DELETE"])
+async def search_proxy(path: str, request: Request, _=Depends(auth_required)):
     return await forward(request, settings.SEARCH_SERVICE_URL)
 
 

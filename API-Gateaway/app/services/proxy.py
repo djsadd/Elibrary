@@ -114,6 +114,11 @@ async def forward(request: Request, base_url: str, path_suffix: str = "") -> Res
 
     # --- Формируем upstream URL и заголовки ---
     upstream_path = path_suffix or request.url.path
+    if not path_suffix:
+        if upstream_path == "/api":
+            upstream_path = "/"
+        elif upstream_path.startswith("/api/"):
+            upstream_path = upstream_path[4:]
     # Ensure base_url is clean (no stray spaces)
     target = _join_url(str(base_url).strip(), upstream_path, request.url.query)
     headers = _filtered_headers(request)

@@ -1,8 +1,9 @@
 // Desktop header (hidden on small screens)
-import { useEffect, useRef, useState, type ChangeEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { getLang } from "@/shared/i18n";
 import { api } from "@/shared/api/client";
+import { suggestBooks, type SuggestItem } from "@/shared/api/search";
 
 export default function DashboardHeader() {
   const [filterOpen, setFilterOpen] = useState(false);
@@ -20,6 +21,14 @@ export default function DashboardHeader() {
   const langRef = useRef<HTMLDivElement | null>(null);
   const userRef = useRef<HTMLDivElement | null>(null);
   const notifRef = useRef<HTMLDivElement | null>(null);
+  const searchRef = useRef<HTMLDivElement | null>(null);
+
+  const [suggestOpen, setSuggestOpen] = useState(false);
+  const [suggestLoading, setSuggestLoading] = useState(false);
+  const [suggestItems, setSuggestItems] = useState<SuggestItem[]>([]);
+  const [activeIdx, setActiveIdx] = useState<number>(-1);
+
+  const queryTrimmed = useMemo(() => query.trim(), [query]);
 
   type Notif = { id: string; title: string; body?: string; time?: string; read?: boolean; type?: 'info'|'success'|'warning' };
   const [notifs, setNotifs] = useState<Notif[]>(() => {
@@ -76,16 +85,76 @@ export default function DashboardHeader() {
       if (langRef.current && !langRef.current.contains(t)) setLangOpen(false);
       if (userRef.current && !userRef.current.contains(t)) setUserOpen(false);
       if (notifRef.current && !notifRef.current.contains(t)) setNotifOpen(false);
+      if (searchRef.current && !searchRef.current.contains(t)) {
+        setSuggestOpen(false);
+        setActiveIdx(-1);
+      }
     };
     document.addEventListener("mousedown", onDocDown, true);
     return () => document.removeEventListener("mousedown", onDocDown, true);
   }, []);
 
+  useEffect(() => {
+    if (queryTrimmed.length < 2) {
+      setSuggestLoading(false);
+      setSuggestItems([]);
+      setSuggestOpen(false);
+      setActiveIdx(-1);
+      return;
+    }
+
+    const controller = new AbortController();
+    const t = window.setTimeout(async () => {
+      try {
+        setSuggestLoading(true);
+        const resp = await suggestBooks(queryTrimmed, { limit: 8, signal: controller.signal });
+        setSuggestItems(Array.isArray(resp.items) ? resp.items : []);
+        setSuggestOpen(true);
+        setActiveIdx(-1);
+      } catch (e: any) {
+        if (e?.name === "AbortError") return;
+        setSuggestItems([]);
+        setSuggestOpen(false);
+      } finally {
+        setSuggestLoading(false);
+      }
+    }, 250);
+
+    return () => {
+      controller.abort();
+      window.clearTimeout(t);
+    };
+  }, [queryTrimmed]);
+
   const doSearch = () => {
-    const q = query.trim();
-    if (!q) return;
+    if (!queryTrimmed) return;
     // Navigate to dedicated search page
-    nav(`/search?q=${encodeURIComponent(q)}`);
+    nav(`/search?q=${encodeURIComponent(queryTrimmed)}`);
+    setSuggestOpen(false);
+    setActiveIdx(-1);
+  };
+
+  const goToBook = (id: number) => {
+    setSuggestOpen(false);
+    setActiveIdx(-1);
+    nav(`/catalog/${id}`);
+  };
+
+  const highlight = (text: string, q: string) => {
+    const hay = (text || "").toLowerCase();
+    const needle = (q || "").toLowerCase();
+    const idx = needle ? hay.indexOf(needle) : -1;
+    if (idx < 0) return <span>{text}</span>;
+    const before = text.slice(0, idx);
+    const mid = text.slice(idx, idx + needle.length);
+    const after = text.slice(idx + needle.length);
+    return (
+      <span>
+        {before}
+        <span className="text-[#7b0f2b] font-semibold">{mid}</span>
+        {after}
+      </span>
+    );
   };
 
   const Capsule = ({ children }: { children: React.ReactNode }) => (
@@ -114,11 +183,117 @@ export default function DashboardHeader() {
           )}
         </div>
 
-        <div className="flex-1 relative">
-          <input value={query} onChange={(e)=>setQuery(e.target.value)} onKeyDown={(e)=>{ if(e.key==='Enter') doSearch(); }} placeholder="Search" className="w-full border rounded-full py-2 px-4 text-sm pr-10" />
-          <button onClick={doSearch} className="absolute right-2 top-1/2 -translate-y-1/2 text-[#7b0f2b] flex items-center justify-center w-8 h-8 rounded-full hover:bg-[#fff1f2]" aria-label="Search">
+        <div ref={searchRef} className="flex-1 relative">
+          <input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            onFocus={() => {
+              if (queryTrimmed.length >= 2 && suggestItems.length) setSuggestOpen(true);
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Escape") {
+                setSuggestOpen(false);
+                setActiveIdx(-1);
+                return;
+              }
+              if (e.key === "ArrowDown") {
+                e.preventDefault();
+                if (!suggestOpen) setSuggestOpen(true);
+                setActiveIdx((i) => Math.min((suggestItems?.length || 0) - 1, i + 1));
+                return;
+              }
+              if (e.key === "ArrowUp") {
+                e.preventDefault();
+                setActiveIdx((i) => Math.max(-1, i - 1));
+                return;
+              }
+              if (e.key === "Enter") {
+                if (suggestOpen && activeIdx >= 0 && suggestItems[activeIdx]) {
+                  e.preventDefault();
+                  goToBook(suggestItems[activeIdx].id);
+                  return;
+                }
+                doSearch();
+              }
+            }}
+            placeholder="Search"
+            className="w-full border rounded-full py-2 px-4 text-sm pr-10"
+            aria-label="Search"
+          />
+          <button
+            onClick={doSearch}
+            className="absolute right-2 top-1/2 -translate-y-1/2 text-[#7b0f2b] flex items-center justify-center w-8 h-8 rounded-full hover:bg-[#fff1f2]"
+            aria-label="Search"
+          >
             <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none"><path d="M21 21l-4.35-4.35" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/><circle cx="11" cy="11" r="6" stroke="currentColor" strokeWidth="1.5" /></svg>
           </button>
+
+          {suggestOpen && queryTrimmed.length >= 2 && (
+            <div
+              className="absolute z-50 mt-2 w-full bg-white border border-slate-200 rounded-2xl shadow-lg overflow-hidden"
+              onMouseDown={(e) => e.preventDefault()}
+              role="listbox"
+              aria-label="Search suggestions"
+            >
+              <div className="px-4 py-2 text-xs text-slate-500 flex items-center justify-between">
+                <span>Suggestions</span>
+                {suggestLoading ? <span className="animate-pulse">Searching…</span> : null}
+              </div>
+              <div className="max-h-80 overflow-auto">
+                <button
+                  type="button"
+                  className="w-full text-left px-4 py-3 hover:bg-slate-50 flex items-center gap-3"
+                  onClick={doSearch}
+                >
+                  <span className="w-8 h-8 rounded-full bg-[#fff1f2] text-[#7b0f2b] flex items-center justify-center">
+                    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                      <path d="M21 21l-4.35-4.35" />
+                      <circle cx="10" cy="10" r="6" />
+                    </svg>
+                  </span>
+                  <span className="flex-1">
+                    <div className="text-sm text-slate-900">Search for “{queryTrimmed}”</div>
+                    <div className="text-xs text-slate-500">Open full results</div>
+                  </span>
+                </button>
+
+                {suggestItems.map((it, idx) => {
+                  const active = idx === activeIdx;
+                  return (
+                    <button
+                      key={it.id}
+                      type="button"
+                      role="option"
+                      aria-selected={active}
+                      className={`w-full text-left px-4 py-3 flex items-start gap-3 ${active ? "bg-slate-100" : "hover:bg-slate-50"}`}
+                      onMouseEnter={() => setActiveIdx(idx)}
+                      onClick={() => goToBook(it.id)}
+                    >
+                      <span className="mt-0.5 w-8 h-8 rounded-full bg-slate-100 text-slate-600 flex items-center justify-center">
+                        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6">
+                          <path d="M4 19.5A2.5 2.5 0 0 0 6.5 22H20" />
+                          <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2Z" />
+                        </svg>
+                      </span>
+                      <span className="flex-1 min-w-0">
+                        <div className="text-sm text-slate-900 truncate">{highlight(it.title, queryTrimmed)}</div>
+                        {Array.isArray(it.authors) && it.authors.length ? (
+                          <div className="text-xs text-slate-500 truncate">{it.authors.join(", ")}</div>
+                        ) : (
+                          <div className="text-xs text-slate-500 truncate">Book</div>
+                        )}
+                      </span>
+                      <span className="text-xs text-slate-400 mt-1">Open</span>
+                    </button>
+                  );
+                })}
+
+                {!suggestLoading && suggestItems.length === 0 ? (
+                  <div className="px-4 py-4 text-sm text-slate-500">No suggestions</div>
+                ) : null}
+              </div>
+            </div>
+          )}
         </div>
       </div>
 

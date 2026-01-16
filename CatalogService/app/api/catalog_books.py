@@ -1,7 +1,7 @@
 import os
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, status
 from fastapi.responses import FileResponse
 from sqlalchemy import func, or_
 from sqlalchemy.exc import IntegrityError
@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 from app.api.catalog_common import _ensure_authors, _ensure_subjects, _to_out, get_db
 from app.models.book import Author, Book, Subject, UserBook
 from app.schemas.book import BookCreate, BookList, BookOut, BookUpdate
+from app.services.search_sync import index_book_in_search
 from app.utils.authz import require_roles
 from app.utils.pagination import clamp_limit, clamp_offset
 
@@ -183,7 +184,7 @@ def get_book(book_id: int, db: Session = Depends(get_db)):
 
 
 @router.post("/books", response_model=BookOut, status_code=status.HTTP_201_CREATED)
-def create_book(payload: BookCreate, db: Session = Depends(get_db)):
+def create_book(payload: BookCreate, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
     book = Book(
         title=payload.title,
         year=payload.year,
@@ -211,13 +212,17 @@ def create_book(payload: BookCreate, db: Session = Depends(get_db)):
     except IntegrityError:
         db.rollback()
         raise HTTPException(status_code=400, detail="Book already exists")
-    return _to_out(book)
+
+    out = _to_out(book)
+    background_tasks.add_task(index_book_in_search, out.model_dump())
+    return out
 
 
 @router.patch("/books/{book_id}", response_model=BookOut)
 def update_book(
     book_id: int,
     payload: BookUpdate,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
 ):
     book = db.get(Book, book_id)
@@ -249,4 +254,6 @@ def update_book(
         db.rollback()
         raise HTTPException(status_code=400, detail="Failed to update book")
 
-    return _to_out(book)
+    out = _to_out(book)
+    background_tasks.add_task(index_book_in_search, out.model_dump())
+    return out

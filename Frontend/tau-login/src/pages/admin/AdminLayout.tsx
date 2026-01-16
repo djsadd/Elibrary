@@ -31,7 +31,7 @@ export default function AdminLayout() {
                 <NavLink
                   key={item.to}
                   to={item.to}
-                  end={item.end as any}
+                  end={"end" in item ? item.end : undefined}
                   className={({ isActive }) =>
                     `block px-3 py-2 rounded-md text-sm hover:bg-slate-50 ${
                       isActive || location.pathname.startsWith(item.to)

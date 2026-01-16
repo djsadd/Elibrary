@@ -1,5 +1,6 @@
 import { createBrowserRouter, RouterProvider } from "react-router-dom";
 import { useEffect } from "react";
+import type { ReactNode } from "react";
 import LoginPage from "../pages/auth/LoginPage";
 import RegisterPage from "../pages/auth/RegisterPage";
 import ForgotPasswordPage from "../pages/auth/ForgotPasswordPage";
@@ -37,7 +38,7 @@ import ReportsPage from "../pages/admin/sections/ReportsPage";
 import RolesPage from "../pages/admin/sections/RolesPage";
 import NotFoundPage from "../pages/NotFoundPage";
 
-function WithTitle({ title, children }: { title: string; children: JSX.Element }) {
+function WithTitle({ title, children }: { title: string; children: ReactNode }) {
   useEffect(() => {
     if (title) document.title = title;
   }, [title]);
