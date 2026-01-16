@@ -8,7 +8,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.api.catalog_common import _ensure_authors, _ensure_subjects, _to_out, get_db
-from app.models.book import Author, Book, Subject, UserBook
+from app.models.book import Author, Book, Subject, UserBook, book_subjects
 from app.schemas.book import BookCreate, BookList, BookOut, BookUpdate
 from app.services.search_sync import index_book_in_search
 from app.utils.authz import require_roles
@@ -181,6 +181,67 @@ def get_book(book_id: int, db: Session = Depends(get_db)):
     if not book:
         raise HTTPException(404, "Book not found")
     return _to_out(book)
+
+
+@router.get("/books/{book_id}/related", response_model=list[BookOut])
+def get_related_books(
+    book_id: int,
+    limit: int = Query(10, ge=1, le=10),
+    db: Session = Depends(get_db),
+):
+    book = db.get(Book, book_id)
+    if not book:
+        raise HTTPException(404, "Book not found")
+
+    popularity_subq = (
+        db.query(UserBook.book_id, func.count(UserBook.id).label("popularity"))
+        .group_by(UserBook.book_id)
+        .subquery()
+    )
+    popularity_order = func.coalesce(popularity_subq.c.popularity, 0).desc()
+
+    subject_ids = [int(s.id) for s in (book.subjects or []) if getattr(s, "id", None) is not None]
+    related_ids: list[int] = []
+    if subject_ids:
+        # Rank by number of matching categories first, then by popularity.
+        # This makes recommendations consider *all* categories of the current book, not just one.
+        id_rows = (
+            db.query(Book.id)
+            .join(book_subjects, Book.id == book_subjects.c.book_id)
+            .filter(Book.id != book_id)
+            .filter(book_subjects.c.subject_id.in_(subject_ids))
+            .outerjoin(popularity_subq, Book.id == popularity_subq.c.book_id)
+            .group_by(Book.id, Book.title, popularity_subq.c.popularity)
+            .order_by(
+                func.count(func.distinct(book_subjects.c.subject_id)).desc(),
+                popularity_order,
+                Book.title.asc(),
+            )
+            .limit(limit)
+            .all()
+        )
+        related_ids = [int(r[0]) for r in id_rows]
+
+    rows: list[Book] = []
+    if related_ids:
+        found = db.query(Book).filter(Book.id.in_(related_ids)).all()
+        by_id = {int(b.id): b for b in found}
+        rows = [by_id[i] for i in related_ids if i in by_id]
+
+    # If the book has no subjects (or the chosen subject has too few books),
+    # fall back to popular books overall to avoid returning an empty list.
+    if not rows:
+        fallback = (
+            db.query(Book)
+            .filter(Book.id != book_id)
+            .outerjoin(popularity_subq, Book.id == popularity_subq.c.book_id)
+            .order_by(popularity_order, Book.title.asc())
+            .limit(limit)
+            .all()
+        )
+        rows = fallback
+
+    return [_to_out(b) for b in rows]
 
 
 @router.post("/books", response_model=BookOut, status_code=status.HTTP_201_CREATED)

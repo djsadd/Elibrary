@@ -37,6 +37,9 @@ export default function CatalogDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [favorite, setFavorite] = useState(false);
   const [tab, setTab] = useState<"overview" | "details" | "reviews" | "related" | "lists">("overview");
+  const [related, setRelated] = useState<Book[]>([]);
+  const [relatedLoading, setRelatedLoading] = useState(false);
+  const [relatedError, setRelatedError] = useState<string | null>(null);
 
   const [readingCount, setReadingCount] = useState<{ currently_reading: number; have_read: number }>({
     currently_reading: 0,
@@ -87,6 +90,28 @@ export default function CatalogDetailPage() {
       cancelled = true;
     };
   }, [id]);
+
+  useEffect(() => {
+    if (!id) return;
+    if (tab !== "related") return;
+    let cancelled = false;
+    (async () => {
+      try {
+        setRelatedLoading(true);
+        setRelatedError(null);
+        const items = (await api(`/api/catalog/books/${id}/related?limit=10`)) as any[];
+        if (cancelled) return;
+        setRelated(Array.isArray(items) ? (items as any) : []);
+      } catch (e: any) {
+        if (!cancelled) setRelatedError(e?.message || String(e));
+      } finally {
+        if (!cancelled) setRelatedLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [id, tab]);
 
   useEffect(() => {
     if (!id) return;
@@ -702,15 +727,38 @@ export default function CatalogDetailPage() {
               )}
 
               {tab === "related" && (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {[1, 2].map((i) => (
-                    <div key={i} className="border rounded-md p-3">
-                      <div className="text-sm font-medium text-slate-800">
-                        Related Book #{i}
-                      </div>
-                      <div className="text-xs text-slate-500">Placeholder</div>
+                <div>
+                  {relatedLoading ? (
+                    <div className="text-slate-500 text-sm">Loading...</div>
+                  ) : relatedError ? (
+                    <div className="text-red-600 text-sm">Failed to load: {relatedError}</div>
+                  ) : related.length ? (
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                      {related.map((b) => (
+                        <Link
+                          key={String(b.id)}
+                          to={`/catalog/${b.id}`}
+                          className="group relative block bg-white border border-gray-100 rounded-lg p-2 text-center shadow-sm hover:shadow-md transition-shadow"
+                        >
+                          <div className="relative mb-2">
+                            <img
+                              src={b.cover || placeholder}
+                              alt={`book-${b.id}`}
+                              className="w-full h-40 object-contain rounded-md bg-slate-100 p-2"
+                            />
+                          </div>
+                          <div className="text-sm font-medium text-slate-800 truncate">{b.title}</div>
+                          {namesFrom((b as any).authors).length ? (
+                            <div className="text-xs text-slate-400 truncate">
+                              {namesFrom((b as any).authors).join(", ")}
+                            </div>
+                          ) : null}
+                        </Link>
+                      ))}
                     </div>
-                  ))}
+                  ) : (
+                    <div className="text-slate-500 text-sm">No related books found.</div>
+                  )}
                 </div>
               )}
             </div>
