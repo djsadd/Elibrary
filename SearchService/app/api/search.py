@@ -8,7 +8,7 @@ from app.core.es import create_es
 from app.core.security import require_admin_token
 from app.schemas.books import BookDoc, SearchResponse, SuggestItem, SuggestResponse
 from app.services.books_index import book_to_es_doc, books_index_body, clamp_limit, es_books_index
-from app.services.catalog_client import fetch_books_page
+from app.services.catalog_client import fetch_books_batch, fetch_books_page
 
 router = APIRouter(tags=["search"])
 
@@ -76,7 +76,34 @@ async def search(
             track_total_hits=True,
         )
         total = int(resp["hits"]["total"]["value"])
-        items = [BookDoc(**h["_source"]) for h in resp["hits"]["hits"]]
+
+        hits = resp["hits"]["hits"] or []
+        hit_docs: list[dict] = [h.get("_source") or {} for h in hits]
+        hit_ids: list[int] = []
+        for d in hit_docs:
+            try:
+                hit_ids.append(int(d.get("id")))
+            except Exception:
+                continue
+
+        items: list[BookDoc] = []
+        try:
+            enriched = await fetch_books_batch(ids=hit_ids)
+            by_id = {int(b.get("id")): b for b in (enriched or []) if isinstance(b, dict) and b.get("id") is not None}
+            for d in hit_docs:
+                try:
+                    bid = int(d.get("id"))
+                except Exception:
+                    items.append(BookDoc(**d))
+                    continue
+                payload = by_id.get(bid)
+                if payload is None:
+                    items.append(BookDoc(**d))
+                else:
+                    items.append(BookDoc.from_catalog(payload))
+        except Exception:
+            items = [BookDoc(**d) for d in hit_docs]
+
         return SearchResponse(items=items, page={"limit": limit, "offset": offset, "total": total})
     except NotFoundError:
         raise HTTPException(status_code=503, detail="Search index not initialized")
