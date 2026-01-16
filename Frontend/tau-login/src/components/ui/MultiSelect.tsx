@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { t } from "@/shared/i18n";
 
 type Props = {
   label?: string;
@@ -71,13 +72,13 @@ export default function MultiSelect({ label, options, selected, onChange, onCrea
                 onClick={() => { const v = q.trim(); if (!v) return; onCreate(v); onChange(Array.from(new Set([...selected, v]))); setQ(""); }}
                 className="mt-2 w-full text-left text-xs px-2 py-1.5 rounded-md bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
               >
-                Add "{q.trim()}"
+                {t("admin.common.add")} "{q.trim()}"
               </button>
             )}
           </div>
           <div className="max-h-56 overflow-auto">
             {filtered.length === 0 ? (
-              <div className="px-3 py-3 text-sm text-slate-500">No results</div>
+              <div className="px-3 py-3 text-sm text-slate-500">{t("admin.common.noResults")}</div>
             ) : filtered.map(opt => {
               const active = selected.includes(opt);
               return (
@@ -98,4 +99,3 @@ export default function MultiSelect({ label, options, selected, onChange, onCrea
     </div>
   );
 }
-
