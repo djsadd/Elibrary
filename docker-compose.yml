@@ -204,6 +204,7 @@ services:
     container_name: frontend
     environment:
       - API_SERVER=http://gateway:8000
+      - CLIENT_MAX_BODY_SIZE=200m
     ports:
       - "80:80"
     depends_on:
