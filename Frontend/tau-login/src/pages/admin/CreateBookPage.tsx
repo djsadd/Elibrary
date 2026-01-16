@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import MultiSelect from "@/components/ui/MultiSelect";
-import { t } from "@/shared/i18n";
 
 
 function readAsDataUrl(file: File): Promise<string> {
@@ -226,140 +225,139 @@ export default function CreateBookPage() {
       setCoverFile(null); setPdfFile(null);
       setSelectedAuthors([]); setSelectedSubjects([]);
 
-      alert(t("admin.createBook.alerts.created"));
+      alert("Book created on server.");
       navigate("/admin");
     } catch (err: any) {
       console.error(err);
-      alert(t("admin.createBook.alerts.failed") + " " + (err?.message || err));
+      alert("Failed to create book on server: " + (err?.message || err));
     }
   };
 
   return (
     <div className="space-y-4">
       <div className="rounded-lg p-5 bg-gradient-to-r from-[#7b0f2b] to-rose-600 text-white shadow">
-        <div className="text-xl font-semibold">{t("admin.createBook.header.title")}</div>
-        <div className="text-sm opacity-90">{t("admin.createBook.header.subtitle")}</div>
+        <div className="text-xl font-semibold">Create Book</div>
+        <div className="text-sm opacity-90">Upload files and fill metadata to add a new book to the catalogue.</div>
       </div>
       <form onSubmit={onSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="bg-white rounded-md p-4 border shadow-sm">
-          <label className="block text-sm font-medium">{t("admin.createBook.fields.title")}</label>
+          <label className="block text-sm font-medium">Title</label>
           <input required value={title} onChange={(e) => setTitle(e.target.value)} className="mt-1 w-full border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#7b0f2b]/30" />
 
-          <label className="block text-sm font-medium mt-3">{t("admin.createBook.fields.year")}</label>
+          <label className="block text-sm font-medium mt-3">Year</label>
           <input value={year} onChange={(e) => setYear(e.target.value)} className="mt-1 w-full border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#7b0f2b]/30" />
 
-          <label className="block text-sm font-medium mt-3">{t("admin.createBook.fields.language")}</label>
+          <label className="block text-sm font-medium mt-3">Language</label>
           {langs.length > 0 ? (
             <select value={lang} onChange={(e) => setLang(e.target.value)} className="mt-1 w-full border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#7b0f2b]/30">
-              <option value="">{t("admin.createBook.fields.languageSelect")}</option>
+              <option value="">Select language</option>
               {langs.map(l => <option key={l} value={l}>{l}</option>)}
             </select>
           ) : (
             <input value={lang} onChange={(e) => setLang(e.target.value)} className="mt-1 w-full border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#7b0f2b]/30" />
           )}
 
-          <label className="block text-sm font-medium mt-3">{t("admin.createBook.fields.publisherInfo")}</label>
+          <label className="block text-sm font-medium mt-3">Publisher info</label>
           <input value={pubInfo} onChange={(e) => setPubInfo(e.target.value)} className="mt-1 w-full border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#7b0f2b]/30" />
 
-          <label className="block text-sm font-medium mt-3">{t("admin.createBook.fields.summary")}</label>
+          <label className="block text-sm font-medium mt-3">Summary</label>
           <textarea value={summary} onChange={(e) => setSummary(e.target.value)} className="mt-1 w-full border rounded-md px-3 py-2 min-h-24 focus:outline-none focus:ring-2 focus:ring-[#7b0f2b]/30" />
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">
             <div>
-              <label className="block text-sm font-medium">{t("admin.createBook.fields.isbn")}</label>
-              <input value={isbn} onChange={(e) => setIsbn(e.target.value)} placeholder={t("admin.createBook.fields.isbnPlaceholder")} className="mt-1 w-full border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#7b0f2b]/30" />
+              <label className="block text-sm font-medium">ISBN</label>
+              <input value={isbn} onChange={(e) => setIsbn(e.target.value)} placeholder="978-..." className="mt-1 w-full border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#7b0f2b]/30" />
             </div>
             <div>
-              <label className="block text-sm font-medium">{t("admin.createBook.fields.edition")}</label>
-              <input value={edition} onChange={(e) => setEdition(e.target.value)} placeholder={t("admin.createBook.fields.editionPlaceholder")} className="mt-1 w-full border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#7b0f2b]/30" />
+              <label className="block text-sm font-medium">Edition</label>
+              <input value={edition} onChange={(e) => setEdition(e.target.value)} placeholder="3-е издание" className="mt-1 w-full border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#7b0f2b]/30" />
             </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">
             <div>
-              <label className="block text-sm font-medium">{t("admin.createBook.fields.pageCount")}</label>
+              <label className="block text-sm font-medium">Page count</label>
               <input type="number" min={0} value={pageCount} onChange={(e) => setPageCount(e.target.value)} className="mt-1 w-full border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#7b0f2b]/30" />
             </div>
             <div>
-              <label className="block text-sm font-medium">{t("admin.createBook.fields.availableCopies")}</label>
+              <label className="block text-sm font-medium">Available copies</label>
               <input type="number" min={0} value={availableCopies} onChange={(e) => setAvailableCopies(e.target.value)} className="mt-1 w-full border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#7b0f2b]/30" />
             </div>
           </div>
 
-          <label className="block text-sm font-medium mt-3">{t("admin.createBook.fields.source")}</label>
+          <label className="block text-sm font-medium mt-3">Source</label>
           <select value={source} onChange={(e) => setSource(e.target.value)} className="mt-1 w-full border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#7b0f2b]/30">
             {sourceOptions.map(s => <option key={s} value={s}>{s}</option>)}
           </select>
 
           <div className="mb-4 mt-3">
             <MultiSelect
-              label={t("admin.createBook.fields.formats")}
+              label="Formats"
               options={formatOptions}
               selected={formats}
               onChange={setFormats}
-              placeholder={t("admin.createBook.placeholders.selectFormats")}
+              placeholder="Select formats"
             />
           </div>
 
           <div className="mb-4">
             <MultiSelect
-              label={t("admin.createBook.fields.authors")}
+              label="Authors"
               options={authors}
               selected={selectedAuthors}
               onChange={setSelectedAuthors}
               onCreate={(v)=>{ if (!authors.includes(v)) setAuthors(a=>[...a, v]); if (!localAuthors.includes(v)) setLocalAuthors(a=>[...a, v]); }}
-              placeholder={t("admin.createBook.placeholders.searchAddAuthor")}
+              placeholder="Search or add author"
             />
           </div>
           <div className="mb-4">
             <MultiSelect
-              label={t("admin.createBook.fields.subjects")}
+              label="Subjects"
               options={subjects}
               selected={selectedSubjects}
               onChange={setSelectedSubjects}
               onCreate={(v)=>{ if (!subjects.includes(v)) setSubjects(s=>[...s, v]); if (!localSubjects.includes(v)) setLocalSubjects(s=>[...s, v]); }}
-              placeholder={t("admin.createBook.placeholders.searchAddSubject")}
+              placeholder="Search or add subject"
             />
           </div>
           <div className="flex items-center gap-2 mt-1">
             <input id="is-public" type="checkbox" checked={isPublic} onChange={(e)=> setIsPublic(e.target.checked)} />
-            <label htmlFor="is-public" className="text-sm">{t("admin.createBook.fields.publicVisible")}</label>
+            <label htmlFor="is-public" className="text-sm">Publicly visible</label>
           </div>
           <div className="mb-4">
             <MultiSelect
-              label={t("admin.createBook.fields.usersOptional")}
+              label="Users (optional)"
               options={users}
               selected={selectedUsers}
               onChange={setSelectedUsers}
               onCreate={(v)=>{ if (!users.includes(v)) setUsers(prev=>[...prev, v]); }}
-              placeholder={t("admin.createBook.placeholders.searchAddUser")}
+              placeholder="Search or add user (email/login)"
             />
           </div>
 
         </div>
 
         <div className="bg-white rounded-md p-4 border shadow-sm">
-          <div className="text-sm font-semibold text-slate-700 mb-3">{t("admin.createBook.files.title")}</div>
-          <label className="block text-sm font-medium">{t("admin.createBook.files.cover")}</label>
+          <div className="text-sm font-semibold text-slate-700 mb-3">Files</div>
+          <label className="block text-sm font-medium">Cover image</label>
           <input type="file" accept="image/*" onChange={(e) => { const f = e.target.files?.[0] || null; setCoverFile(f); }} className="mt-1 block w-full text-sm file:mr-3 file:py-2 file:px-3 file:rounded-md file:border-0 file:bg-[#7b0f2b]/10 file:text-[#7b0f2b] hover:file:bg-[#7b0f2b]/20" />
-          <label className="block text-sm font-medium mt-4">{t("admin.createBook.files.pdf")}</label>
+          <label className="block text-sm font-medium mt-4">Book file (PDF)</label>
           <input type="file" accept="application/pdf" onChange={(e) => setPdfFile(e.target.files?.[0] || null)} className="mt-1 block w-full text-sm file:mr-3 file:py-2 file:px-3 file:rounded-md file:border-0 file:bg-emerald-600/10 file:text-emerald-700 hover:file:bg-emerald-600/20" />
-          <div className="text-xs text-slate-500 mt-2">{t("admin.createBook.files.pdfHint")}</div>
+          <div className="text-xs text-slate-500 mt-2">PDF is uploaded as RAW, then the book is created and linked.</div>
 
         </div>
 
         <div className="md:col-span-2 flex items-center justify-between mt-1">
-          <div className="text-sm text-slate-500">{t("admin.createBook.footer.note")}</div>
+          <div className="text-sm text-slate-500">We first upload files, then create the book with metadata.</div>
           <div className="flex gap-2">
-            <button type="submit" className="px-4 py-2 bg-[#7b0f2b] hover:bg-rose-800 text-white rounded-md shadow-sm transition-colors">{t("admin.createBook.actions.save")}</button>
-            <button type="button" onClick={() => { localStorage.removeItem('books'); alert(t("admin.createBook.alerts.clearedDemo")); }} className="px-4 py-2 border rounded-md hover:bg-slate-50">{t("admin.createBook.actions.clearDemo")}</button>
+            <button type="submit" className="px-4 py-2 bg-[#7b0f2b] hover:bg-rose-800 text-white rounded-md shadow-sm transition-colors">Save Book</button>
+            <button type="button" onClick={() => { localStorage.removeItem('books'); alert('Cleared demo books'); }} className="px-4 py-2 border rounded-md hover:bg-slate-50">Clear demo</button>
           </div>
         </div>
       </form>
     </div>
   );
 }
-
 
 
 
