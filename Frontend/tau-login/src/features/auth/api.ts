@@ -1,6 +1,13 @@
 // src/features/auth/api.ts
 import { api } from "@/shared/api/client";
-import type { LoginDto, LoginResp, PlatonusLoginDto, PlatonusLoginResp } from "./types";
+import type {
+  LoginDto,
+  LoginResp,
+  PlatonusLoginDto,
+  PlatonusLoginResp,
+  TwoFAResendDto,
+  TwoFAVerifyDto,
+} from "./types";
 
 // Use only the canonical login endpoint
 export async function login(body: LoginDto) {
@@ -61,6 +68,20 @@ export type VerifyDto = {
 
 export async function verify(body: VerifyDto) {
   return api<LoginResp>("/api/auth/verify", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export async function verify2fa(body: TwoFAVerifyDto) {
+  return api<LoginResp>("/api/auth/2fa/verify", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export async function resend2fa(body: TwoFAResendDto) {
+  return api<{ ok: boolean; expires_in?: number }>("/api/auth/2fa/resend", {
     method: "POST",
     body: JSON.stringify(body),
   });

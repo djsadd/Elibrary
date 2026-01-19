@@ -1,6 +1,6 @@
 // src/pages/auth/LoginPage.tsx
 import React, { useState } from "react";
-import { login, platonusLogin as platonusLoginApi, verify } from "@/features/auth/api";
+import { login, platonusLogin as platonusLoginApi, resend2fa, verify, verify2fa } from "@/features/auth/api";
 import { useAuth } from "@/shared/auth/AuthContext";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import LanguageSwitcher from "@/components/common/LanguageSwitcher";
@@ -19,9 +19,39 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [step, setStep] = useState<1 | 2>(1);
   const [verificationCode, setVerificationCode] = useState("");
+  const [twofaChallengeId, setTwofaChallengeId] = useState<string | null>(null);
+  const [twofaCode, setTwofaCode] = useState("");
+  const [twofaResendCooldown, setTwofaResendCooldown] = useState<number>(0);
   const [isPlatonusMode, setIsPlatonusMode] = useState(true);
   const [platonusLogin, setPlatonusLogin] = useState("");
   const [platonusPassword, setPlatonusPassword] = useState("");
+
+  function extractToken(obj: any): string | null {
+    if (!obj) return null;
+    if (typeof obj === "string") return obj;
+    if (obj.access_token) return obj.access_token;
+    if (obj.token) return obj.token;
+    if (obj.jwt) return obj.jwt;
+    if (obj.data) return extractToken(obj.data);
+    if (obj.result) return extractToken(obj.result);
+    for (const k of Object.keys(obj)) {
+      const v = obj[k];
+      if (typeof v === "string" && /token|jwt|access/i.test(k)) return v;
+    }
+    return null;
+  }
+
+  function extractRefresh(obj: any): string | null {
+    if (!obj) return null;
+    if (typeof obj === "string") return null;
+    if (obj.refresh_token) return obj.refresh_token;
+    if (obj.data) return extractRefresh(obj.data);
+    for (const k of Object.keys(obj)) {
+      const v = (obj as any)[k];
+      if (typeof v === "string" && /refresh/i.test(k)) return v;
+    }
+    return null;
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -39,38 +69,18 @@ export default function LoginPage() {
         setStep(2);
         return;
       }
-
-      function extractToken(obj: any): string | null {
-        if (!obj) return null;
-        if (typeof obj === "string") return obj;
-        if (obj.access_token) return obj.access_token;
-        if (obj.token) return obj.token;
-        if (obj.jwt) return obj.jwt;
-        if (obj.data) return extractToken(obj.data);
-        if (obj.result) return extractToken(obj.result);
-        for (const k of Object.keys(obj)) {
-          const v = obj[k];
-          if (typeof v === "string" && /token|jwt|access/i.test(k)) return v;
-        }
-        return null;
+      if (step === 1 && anyResp && (anyResp as any).requires_2fa && (anyResp as any).challenge_id) {
+        setTwofaChallengeId(String((anyResp as any).challenge_id));
+        setTwofaCode("");
+        setTwofaResendCooldown(0);
+        return;
       }
 
       const token = extractToken(resp);
-      function extractRefresh(obj: any): string | null {
-        if (!obj) return null;
-        if (typeof obj === "string") return null;
-        if (obj.refresh_token) return obj.refresh_token;
-        if (obj.data) return extractRefresh(obj.data);
-        for (const k of Object.keys(obj)) {
-          const v = (obj as any)[k];
-          if (typeof v === "string" && /refresh/i.test(k)) return v;
-        }
-        return null;
-      }
       const refreshToken = extractRefresh(resp);
 
       if (!token) {
-        setError(`Не удалось получить токен из ответа сервера. Response: ${JSON.stringify(resp)}`);
+        setError(`РќРµ СѓРґР°Р»РѕСЃСЊ РїРѕР»СѓС‡РёС‚СЊ С‚РѕРєРµРЅ РёР· РѕС‚РІРµС‚Р° СЃРµСЂРІРµСЂР°. Response: ${JSON.stringify(resp)}`);
         return;
       }
 
@@ -82,7 +92,7 @@ export default function LoginPage() {
       const to = loc?.state?.from?.pathname || "/";
       nav(to, { replace: true });
     } catch (err: any) {
-      setError(err?.message || JSON.stringify(err) || "Не удалось выполнить вход");
+      setError(err?.message || JSON.stringify(err) || "РќРµ СѓРґР°Р»РѕСЃСЊ РІС‹РїРѕР»РЅРёС‚СЊ РІС…РѕРґ");
     } finally {
       setSubmitting(false);
     }
@@ -127,7 +137,7 @@ export default function LoginPage() {
       const refreshToken = extractRefresh(resp);
 
       if (!token) {
-        setError(`Не удалось получить токен из ответа сервера. Response: ${JSON.stringify(resp)}`);
+        setError(`РќРµ СѓРґР°Р»РѕСЃСЊ РїРѕР»СѓС‡РёС‚СЊ С‚РѕРєРµРЅ РёР· РѕС‚РІРµС‚Р° СЃРµСЂРІРµСЂР°. Response: ${JSON.stringify(resp)}`);
         return;
       }
 
@@ -139,7 +149,66 @@ export default function LoginPage() {
       const to = loc?.state?.from?.pathname || "/";
       nav(to, { replace: true });
     } catch (err: any) {
-      setError(err?.message || JSON.stringify(err) || "Не удалось подтвердить код");
+      setError(err?.message || JSON.stringify(err) || "РќРµ СѓРґР°Р»РѕСЃСЊ РїРѕРґС‚РІРµСЂРґРёС‚СЊ РєРѕРґ");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function handleTwofaSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    if (!twofaChallengeId || !twofaCode) return setError(t("auth.login.errorMissing"));
+
+    setSubmitting(true);
+    try {
+      const resp = await verify2fa({ challenge_id: twofaChallengeId, code: twofaCode });
+      const token = extractToken(resp);
+      const refreshToken = extractRefresh(resp);
+
+      if (!token) {
+        setError(`РќРµ СѓРґР°Р»РѕСЃСЊ РїРѕР»СѓС‡РёС‚СЊ С‚РѕРєРµРЅ РёР· РѕС‚РІРµС‚Р° СЃРµСЂРІРµСЂР°. Response: ${JSON.stringify(resp)}`);
+        return;
+      }
+
+      setToken(token, remember);
+      try {
+        const store = remember ? localStorage : sessionStorage;
+        if (refreshToken) store.setItem("refresh_token", refreshToken);
+      } catch {}
+
+      setTwofaChallengeId(null);
+      setTwofaCode("");
+
+      const to = loc?.state?.from?.pathname || "/";
+      nav(to, { replace: true });
+    } catch (err: any) {
+      setError(err?.message || JSON.stringify(err) || "РќРµ СѓРґР°Р»РѕСЃСЊ РїРѕРґС‚РІРµСЂРґРёС‚СЊ РєРѕРґ");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function handleTwofaResend() {
+    setError(null);
+    if (!twofaChallengeId) return;
+    if (twofaResendCooldown > 0) return;
+
+    setSubmitting(true);
+    try {
+      await resend2fa({ challenge_id: twofaChallengeId });
+      setTwofaResendCooldown(30);
+      const interval = window.setInterval(() => {
+        setTwofaResendCooldown((v) => {
+          if (v <= 1) {
+            window.clearInterval(interval);
+            return 0;
+          }
+          return v - 1;
+        });
+      }, 1000);
+    } catch (err: any) {
+      setError(err?.message || JSON.stringify(err) || "РќРµ СѓРґР°Р»РѕСЃСЊ РѕС‚РїСЂР°РІРёС‚СЊ РєРѕРґ РїРѕРІС‚РѕСЂРЅРѕ");
     } finally {
       setSubmitting(false);
     }
@@ -155,39 +224,19 @@ export default function LoginPage() {
     setSubmitting(true);
     try {
       const resp = await platonusLoginApi({ login: platonusLogin, password: platonusPassword });
-
-      function extractToken(obj: any): string | null {
-        if (!obj) return null;
-        if (typeof obj === "string") return obj;
-        if (obj.access_token) return obj.access_token;
-        if (obj.token) return obj.token;
-        if (obj.jwt) return obj.jwt;
-        if (obj.data) return extractToken(obj.data);
-        if (obj.result) return extractToken(obj.result);
-        for (const k of Object.keys(obj)) {
-          const v = obj[k];
-          if (typeof v === "string" && /token|jwt|access/i.test(k)) return v;
-        }
-        return null;
-      }
-
-      function extractRefresh(obj: any): string | null {
-        if (!obj) return null;
-        if (typeof obj === "string") return null;
-        if (obj.refresh_token) return obj.refresh_token;
-        if (obj.data) return extractRefresh(obj.data);
-        for (const k of Object.keys(obj)) {
-          const v = (obj as any)[k];
-          if (typeof v === "string" && /refresh/i.test(k)) return v;
-        }
-        return null;
+      const anyResp = resp as any;
+      if (anyResp && (anyResp as any).requires_2fa && (anyResp as any).challenge_id) {
+        setTwofaChallengeId(String((anyResp as any).challenge_id));
+        setTwofaCode("");
+        setTwofaResendCooldown(0);
+        return;
       }
 
       const token = extractToken(resp);
       const refreshToken = extractRefresh(resp);
 
       if (!token) {
-        setError(`Не удалось получить токен из ответа сервера. Response: ${JSON.stringify(resp)}`);
+        setError(`РќРµ СѓРґР°Р»РѕСЃСЊ РїРѕР»СѓС‡РёС‚СЊ С‚РѕРєРµРЅ РёР· РѕС‚РІРµС‚Р° СЃРµСЂРІРµСЂР°. Response: ${JSON.stringify(resp)}`);
         return;
       }
 
@@ -199,7 +248,7 @@ export default function LoginPage() {
       const to = loc?.state?.from?.pathname || "/";
       nav(to, { replace: true });
     } catch (err: any) {
-      setError(err?.message || JSON.stringify(err) || "Не удалось выполнить вход");
+      setError(err?.message || JSON.stringify(err) || "РќРµ СѓРґР°Р»РѕСЃСЊ РІС‹РїРѕР»РЅРёС‚СЊ РІС…РѕРґ");
     } finally {
       setSubmitting(false);
     }
@@ -220,7 +269,40 @@ export default function LoginPage() {
           </p>
         </div>
 
-        {!isPlatonusMode ? (
+        {twofaChallengeId ? (
+          <form onSubmit={handleTwofaSubmit} className="space-y-4">
+            <div className="text-slate-600 text-sm">Р’РІРµРґРёС‚Рµ РєРѕРґ, РѕС‚РїСЂР°РІР»РµРЅРЅС‹Р№ РЅР° РІР°С€Сѓ РїРѕС‡С‚Сѓ.</div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">РљРѕРґ</label>
+              <input
+                type="text"
+                inputMode="numeric"
+                className="w-full rounded-lg border border-slate-200 focus:border-[#7b0f2b] focus:ring-[#7b0f2b] px-3 py-2 outline-none"
+                value={twofaCode}
+                onChange={(e) => setTwofaCode(e.target.value)}
+                placeholder="000000"
+                autoComplete="one-time-code"
+                required
+              />
+            </div>
+            {error && <div className="text-sm text-red-600">{error}</div>}
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              className="w-full rounded-lg bg-[#7b0f2b] text-white py-2 font-medium disabled:opacity-60"
+            >
+              РџРѕРґС‚РІРµСЂРґРёС‚СЊ
+            </button>
+            <button
+              type="button"
+              onClick={handleTwofaResend}
+              disabled={isSubmitting || twofaResendCooldown > 0}
+              className="w-full rounded-lg border border-slate-200 py-2 font-medium disabled:opacity-60"
+            >
+              {twofaResendCooldown > 0 ? `РћС‚РїСЂР°РІРёС‚СЊ СЃРЅРѕРІР° (${twofaResendCooldown})` : "РћС‚РїСЂР°РІРёС‚СЊ СЃРЅРѕРІР°"}
+            </button>
+          </form>
+        ) : !isPlatonusMode ? (
           <>
             <form onSubmit={step === 1 ? handleSubmit : handleVerifySubmit} className="space-y-4">
               <div>
@@ -252,7 +334,7 @@ export default function LoginPage() {
                     type="button"
                     onClick={() => setShowPassword((v) => !v)}
                     className="absolute inset-y-0 right-0 px-3 text-slate-500 hover:text-slate-700"
-                    aria-label={showPassword ? "Скрыть пароль" : "Показать пароль"}
+                    aria-label={showPassword ? "РЎРєСЂС‹С‚СЊ РїР°СЂРѕР»СЊ" : "РџРѕРєР°Р·Р°С‚СЊ РїР°СЂРѕР»СЊ"}
                   >
                     {showPassword ? "??" : "???"}
                   </button>
@@ -276,14 +358,14 @@ export default function LoginPage() {
 
               {step === 2 && (
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Код подтверждения</label>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">РљРѕРґ РїРѕРґС‚РІРµСЂР¶РґРµРЅРёСЏ</label>
                   <input
                     className="w-full rounded-lg border border-slate-200 focus:border-[#7b0f2b] focus:ring-[#7b0f2b] px-3 py-2 outline-none"
                     value={verificationCode}
                     onChange={(e) => setVerificationCode(e.target.value)}
                   />
                   <p className="mt-1 text-xs text-slate-500">
-                    Введите код, который мы отправили вам на почту.
+                    Р’РІРµРґРёС‚Рµ РєРѕРґ, РєРѕС‚РѕСЂС‹Р№ РјС‹ РѕС‚РїСЂР°РІРёР»Рё РІР°Рј РЅР° РїРѕС‡С‚Сѓ.
                   </p>
                 </div>
               )}
@@ -303,13 +385,13 @@ export default function LoginPage() {
                   ? t("auth.register.success")
                   : step === 1
                   ? t("auth.login.submit")
-                  : "Подтвердить"}
+                  : "РџРѕРґС‚РІРµСЂРґРёС‚СЊ"}
               </button>
             </form>
 
             <div className="mt-4 flex items-center gap-2">
               <div className="flex-1 h-px bg-slate-200" />
-              <span className="text-xs text-slate-400">или</span>
+              <span className="text-xs text-slate-400">РёР»Рё</span>
               <div className="flex-1 h-px bg-slate-200" />
             </div>
 

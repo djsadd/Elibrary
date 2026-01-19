@@ -7,21 +7,28 @@ import requests
 from app.core.db import SessionLocal
 from app.core.config import settings
 from app.models.user import User
+from typing import Union
+
 from app.schemas.auth import (
     RegisterRequest,
     LoginRequest,
     PlatonusLoginRequest,
     PlatonusLoginResponse,
     TokenPair,
+    TwoFAChallengeResponse,
     IntrospectRequest,
     IntrospectResponse,
     UpdateProfileRequest,
     VerifyCodeRequest,
+    TwoFAVerifyRequest,
+    TwoFAResendRequest,
     UserAdminOut,
     UsersListResponse,
 )
 from app.utils.security import hash_password, verify_password
 from app.utils.tokens import create_access, create_refresh, decode
+from app.services.email_sender import send_2fa_code_email, send_activation_code_email
+from app.services.twofa import create_challenge, resend_code, verify_code
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -125,6 +132,10 @@ def verify(req: VerifyCodeRequest, db: Session = Depends(get_db)):
     )
 
 
+def _twofa_required(u: User) -> bool:
+    return bool(settings.TWOFA_REQUIRED) or bool(getattr(u, "twofa_enabled", False))
+
+
 @router.post("/login")
 def login(req: LoginRequest, db: Session = Depends(get_db)):
     u = db.query(User).filter_by(email=req.email).first()
@@ -135,26 +146,24 @@ def login(req: LoginRequest, db: Session = Depends(get_db)):
         code = f"{random.randint(0, 999999):06d}"
         u.verification_code = code
         db.commit()
-
-        payload = {
-            "iin": u.iin,
-            "code": code,
-            "username": u.email,
-            "password": req.password,
-        }
         try:
-            requests.post(
-                "http://192.168.115.29:8015/notifications/",
-                json=payload,
-                timeout=5,
-            )
-        except Exception:
-            pass
+            send_activation_code_email(to_email=u.email, code=code, ttl_seconds=600)
+        except Exception as e:
+            raise HTTPException(status_code=503, detail=f"Failed to send activation email: {e}")
 
         return {
             "email": u.email,
             "verification_required": True,
         }
+
+    if _twofa_required(u):
+        try:
+            challenge_id, code, ttl = create_challenge(user_id=int(u.id))
+            send_2fa_code_email(to_email=u.email, code=code, ttl_seconds=int(ttl))
+        except Exception as e:
+            raise HTTPException(status_code=503, detail=f"Failed to start 2FA: {e}")
+
+        return {"requires_2fa": True, "challenge_id": challenge_id, "expires_in": int(ttl)}
 
     access, exp = create_access(u.id, u.role or "")
     refresh, _ = create_refresh(u.id)
@@ -165,7 +174,7 @@ def login(req: LoginRequest, db: Session = Depends(get_db)):
     )
 
 
-@router.post("/platonus", response_model=PlatonusLoginResponse)
+@router.post("/platonus", response_model=Union[PlatonusLoginResponse, TwoFAChallengeResponse])
 def platonus_login(req: PlatonusLoginRequest, db: Session = Depends(get_db)):
     try:
         response = requests.post(
@@ -281,6 +290,14 @@ def platonus_login(req: PlatonusLoginRequest, db: Session = Depends(get_db)):
         if changed:
             db.commit()
             db.refresh(u)
+
+    if _twofa_required(u):
+        try:
+            challenge_id, code, ttl = create_challenge(user_id=int(u.id))
+            send_2fa_code_email(to_email=u.email, code=code, ttl_seconds=int(ttl))
+        except Exception as e:
+            raise HTTPException(status_code=503, detail=f"Failed to start 2FA: {e}")
+        return {"requires_2fa": True, "challenge_id": challenge_id, "expires_in": int(ttl)}
 
     access, exp = create_access(u.id, u.role or "")
     refresh, _ = create_refresh(u.id)
@@ -463,6 +480,58 @@ def admin_stats(
         "inactive_users": int(inactive_users),
         "roles": roles,
     }
+
+
+@router.post("/2fa/verify", response_model=TokenPair)
+def twofa_verify(body: TwoFAVerifyRequest, db: Session = Depends(get_db)):
+    try:
+        user_id = verify_code(challenge_id=body.challenge_id, code=body.code)
+    except ValueError as e:
+        msg = str(e) or "Invalid code"
+        if msg in {"Too many attempts"}:
+            raise HTTPException(status_code=429, detail=msg)
+        raise HTTPException(status_code=400, detail=msg)
+    except Exception as e:
+        raise HTTPException(status_code=503, detail=f"2FA unavailable: {e}")
+
+    u = db.get(User, int(user_id))
+    if not u or not u.is_active:
+        raise HTTPException(401, "Invalid credentials")
+
+    access, exp = create_access(u.id, u.role or "")
+    refresh, _ = create_refresh(u.id)
+    return TokenPair(
+        access_token=access,
+        refresh_token=refresh,
+        expires_in=int(exp - __import__("time").time()),
+    )
+
+
+@router.post("/2fa/resend")
+def twofa_resend(body: TwoFAResendRequest, db: Session = Depends(get_db)):
+    try:
+        user_id, code, ttl = resend_code(challenge_id=body.challenge_id)
+    except PermissionError as e:
+        try:
+            retry_after = int(str(e))
+        except Exception:
+            retry_after = int(settings.TWOFA_RESEND_COOLDOWN_SECONDS)
+        raise HTTPException(status_code=429, detail="Too many requests", headers={"Retry-After": str(retry_after)})
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e) or "Invalid challenge")
+    except Exception as e:
+        raise HTTPException(status_code=503, detail=f"2FA unavailable: {e}")
+
+    u = db.get(User, int(user_id))
+    if not u:
+        raise HTTPException(404, "User not found")
+
+    try:
+        send_2fa_code_email(to_email=u.email, code=code, ttl_seconds=int(ttl))
+    except Exception as e:
+        raise HTTPException(status_code=503, detail=f"Failed to send 2FA email: {e}")
+
+    return {"ok": True, "expires_in": int(ttl)}
 
 
 @router.get("/users/{user_id}", response_model=UserAdminOut)

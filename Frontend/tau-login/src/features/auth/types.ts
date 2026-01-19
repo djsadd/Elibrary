@@ -5,7 +5,11 @@ export type LoginResp =
   | { token: string }
   | { jwt: string }
   | { refresh_token?: string }
+  | { requires_2fa: true; challenge_id: string; expires_in?: number }
   | { data?: { access_token?: string; token?: string; jwt?: string; refresh_token?: string } };
 
 export type PlatonusLoginDto = { login: string; password: string };
 export type PlatonusLoginResp = LoginResp & { student_info?: Record<string, unknown> };
+
+export type TwoFAVerifyDto = { challenge_id: string; code: string };
+export type TwoFAResendDto = { challenge_id: string };

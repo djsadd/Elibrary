@@ -20,6 +20,7 @@ class User(Base):
     phone_verified = Column(Boolean, default=False)
     is_active = Column(Boolean, default=False, nullable=False)
     verification_code = Column(String(10), nullable=True)
+    twofa_enabled = Column(Boolean, default=False, nullable=False)
 
     # Роль и доступ
     role = Column(String(50), default="student")  # admin, teacher, librarian, student

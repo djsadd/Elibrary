@@ -60,6 +60,12 @@ class TokenPair(BaseModel):
     expires_in: int  # сек для access
 
 
+class TwoFAChallengeResponse(BaseModel):
+    requires_2fa: bool = True
+    challenge_id: str
+    expires_in: int
+
+
 class PlatonusLoginResponse(TokenPair):
     role: Optional[str] = None
     info: Dict[str, Any]
@@ -107,3 +113,12 @@ class UsersListResponse(BaseModel):
     total: int
     limit: int
     offset: int
+
+
+class TwoFAVerifyRequest(BaseModel):
+    challenge_id: str
+    code: str
+
+
+class TwoFAResendRequest(BaseModel):
+    challenge_id: str

@@ -7,12 +7,29 @@ class Settings(BaseSettings):
     DATABASE_URL: str = ""
     REDIS_URL: str = "redis://localhost:6379/0"
 
+    # SMTP (email)
+    SMTP_HOST: str | None = None
+    SMTP_PORT: int = 587
+    SMTP_USER: str | None = None
+    SMTP_PASSWORD: str | None = None
+    SMTP_FROM: str | None = None
+    SMTP_USE_TLS: bool = True
+    SMTP_USE_SSL: bool = False
+
     # JWT
     JWT_SECRET_KEY: str = "CHANGE_ME"
     JWT_ALG: str = "HS256"
     ACCESS_EXPIRES_MIN: int = 30
     REFRESH_EXPIRES_DAYS: int = 30
     PLATONUS_AUTH_URL: str = "http://platonusauth:8013/auth_platonus"
+
+    # 2FA (email OTP)
+    TWOFA_REQUIRED: bool = False  # if True, require 2FA for all active users
+    TWOFA_CODE_LENGTH: int = 6
+    TWOFA_TTL_SECONDS: int = 600
+    TWOFA_MAX_ATTEMPTS: int = 5
+    TWOFA_RESEND_COOLDOWN_SECONDS: int = 30
+    TWOFA_CODE_SECRET: str | None = None  # optional; falls back to JWT_SECRET_KEY
 
     model_config = {"env_file": ".env", "extra": "ignore"}
 
