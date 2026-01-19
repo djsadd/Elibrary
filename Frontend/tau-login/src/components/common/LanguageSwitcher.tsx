@@ -38,3 +38,4 @@ export default function LanguageSwitcher({ className }: { className?: string }) 
     </div>
   );
 }
+
