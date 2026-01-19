@@ -525,6 +525,91 @@ export function t(path: string, vars?: Record<string, any>): string {
   return Object.keys(vars).reduce((acc, k) => acc.replace(new RegExp(`\\{\\{${k}\\}\\}`, 'g'), String(vars[k])), val);
 }
 
+// Header translations
+dict.en.header = {
+  notifications: {
+    label: 'Notifications',
+    title: 'Notifications',
+    markAllRead: 'Mark all read',
+    clear: 'Clear',
+    empty: 'No notifications',
+  },
+  filters: {
+    all: 'All',
+    books: 'Books',
+    ebooks: 'E-Books',
+    audio: 'Audio',
+    articles: 'Articles',
+  },
+  search: {
+    placeholder: 'Search',
+    ariaLabel: 'Search',
+    suggestions: 'Suggestions',
+    searching: 'Searching…',
+    openFullResults: 'Open full results',
+    searchFor: 'Search for “{{q}}”',
+    book: 'Book',
+    open: 'Open',
+    noSuggestions: 'No suggestions',
+  },
+};
+
+dict.ru.header = {
+  notifications: {
+    label: 'Уведомления',
+    title: 'Уведомления',
+    markAllRead: 'Отметить все прочитанными',
+    clear: 'Очистить',
+    empty: 'Нет уведомлений',
+  },
+  filters: {
+    all: 'Все',
+    books: 'Книги',
+    ebooks: 'Электронные книги',
+    audio: 'Аудио',
+    articles: 'Статьи',
+  },
+  search: {
+    placeholder: 'Поиск',
+    ariaLabel: 'Поиск',
+    suggestions: 'Подсказки',
+    searching: 'Поиск…',
+    openFullResults: 'Открыть все результаты',
+    searchFor: 'Искать “{{q}}”',
+    book: 'Книга',
+    open: 'Открыть',
+    noSuggestions: 'Нет подсказок',
+  },
+};
+
+dict.kk.header = {
+  notifications: {
+    label: 'Хабарландырулар',
+    title: 'Хабарландырулар',
+    markAllRead: 'Барлығын оқылған деп белгілеу',
+    clear: 'Тазалау',
+    empty: 'Хабарландырулар жоқ',
+  },
+  filters: {
+    all: 'Барлығы',
+    books: 'Кітаптар',
+    ebooks: 'Электронды кітаптар',
+    audio: 'Аудио',
+    articles: 'Мақалалар',
+  },
+  search: {
+    placeholder: 'Іздеу',
+    ariaLabel: 'Іздеу',
+    suggestions: 'Ұсыныстар',
+    searching: 'Іздеу…',
+    openFullResults: 'Барлық нәтижелерді ашу',
+    searchFor: '“{{q}}” бойынша іздеу',
+    book: 'Кітап',
+    open: 'Ашу',
+    noSuggestions: 'Ұсыныстар жоқ',
+  },
+};
+
 // Admin integrations (LIBTAU) texts
   dict.en.admin.integrations = {
     libtau: {

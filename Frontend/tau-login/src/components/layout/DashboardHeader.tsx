@@ -1,24 +1,82 @@
 // Desktop header (hidden on small screens)
-import { useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { getLang } from "@/shared/i18n";
+import { t } from "@/shared/i18n";
 import { api } from "@/shared/api/client";
 import { suggestBooks, type SuggestItem } from "@/shared/api/search";
 
+type FilterId = "all" | "books" | "ebooks" | "audio" | "articles";
+const FILTERS: Array<{ id: FilterId; icon: React.ReactNode }> = [
+  {
+    id: "all",
+    icon: (
+      <svg className="w-4 h-4 text-[#7b0f2b]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden>
+        <path d="M4 6h16M6 12h12M8 18h8" strokeLinecap="round" />
+      </svg>
+    ),
+  },
+  {
+    id: "books",
+    icon: (
+      <svg className="w-4 h-4 text-[#7b0f2b]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden>
+        <path d="M6 4h11a2 2 0 012 2v14a2 2 0 00-2-2H6a2 2 0 00-2 2V6a2 2 0 012-2z" strokeLinejoin="round" />
+        <path d="M6 18h11" strokeLinecap="round" />
+      </svg>
+    ),
+  },
+  {
+    id: "ebooks",
+    icon: (
+      <svg className="w-4 h-4 text-[#7b0f2b]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden>
+        <path d="M7 4h10a2 2 0 012 2v14a2 2 0 00-2-2H7a2 2 0 00-2 2V6a2 2 0 012-2z" strokeLinejoin="round" />
+        <path d="M9 8h6M9 11h6" strokeLinecap="round" />
+      </svg>
+    ),
+  },
+  {
+    id: "audio",
+    icon: (
+      <svg className="w-4 h-4 text-[#7b0f2b]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden>
+        <path d="M9 18a2 2 0 100-4 2 2 0 000 4z" />
+        <path d="M11 14V6l10-2v8" strokeLinecap="round" strokeLinejoin="round" />
+        <path d="M19 16a2 2 0 100-4 2 2 0 000 4z" />
+      </svg>
+    ),
+  },
+  {
+    id: "articles",
+    icon: (
+      <svg className="w-4 h-4 text-[#7b0f2b]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden>
+        <path d="M6 4h9l3 3v13a2 2 0 01-2 2H6a2 2 0 01-2-2V6a2 2 0 012-2z" strokeLinejoin="round" />
+        <path d="M15 4v4h4" strokeLinejoin="round" />
+        <path d="M7 12h10M7 15h10" strokeLinecap="round" />
+      </svg>
+    ),
+  },
+];
+
 export default function DashboardHeader() {
   const [filterOpen, setFilterOpen] = useState(false);
-  const [langOpen, setLangOpen] = useState(false);
   const [userOpen, setUserOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
-  const [filter, setFilter] = useState<string>(() => localStorage.getItem("ui_filter") || "All");
-  const [lang, setLang] = useState<string>(() => localStorage.getItem("ui_lang") || "EN");
+  const [filter, setFilter] = useState<FilterId>(() => {
+    const raw = (localStorage.getItem("ui_filter") || "").trim().toLowerCase();
+    const legacy: Record<string, FilterId> = {
+      all: "all",
+      books: "books",
+      "e-books": "ebooks",
+      ebooks: "ebooks",
+      audio: "audio",
+      articles: "articles",
+    };
+    return legacy[raw] ?? "all";
+  });
   const [time, setTime] = useState<string>("");
   const [dateStr, setDateStr] = useState<string>("");
   const [query, setQuery] = useState("");
   const nav = useNavigate();
 
   const filterRef = useRef<HTMLDivElement | null>(null);
-  const langRef = useRef<HTMLDivElement | null>(null);
   const userRef = useRef<HTMLDivElement | null>(null);
   const notifRef = useRef<HTMLDivElement | null>(null);
   const searchRef = useRef<HTMLDivElement | null>(null);
@@ -29,6 +87,21 @@ export default function DashboardHeader() {
   const [activeIdx, setActiveIdx] = useState<number>(-1);
 
   const queryTrimmed = useMemo(() => query.trim(), [query]);
+  const notifLabel = t("header.notifications.label");
+  const notifTitle = t("header.notifications.title");
+  const notifMarkAllRead = t("header.notifications.markAllRead");
+  const notifClear = t("header.notifications.clear");
+  const notifEmpty = t("header.notifications.empty");
+  const filterLabel = t(`header.filters.${filter}`);
+  const searchPlaceholder = t("header.search.placeholder");
+  const searchAriaLabel = t("header.search.ariaLabel");
+  const suggestionsLabel = t("header.search.suggestions");
+  const searchingLabel = t("header.search.searching");
+  const openFullResultsLabel = t("header.search.openFullResults");
+  const searchForLabel = t("header.search.searchFor", { q: queryTrimmed });
+  const bookLabel = t("header.search.book");
+  const openLabel = t("header.search.open");
+  const noSuggestionsLabel = t("header.search.noSuggestions");
 
   type Notif = { id: string; title: string; body?: string; time?: string; read?: boolean; type?: 'info'|'success'|'warning' };
   const [notifs, setNotifs] = useState<Notif[]>(() => {
@@ -82,7 +155,6 @@ export default function DashboardHeader() {
     const onDocDown = (e: MouseEvent) => {
       const t = e.target as Node;
       if (filterRef.current && !filterRef.current.contains(t)) setFilterOpen(false);
-      if (langRef.current && !langRef.current.contains(t)) setLangOpen(false);
       if (userRef.current && !userRef.current.contains(t)) setUserOpen(false);
       if (notifRef.current && !notifRef.current.contains(t)) setNotifOpen(false);
       if (searchRef.current && !searchRef.current.contains(t)) {
@@ -170,15 +242,35 @@ export default function DashboardHeader() {
         <div ref={filterRef} className="relative">
           <Capsule>
             <button onClick={() => setFilterOpen(v=>!v)} className="flex items-center gap-2">
-              <span>{filter}</span>
+              {FILTERS.find((f) => f.id === filter)?.icon}
+              <span className="font-medium text-slate-800">{filterLabel}</span>
               <svg className="w-4 h-4 text-slate-400" viewBox="0 0 20 20" fill="none"><path d="M6 8l4 4 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
             </button>
           </Capsule>
           {filterOpen && (
-            <div className="absolute z-50 mt-2 w-40 bg-white border rounded-md shadow" onMouseDown={(e)=>e.stopPropagation()}>
-              {["All","Books","E-Books","Audio","Articles"].map(opt => (
-                <button key={opt} onClick={()=>{ setFilter(opt); localStorage.setItem("ui_filter", opt); setFilterOpen(false); }} className="w-full text-left px-3 py-2 hover:bg-slate-50 text-sm">{opt}</button>
-              ))}
+            <div className="absolute z-50 mt-2 w-48 bg-white border border-slate-200 rounded-2xl shadow-lg overflow-hidden" onMouseDown={(e)=>e.stopPropagation()}>
+              {FILTERS.map((opt) => {
+                const active = opt.id === filter;
+                return (
+                  <button
+                    key={opt.id}
+                    onClick={() => {
+                      setFilter(opt.id);
+                      localStorage.setItem("ui_filter", opt.id);
+                      setFilterOpen(false);
+                    }}
+                    className={`w-full text-left px-3 py-2 flex items-center gap-2 text-sm hover:bg-slate-50 ${active ? "bg-slate-50" : ""}`}
+                  >
+                    {opt.icon}
+                    <span className="flex-1">{t(`header.filters.${opt.id}`)}</span>
+                    {active ? (
+                      <svg className="w-4 h-4 text-emerald-600" viewBox="0 0 20 20" fill="none" aria-hidden>
+                        <path d="M16 6l-7 7-3-3" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                      </svg>
+                    ) : null}
+                  </button>
+                );
+              })}
             </div>
           )}
         </div>
@@ -216,14 +308,14 @@ export default function DashboardHeader() {
                 doSearch();
               }
             }}
-            placeholder="Search"
+            placeholder={searchPlaceholder}
             className="w-full border rounded-full py-2 px-4 text-sm pr-10"
-            aria-label="Search"
+            aria-label={searchAriaLabel}
           />
           <button
             onClick={doSearch}
             className="absolute right-2 top-1/2 -translate-y-1/2 text-[#7b0f2b] flex items-center justify-center w-8 h-8 rounded-full hover:bg-[#fff1f2]"
-            aria-label="Search"
+            aria-label={searchAriaLabel}
           >
             <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none"><path d="M21 21l-4.35-4.35" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/><circle cx="11" cy="11" r="6" stroke="currentColor" strokeWidth="1.5" /></svg>
           </button>
@@ -233,11 +325,11 @@ export default function DashboardHeader() {
               className="absolute z-50 mt-2 w-full bg-white border border-slate-200 rounded-2xl shadow-lg overflow-hidden"
               onMouseDown={(e) => e.preventDefault()}
               role="listbox"
-              aria-label="Search suggestions"
+              aria-label={suggestionsLabel}
             >
               <div className="px-4 py-2 text-xs text-slate-500 flex items-center justify-between">
-                <span>Suggestions</span>
-                {suggestLoading ? <span className="animate-pulse">Searching…</span> : null}
+                <span>{suggestionsLabel}</span>
+                {suggestLoading ? <span className="animate-pulse">{searchingLabel}</span> : null}
               </div>
               <div className="max-h-80 overflow-auto">
                 <button
@@ -252,8 +344,8 @@ export default function DashboardHeader() {
                     </svg>
                   </span>
                   <span className="flex-1">
-                    <div className="text-sm text-slate-900">Search for “{queryTrimmed}”</div>
-                    <div className="text-xs text-slate-500">Open full results</div>
+                    <div className="text-sm text-slate-900">{searchForLabel}</div>
+                    <div className="text-xs text-slate-500">{openFullResultsLabel}</div>
                   </span>
                 </button>
 
@@ -280,16 +372,16 @@ export default function DashboardHeader() {
                         {Array.isArray(it.authors) && it.authors.length ? (
                           <div className="text-xs text-slate-500 truncate">{it.authors.join(", ")}</div>
                         ) : (
-                          <div className="text-xs text-slate-500 truncate">Book</div>
+                          <div className="text-xs text-slate-500 truncate">{bookLabel}</div>
                         )}
                       </span>
-                      <span className="text-xs text-slate-400 mt-1">Open</span>
+                      <span className="text-xs text-slate-400 mt-1">{openLabel}</span>
                     </button>
                   );
                 })}
 
                 {!suggestLoading && suggestItems.length === 0 ? (
-                  <div className="px-4 py-4 text-sm text-slate-500">No suggestions</div>
+                  <div className="px-4 py-4 text-sm text-slate-500">{noSuggestionsLabel}</div>
                 ) : null}
               </div>
             </div>
@@ -297,46 +389,12 @@ export default function DashboardHeader() {
         </div>
       </div>
 
-      {/* right: language, time, date, user */}
+      {/* right: time, date, user */}
       <div className="flex items-center gap-3">
-        <div ref={langRef} className="relative">
-          <Capsule>
-            <button onClick={()=>setLangOpen(v=>!v)} className="flex items-center gap-2">
-              {/* Language (globe) icon */}
-              <svg className="w-4 h-4 text-[#7b0f2b]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden>
-                <circle cx="12" cy="12" r="9" />
-                <path d="M3 12h18" strokeLinecap="round" />
-                <path d="M12 3c2.6 2.6 3.9 5.6 3.9 9s-1.3 6.4-3.9 9" strokeLinecap="round" strokeLinejoin="round" />
-                <path d="M12 3c-2.6 2.6-3.9 5.6-3.9 9s1.3 6.4 3.9 9" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-              <span>{lang}</span>
-              <svg className="w-4 h-4 text-slate-400" viewBox="0 0 20 20" fill="none"><path d="M6 8l4 4 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
-            </button>
-          </Capsule>
-          {langOpen && (
-            <div className="absolute z-50 right-0 mt-2 w-32 bg-white border rounded-md shadow" onMouseDown={(e)=>e.stopPropagation()}>
-              {["EN","RU","KK"].map(l => (
-                <button
-                  key={l}
-                  onClick={()=>{
-                    setLang(l);
-                    try { localStorage.setItem("ui_lang", l); } catch {}
-                    setLangOpen(false);
-                    try { window.dispatchEvent(new Event('lang:changed')); } catch {}
-                    // simplest: refresh to re-render everything
-                    window.location.reload();
-                  }}
-                  className="w-full text-left px-3 py-2 hover:bg-slate-50 text-sm"
-                >{l}</button>
-              ))}
-            </div>
-          )}
-        </div>
-
         <div ref={notifRef} className="relative">
           <Capsule>
             {/* Notifications bell */}
-            <button type="button" aria-label="Notifications" onClick={()=>setNotifOpen(v=>!v)} className="flex items-center gap-2">
+            <button type="button" aria-label={notifLabel} onClick={()=>setNotifOpen(v=>!v)} className="flex items-center gap-2">
               <span className="relative">
                 {/* Notification (bell) icon */}
                 <svg className="w-5 h-5 text-[#7b0f2b]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden>
@@ -345,20 +403,20 @@ export default function DashboardHeader() {
                 </svg>
                 {notifs.some(n=>!n.read) && <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-emerald-500" />}
               </span>
-              <span className="hidden md:inline text-xs text-slate-600">Notifications</span>
+              <span className="hidden md:inline text-xs text-slate-600">{notifLabel}</span>
             </button>
           </Capsule>
           {notifOpen && (
             <div className="absolute z-50 right-0 mt-2 w-80 bg-white border rounded-md shadow max-h-96 overflow-auto" onMouseDown={(e)=>e.stopPropagation()}>
               <div className="flex items-center justify-between px-3 py-2 border-b">
-                <div className="text-sm font-medium">Notifications</div>
+                <div className="text-sm font-medium">{notifTitle}</div>
                 <div className="flex items-center gap-2 text-xs">
-                  <button className="px-2 py-1 rounded border" onClick={()=>setNotifs(ns=>ns.map(n=>({...n, read:true })))}>Mark all read</button>
-                  <button className="px-2 py-1 rounded border" onClick={()=>setNotifs([])}>Clear</button>
+                  <button className="px-2 py-1 rounded border" onClick={()=>setNotifs(ns=>ns.map(n=>({...n, read:true })))}>{notifMarkAllRead}</button>
+                  <button className="px-2 py-1 rounded border" onClick={()=>setNotifs([])}>{notifClear}</button>
                 </div>
               </div>
               {notifs.length === 0 ? (
-                <div className="p-4 text-sm text-slate-500">No notifications</div>
+                <div className="p-4 text-sm text-slate-500">{notifEmpty}</div>
               ) : notifs.map(n => (
                 <button key={n.id} onClick={()=>setNotifs(ns=>ns.map(x=>x.id===n.id?{...x,read:true}:x))} className={`w-full text-left px-3 py-2 flex items-start gap-3 hover:bg-slate-50 ${n.read? 'opacity-75':''}`}>
                   <span className={`mt-1 w-2 h-2 rounded-full ${n.read? 'bg-slate-300':'bg-emerald-500'}`} />
@@ -395,47 +453,11 @@ export default function DashboardHeader() {
 }
 
 // Mobile fragment: to be shown inside the sidebar on mobile
-const LANGS = [
-  { code: "en", label: "English" },
-  { code: "ru", label: "Русский" },
-  { code: "kk", label: "Қазақша" },
-];
-
 export function MobileDashboardHeader() {
-  const currentLang = getLang();
-  const handleLangChange = (event: ChangeEvent<HTMLSelectElement>) => {
-    const next = event.target.value;
-    localStorage.setItem("ui_lang", next);
-    try {
-      window.dispatchEvent(new Event("lang:changed"));
-    } catch {}
-    window.location.reload();
-  };
-
-  const currentLabel = LANGS.find((lang) => lang.code === currentLang)?.label ?? LANGS[0].label;
-
   return (
     <div className="sm:hidden px-4 pt-3 pb-2 border-b">
       <div className="flex items-center justify-between gap-3">
         <div className="text-sm font-semibold text-slate-800">TAU</div>
-        <label className="relative inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-medium shadow-sm text-[#7b0f2b]">
-          <span>{currentLabel}</span>
-          <svg className="w-3 h-3" viewBox="0 0 10 7" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M1 1l4 4 4-4" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
-          <select
-            value={currentLang}
-            onChange={handleLangChange}
-            className="absolute inset-0 opacity-0"
-            aria-label="Select language"
-          >
-            {LANGS.map((lang) => (
-              <option key={lang.code} value={lang.code}>
-                {lang.label}
-              </option>
-            ))}
-          </select>
-        </label>
       </div>
     </div>
   );
