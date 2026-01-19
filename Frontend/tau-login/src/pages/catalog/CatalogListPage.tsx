@@ -39,6 +39,7 @@ type FilterDropdownProps = {
   placeholder: string;
   searchPlaceholder: string;
   allLabel: string;
+  noMatchesLabel: string;
   onChange: (value: string) => void;
 };
 
@@ -49,6 +50,7 @@ const FilterDropdown = ({
   placeholder,
   searchPlaceholder,
   allLabel,
+  noMatchesLabel,
   onChange,
 }: FilterDropdownProps) => {
   const [open, setOpen] = useState(false);
@@ -73,18 +75,18 @@ const FilterDropdown = ({
 
   return (
     <label className="text-sm text-slate-700">
-      {label}
+      <div className="text-xs font-medium text-slate-600">{label}</div>
       <div ref={ref} className="relative mt-1">
         <button
           type="button"
           onClick={() => {
             setOpen((prev) => {
               const next = !prev;
-              if (next) setQuery(value);
+              if (next) setQuery("");
               return next;
             });
           }}
-          className="w-full border rounded px-2 py-1 text-sm text-left bg-white flex items-center justify-between gap-2"
+          className="w-full border border-slate-200 rounded-full px-3 py-2 text-sm text-left bg-white flex items-center justify-between gap-2 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#7b0f2b]"
         >
           <span className={value ? "text-slate-900" : "text-slate-400"}>
             {value || placeholder}
@@ -94,12 +96,12 @@ const FilterDropdown = ({
           </svg>
         </button>
         {open && (
-          <div className="absolute z-20 mt-1 w-full bg-white border rounded shadow-lg p-2">
+          <div className="absolute z-20 mt-2 w-full bg-white border border-slate-200 rounded-2xl shadow-lg p-2">
             <input
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder={searchPlaceholder}
-              className="w-full border rounded px-2 py-1 text-sm mb-2"
+              className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm mb-2 focus:outline-none focus:ring-2 focus:ring-[#7b0f2b]"
             />
             <div className="max-h-56 overflow-auto">
               <button
@@ -108,9 +110,14 @@ const FilterDropdown = ({
                   onChange("");
                   setOpen(false);
                 }}
-                className="w-full text-left px-2 py-1 text-sm rounded hover:bg-slate-50"
+                className={`w-full text-left px-3 py-2 text-sm rounded-xl hover:bg-slate-50 flex items-center justify-between gap-2 ${!value ? "bg-slate-50" : ""}`}
               >
-                {allLabel}
+                <span className="text-slate-800">{allLabel}</span>
+                {!value ? (
+                  <svg className="w-4 h-4 text-emerald-600" viewBox="0 0 20 20" fill="none" aria-hidden>
+                    <path d="M16 6l-7 7-3-3" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                ) : null}
               </button>
               {filtered.length ? (
                 filtered.map((s) => (
@@ -121,15 +128,20 @@ const FilterDropdown = ({
                       onChange(s);
                       setOpen(false);
                     }}
-                    className={`w-full text-left px-2 py-1 text-sm rounded hover:bg-slate-50 ${
-                      s === value ? "bg-slate-100 text-slate-900" : "text-slate-700"
+                    className={`w-full text-left px-3 py-2 text-sm rounded-xl hover:bg-slate-50 flex items-center justify-between gap-2 ${
+                      s === value ? "bg-slate-50 text-slate-900" : "text-slate-700"
                     }`}
                   >
-                    {s}
+                    <span className="truncate">{s}</span>
+                    {s === value ? (
+                      <svg className="w-4 h-4 text-emerald-600 shrink-0" viewBox="0 0 20 20" fill="none" aria-hidden>
+                        <path d="M16 6l-7 7-3-3" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                      </svg>
+                    ) : null}
                   </button>
                 ))
               ) : (
-                <div className="px-2 py-1 text-sm text-slate-400">No matches</div>
+                <div className="px-3 py-2 text-sm text-slate-400">{noMatchesLabel}</div>
               )}
             </div>
           </div>
@@ -357,6 +369,28 @@ export default function CatalogListPage() {
     return Array.from(nums).filter((n) => n >= 1 && n <= totalPages).sort((a, b) => a - b);
   })();
 
+  const filtersBtnLabel = t("catalog.filters.button");
+  const filtersTitle = t("catalog.filters.title");
+  const closeLabel = t("catalog.filters.close");
+  const clearFiltersLabel = t("catalog.filters.clear");
+  const authorLabel = t("catalog.filters.author.label");
+  const authorPlaceholder = t("catalog.filters.author.placeholder");
+  const authorSearchPlaceholder = t("catalog.filters.author.searchPlaceholder");
+  const authorAllLabel = t("catalog.filters.author.all");
+  const categoryLabel = t("catalog.filters.category.label");
+  const categoryPlaceholder = t("catalog.filters.category.placeholder");
+  const categorySearchPlaceholder = t("catalog.filters.category.searchPlaceholder");
+  const categoryAllLabel = t("catalog.filters.category.all");
+  const langLabel = t("catalog.filters.language.label");
+  const langPlaceholder = t("catalog.filters.language.placeholder");
+  const langSearchPlaceholder = t("catalog.filters.language.searchPlaceholder");
+  const langAllLabel = t("catalog.filters.language.all");
+  const yearLabel = t("catalog.filters.year.label");
+  const yearPlaceholder = t("catalog.filters.year.placeholder");
+  const yearSearchPlaceholder = t("catalog.filters.year.searchPlaceholder");
+  const yearAllLabel = t("catalog.filters.year.all");
+  const noMatchesLabel = t("catalog.filters.noMatches");
+
   return (
     <div>
       <DashboardHeader />
@@ -365,9 +399,12 @@ export default function CatalogListPage() {
         <button
           type="button"
           onClick={() => setFiltersOpen(true)}
-          className="w-full border rounded px-3 py-2 text-sm bg-white"
+          className="w-full border border-slate-200 rounded-full px-4 py-2 text-sm bg-white shadow-sm text-slate-800 flex items-center justify-center gap-2 hover:bg-slate-50"
         >
-          Filters
+          <svg className="w-4 h-4 text-[#7b0f2b]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
+            <path d="M4 6h16M7 12h10M10 18h4" strokeLinecap="round" />
+          </svg>
+          {filtersBtnLabel}
         </button>
       </div>
       {filtersOpen && (
@@ -378,50 +415,54 @@ export default function CatalogListPage() {
           />
           <div className="absolute inset-x-0 bottom-0 bg-white rounded-t-2xl p-4 shadow-xl max-h-[85vh] overflow-auto">
             <div className="flex items-center justify-between mb-3">
-              <div className="text-sm font-semibold text-slate-800">Filters</div>
+              <div className="text-sm font-semibold text-slate-800">{filtersTitle}</div>
               <button
                 type="button"
                 onClick={() => setFiltersOpen(false)}
                 className="text-sm text-slate-500"
               >
-                Close
+                {closeLabel}
               </button>
             </div>
             <div className="grid grid-cols-1 gap-3">
               <FilterDropdown
-                label="Author"
+                label={authorLabel}
                 value={author}
                 options={filtersData.authors}
-                placeholder="All authors"
-                searchPlaceholder="Search authors..."
-                allLabel="All authors"
+                placeholder={authorPlaceholder}
+                searchPlaceholder={authorSearchPlaceholder}
+                allLabel={authorAllLabel}
+                noMatchesLabel={noMatchesLabel}
                 onChange={(value) => updateFilter("author", value)}
               />
               <FilterDropdown
-                label="Category"
+                label={categoryLabel}
                 value={subject}
                 options={filtersData.subjects}
-                placeholder="All categories"
-                searchPlaceholder="Search categories..."
-                allLabel="All categories"
+                placeholder={categoryPlaceholder}
+                searchPlaceholder={categorySearchPlaceholder}
+                allLabel={categoryAllLabel}
+                noMatchesLabel={noMatchesLabel}
                 onChange={(value) => updateFilter("subject", value)}
               />
               <FilterDropdown
-                label="Language"
+                label={langLabel}
                 value={lang}
                 options={filtersData.langs}
-                placeholder="All languages"
-                searchPlaceholder="Search languages..."
-                allLabel="All languages"
+                placeholder={langPlaceholder}
+                searchPlaceholder={langSearchPlaceholder}
+                allLabel={langAllLabel}
+                noMatchesLabel={noMatchesLabel}
                 onChange={(value) => updateFilter("lang", value)}
               />
               <FilterDropdown
-                label="Year"
+                label={yearLabel}
                 value={year}
                 options={filtersData.years.map((y) => String(y))}
-                placeholder="All years"
-                searchPlaceholder="Search years..."
-                allLabel="All years"
+                placeholder={yearPlaceholder}
+                searchPlaceholder={yearSearchPlaceholder}
+                allLabel={yearAllLabel}
+                noMatchesLabel={noMatchesLabel}
                 onChange={(value) => updateFilter("year", value)}
               />
               <button
@@ -429,9 +470,9 @@ export default function CatalogListPage() {
                 onClick={() => {
                   clearFilters();
                 }}
-                className="w-full border rounded px-3 py-2 text-sm"
+                className="w-full border border-slate-200 rounded-full px-4 py-2 text-sm bg-white shadow-sm hover:bg-slate-50"
               >
-                Clear filters
+                {clearFiltersLabel}
               </button>
             </div>
           </div>
@@ -440,48 +481,52 @@ export default function CatalogListPage() {
       <div className="bg-white border border-gray-100 rounded-lg p-3 sm:p-4 mb-4">
         <div className="hidden sm:grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
           <FilterDropdown
-            label="Author"
+            label={authorLabel}
             value={author}
             options={filtersData.authors}
-            placeholder="All authors"
-            searchPlaceholder="Search authors..."
-            allLabel="All authors"
+            placeholder={authorPlaceholder}
+            searchPlaceholder={authorSearchPlaceholder}
+            allLabel={authorAllLabel}
+            noMatchesLabel={noMatchesLabel}
             onChange={(value) => updateFilter("author", value)}
           />
           <FilterDropdown
-            label="Category"
+            label={categoryLabel}
             value={subject}
             options={filtersData.subjects}
-            placeholder="All categories"
-            searchPlaceholder="Search categories..."
-            allLabel="All categories"
+            placeholder={categoryPlaceholder}
+            searchPlaceholder={categorySearchPlaceholder}
+            allLabel={categoryAllLabel}
+            noMatchesLabel={noMatchesLabel}
             onChange={(value) => updateFilter("subject", value)}
           />
           <FilterDropdown
-            label="Language"
+            label={langLabel}
             value={lang}
             options={filtersData.langs}
-            placeholder="All languages"
-            searchPlaceholder="Search languages..."
-            allLabel="All languages"
+            placeholder={langPlaceholder}
+            searchPlaceholder={langSearchPlaceholder}
+            allLabel={langAllLabel}
+            noMatchesLabel={noMatchesLabel}
             onChange={(value) => updateFilter("lang", value)}
           />
           <FilterDropdown
-            label="Year"
+            label={yearLabel}
             value={year}
             options={filtersData.years.map((y) => String(y))}
-            placeholder="All years"
-            searchPlaceholder="Search years..."
-            allLabel="All years"
+            placeholder={yearPlaceholder}
+            searchPlaceholder={yearSearchPlaceholder}
+            allLabel={yearAllLabel}
+            noMatchesLabel={noMatchesLabel}
             onChange={(value) => updateFilter("year", value)}
           />
           <div className="flex items-end">
             <button
               type="button"
               onClick={clearFilters}
-              className="w-full border rounded px-3 py-1 text-sm"
+              className="w-full border border-slate-200 rounded-full px-4 py-2 text-sm bg-white shadow-sm hover:bg-slate-50"
             >
-              Clear filters
+              {clearFiltersLabel}
             </button>
           </div>
         </div>

@@ -610,6 +610,103 @@ dict.kk.header = {
   },
 };
 
+// Catalog filters translations
+dict.en.catalog.filters = {
+  button: "Filters",
+  title: "Filters",
+  close: "Close",
+  clear: "Clear filters",
+  noMatches: "No matches",
+  author: {
+    label: "Author",
+    placeholder: "All authors",
+    searchPlaceholder: "Search authors...",
+    all: "All authors",
+  },
+  category: {
+    label: "Category",
+    placeholder: "All categories",
+    searchPlaceholder: "Search categories...",
+    all: "All categories",
+  },
+  language: {
+    label: "Language",
+    placeholder: "All languages",
+    searchPlaceholder: "Search languages...",
+    all: "All languages",
+  },
+  year: {
+    label: "Year",
+    placeholder: "All years",
+    searchPlaceholder: "Search years...",
+    all: "All years",
+  },
+};
+
+dict.ru.catalog.filters = {
+  button: "Фильтры",
+  title: "Фильтры",
+  close: "Закрыть",
+  clear: "Сбросить фильтры",
+  noMatches: "Ничего не найдено",
+  author: {
+    label: "Автор",
+    placeholder: "Все авторы",
+    searchPlaceholder: "Поиск авторов...",
+    all: "Все авторы",
+  },
+  category: {
+    label: "Категория",
+    placeholder: "Все категории",
+    searchPlaceholder: "Поиск категорий...",
+    all: "Все категории",
+  },
+  language: {
+    label: "Язык",
+    placeholder: "Все языки",
+    searchPlaceholder: "Поиск языков...",
+    all: "Все языки",
+  },
+  year: {
+    label: "Год",
+    placeholder: "Все годы",
+    searchPlaceholder: "Поиск по годам...",
+    all: "Все годы",
+  },
+};
+
+dict.kk.catalog.filters = {
+  button: "Сүзгілер",
+  title: "Сүзгілер",
+  close: "Жабу",
+  clear: "Сүзгілерді тазалау",
+  noMatches: "Ештеңе табылмады",
+  author: {
+    label: "Автор",
+    placeholder: "Барлық авторлар",
+    searchPlaceholder: "Авторларды іздеу...",
+    all: "Барлық авторлар",
+  },
+  category: {
+    label: "Санат",
+    placeholder: "Барлық санаттар",
+    searchPlaceholder: "Санаттарды іздеу...",
+    all: "Барлық санаттар",
+  },
+  language: {
+    label: "Тіл",
+    placeholder: "Барлық тілдер",
+    searchPlaceholder: "Тілдерді іздеу...",
+    all: "Барлық тілдер",
+  },
+  year: {
+    label: "Жыл",
+    placeholder: "Барлық жылдар",
+    searchPlaceholder: "Жыл бойынша іздеу...",
+    all: "Барлық жылдар",
+  },
+};
+
 // Admin integrations (LIBTAU) texts
   dict.en.admin.integrations = {
     libtau: {

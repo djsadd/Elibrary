@@ -6,6 +6,15 @@ import { namesFrom } from "@/shared/ui/text";
 import { searchBooks, type SearchResponse } from "@/shared/api/search";
 import bookImg from "@/assets/images/Image.png";
 
+type FilterId = "all" | "books" | "ebooks" | "audio" | "articles";
+const FILTER_TO_FORMAT: Record<FilterId, string | null> = {
+  all: null,
+  books: "HARDCOPY",
+  ebooks: "EBOOK",
+  audio: "AUDIOBOOK",
+  articles: "ARTICLE",
+};
+
 type Book = {
   id: number | string;
   title: string;
@@ -24,6 +33,10 @@ type BookListResponse = {
 export default function SearchResultsPage() {
   const [sp, setSp] = useSearchParams();
   const q = (sp.get('q') || '').trim();
+  const rawFilter = (sp.get("filter") || "all").trim().toLowerCase();
+  const filter: FilterId = (["all", "books", "ebooks", "audio", "articles"] as const).includes(rawFilter as any)
+    ? (rawFilter as FilterId)
+    : "all";
   const rawPage = Number(sp.get('page') || '1');
   const page = Number.isFinite(rawPage) && rawPage > 0 ? Math.floor(rawPage) : 1;
   const DEFAULT_LIMIT = 15;
@@ -42,33 +55,61 @@ export default function SearchResultsPage() {
         setLoading(true);
         setError(null);
         let data: BookListResponse;
-        try {
-          const s: SearchResponse = await searchBooks(q, { limit: DEFAULT_LIMIT, offset });
-          data = { items: (s.items || []) as any, page: s.page as any };
-        } catch (e) {
-          // fallback: catalog search endpoint (and then client-side filter if needed)
-          try { console.warn('[Search] search service failed, fallback to catalog search:', e); } catch {}
+        const normalizeFormats = (raw: any): string[] => {
+          const arr = Array.isArray(raw) ? raw : raw ? [raw] : [];
+          return arr
+            .map((s) => String(s).trim().toUpperCase().replace(/[^A-Z]/g, ""))
+            .map((s) => s.replace(/^EBOOKS?$/, "EBOOK").replace(/^AUDIOBOOKS?$/, "AUDIOBOOK").replace(/^VIDEOBOOKS?$/, "VIDEOBOOK"))
+            .filter(Boolean);
+        };
+
+        const format = FILTER_TO_FORMAT[filter] ?? null;
+        const matchesFormat = (book: any, f: string) => {
+          const formats = normalizeFormats(book?.formats);
+          if (f === "HARDCOPY") return formats.includes("HARDCOPY") || (!formats.length && !!book);
+          return formats.includes(f);
+        };
+
+        if (format) {
           const params = new URLSearchParams();
-          params.set('q', q);
-          params.set('limit', String(DEFAULT_LIMIT));
-          params.set('offset', String(offset));
+          params.set("q", q);
+          params.set("limit", "500");
+          params.set("offset", "0");
           const url = `/api/catalog/books/search?${params.toString()}`;
+          const raw = await api<BookListResponse>(url);
+          const allItems = Array.isArray(raw.items) ? raw.items : [];
+          const filtered = allItems.filter((b: any) => matchesFormat(b, format));
+          const pageItems = filtered.slice(offset, offset + DEFAULT_LIMIT);
+          data = { items: pageItems, page: { limit: DEFAULT_LIMIT, offset, total: filtered.length } };
+        } else {
           try {
-            data = await api<BookListResponse>(url);
-          } catch (e2) {
-            try { console.warn('[Search] catalog search failed, fallback to client filter:', e2); } catch {}
-            const url2 = `/api/catalog/books?limit=100&offset=0`;
-            const data2 = await api<BookListResponse>(url2);
-            const needle = q.toLocaleLowerCase();
-            const inText = (s?: string | null) => (s ? s.toLocaleLowerCase().includes(needle) : false);
-            const filtered = (Array.isArray(data2.items) ? data2.items : []).filter((b: any) => {
-              if (inText(b?.title)) return true;
-              const a = (b?.authors || []).map((x: any) => (typeof x === 'string' ? x : x?.name || '')).filter(Boolean);
-              const s = (b?.subjects || []).map((x: any) => (typeof x === 'string' ? x : x?.name || '')).filter(Boolean);
-              return a.some(inText) || s.some(inText);
-            });
-            const pageItems = filtered.slice(offset, offset + DEFAULT_LIMIT);
-            data = { items: pageItems, page: { limit: DEFAULT_LIMIT, offset, total: filtered.length } };
+            const s: SearchResponse = await searchBooks(q, { limit: DEFAULT_LIMIT, offset });
+            data = { items: (s.items || []) as any, page: s.page as any };
+          } catch (e) {
+            // fallback: catalog search endpoint (and then client-side filter if needed)
+            try { console.warn('[Search] search service failed, fallback to catalog search:', e); } catch {}
+            const params = new URLSearchParams();
+            params.set('q', q);
+            params.set('limit', String(DEFAULT_LIMIT));
+            params.set('offset', String(offset));
+            const url = `/api/catalog/books/search?${params.toString()}`;
+            try {
+              data = await api<BookListResponse>(url);
+            } catch (e2) {
+              try { console.warn('[Search] catalog search failed, fallback to client filter:', e2); } catch {}
+              const url2 = `/api/catalog/books?limit=100&offset=0`;
+              const data2 = await api<BookListResponse>(url2);
+              const needle = q.toLocaleLowerCase();
+              const inText = (s?: string | null) => (s ? s.toLocaleLowerCase().includes(needle) : false);
+              const filtered = (Array.isArray(data2.items) ? data2.items : []).filter((b: any) => {
+                if (inText(b?.title)) return true;
+                const a = (b?.authors || []).map((x: any) => (typeof x === 'string' ? x : x?.name || '')).filter(Boolean);
+                const s = (b?.subjects || []).map((x: any) => (typeof x === 'string' ? x : x?.name || '')).filter(Boolean);
+                return a.some(inText) || s.some(inText);
+              });
+              const pageItems = filtered.slice(offset, offset + DEFAULT_LIMIT);
+              data = { items: pageItems, page: { limit: DEFAULT_LIMIT, offset, total: filtered.length } };
+            }
           }
         }
         if (cancelled) return;
@@ -88,7 +129,7 @@ export default function SearchResultsPage() {
       }
     })();
     return () => { cancelled = true; };
-  }, [q, page]);
+  }, [q, page, filter]);
 
   const SkeletonCard = () => (
     <div className="bg-white border border-gray-100 rounded-lg p-3 text-center shadow-sm">
@@ -103,6 +144,7 @@ export default function SearchResultsPage() {
     const normalized = Math.min(Math.max(1, nextPage), totalPages);
     const params = new URLSearchParams(sp);
     if (q) params.set("q", q); else params.delete("q");
+    if (filter !== "all") params.set("filter", filter); else params.delete("filter");
     if (normalized > 1) params.set("page", String(normalized)); else params.delete("page");
     setSp(params, { replace: false });
   };

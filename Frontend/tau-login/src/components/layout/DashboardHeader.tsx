@@ -4,8 +4,16 @@ import { useNavigate } from "react-router-dom";
 import { t } from "@/shared/i18n";
 import { api } from "@/shared/api/client";
 import { suggestBooks, type SuggestItem } from "@/shared/api/search";
+import { namesFrom } from "@/shared/ui/text";
 
 type FilterId = "all" | "books" | "ebooks" | "audio" | "articles";
+const FILTER_TO_FORMAT: Record<FilterId, string | null> = {
+  all: null,
+  books: "HARDCOPY",
+  ebooks: "EBOOK",
+  audio: "AUDIOBOOK",
+  articles: "ARTICLE",
+};
 const FILTERS: Array<{ id: FilterId; icon: React.ReactNode }> = [
   {
     id: "all",
@@ -179,8 +187,43 @@ export default function DashboardHeader() {
     const t = window.setTimeout(async () => {
       try {
         setSuggestLoading(true);
-        const resp = await suggestBooks(queryTrimmed, { limit: 8, signal: controller.signal });
-        setSuggestItems(Array.isArray(resp.items) ? resp.items : []);
+        const format = FILTER_TO_FORMAT[filter] ?? null;
+
+        const normalizeFormats = (raw: any): string[] => {
+          const arr = Array.isArray(raw) ? raw : raw ? [raw] : [];
+          return arr
+            .map((s) => String(s).trim().toUpperCase().replace(/[^A-Z]/g, ""))
+            .map((s) => s.replace(/^EBOOKS?$/, "EBOOK").replace(/^AUDIOBOOKS?$/, "AUDIOBOOK").replace(/^VIDEOBOOKS?$/, "VIDEOBOOK"))
+            .filter(Boolean);
+        };
+
+        const matchesFormat = (book: any, f: string) => {
+          const formats = normalizeFormats(book?.formats);
+          if (f === "HARDCOPY") return formats.includes("HARDCOPY") || (!formats.length && !!book);
+          return formats.includes(f);
+        };
+
+        if (!format) {
+          const resp = await suggestBooks(queryTrimmed, { limit: 8, signal: controller.signal });
+          setSuggestItems(Array.isArray(resp.items) ? resp.items : []);
+        } else {
+          const params = new URLSearchParams();
+          params.set("q", queryTrimmed);
+          params.set("limit", "40");
+          params.set("offset", "0");
+          const data: any = await api<any>(`/api/catalog/books/search?${params.toString()}`, { signal: controller.signal });
+          const rawItems: any[] = Array.isArray(data?.items) ? data.items : [];
+          const filtered = rawItems.filter((b) => matchesFormat(b, format));
+          const mapped: SuggestItem[] = filtered
+            .slice(0, 8)
+            .map((b) => ({
+              id: Number(b?.id),
+              title: String(b?.title || ""),
+              authors: namesFrom(b?.authors),
+            }))
+            .filter((s) => Number.isFinite(s.id) && s.title);
+          setSuggestItems(mapped);
+        }
         setSuggestOpen(true);
         setActiveIdx(-1);
       } catch (e: any) {
@@ -196,12 +239,15 @@ export default function DashboardHeader() {
       controller.abort();
       window.clearTimeout(t);
     };
-  }, [queryTrimmed]);
+  }, [queryTrimmed, filter]);
 
   const doSearch = () => {
     if (!queryTrimmed) return;
     // Navigate to dedicated search page
-    nav(`/search?q=${encodeURIComponent(queryTrimmed)}`);
+    const params = new URLSearchParams();
+    params.set("q", queryTrimmed);
+    if (filter !== "all") params.set("filter", filter);
+    nav(`/search?${params.toString()}`);
     setSuggestOpen(false);
     setActiveIdx(-1);
   };
