@@ -31,6 +31,8 @@ class AnalyticsMiddleware(BaseHTTPMiddleware):
         self.ip_hash_secret = ip_hash_secret
         self.anon_cookie = anon_cookie
         self.session_cookie = session_cookie
+        self._token_cache: dict[str, dict] = {}
+        self._token_cache_ttl_s = 60
 
     def _should_skip(self, path: str) -> bool:
         for prefix in self.skip_paths:
@@ -61,6 +63,13 @@ class AnalyticsMiddleware(BaseHTTPMiddleware):
         return request.client.host if request.client else None
 
     def _extract_user_id(self, request: Request) -> int | None:
+        user = getattr(request.state, "user", None)
+        if isinstance(user, dict) and user.get("user_id") is not None:
+            try:
+                return int(user["user_id"])
+            except (TypeError, ValueError):
+                pass
+
         auth_header = request.headers.get("authorization", "")
         if not auth_header.lower().startswith("bearer "):
             return None
@@ -72,6 +81,37 @@ class AnalyticsMiddleware(BaseHTTPMiddleware):
                 return None
             return int(sub)
         except (JWTError, ValueError):
+            return None
+
+    def _extract_bearer(self, request: Request) -> str | None:
+        auth_header = request.headers.get("authorization", "")
+        if not auth_header.lower().startswith("bearer "):
+            return None
+        return auth_header.split(" ", 1)[1]
+
+    async def _introspect_user_id(self, token: str) -> int | None:
+        cached = self._token_cache.get(token)
+        now = time.time()
+        if cached and cached.get("expires", 0) > now:
+            return cached.get("user_id")
+
+        base = str(settings.AUTH_SERVICE_URL).rstrip("/") + "/"
+        url = base + "auth/introspect"
+        try:
+            async with httpx.AsyncClient(timeout=self.timeout_s) as client:
+                resp = await client.post(url, json={"token": token})
+            if not resp.ok:
+                return None
+            data = resp.json()
+            if not data or not data.get("active"):
+                return None
+            user_id = data.get("user_id")
+            if user_id is None:
+                return None
+            uid = int(user_id)
+            self._token_cache[token] = {"user_id": uid, "expires": now + self._token_cache_ttl_s}
+            return uid
+        except Exception:
             return None
 
     def _derive_anon_id(self, ip_hash: str | None, user_agent: str | None) -> str | None:
@@ -106,7 +146,6 @@ class AnalyticsMiddleware(BaseHTTPMiddleware):
         referrer = request.headers.get("referer")
         client_ip = self._extract_client_ip(request)
         ip_hash = self._hash_ip(client_ip)
-        user_id = self._extract_user_id(request)
 
         derived_anon_id = self._derive_anon_id(ip_hash, user_agent)
         anon_id = self._ensure_cookie(
@@ -118,6 +157,12 @@ class AnalyticsMiddleware(BaseHTTPMiddleware):
         session_id = self._ensure_cookie(request, self.session_cookie, settings.ANALYTICS_SESSION_MAX_AGE_HOURS * 3600)
 
         response: Response = await call_next(request)
+
+        user_id = self._extract_user_id(request)
+        if user_id is None:
+            token = self._extract_bearer(request)
+            if token:
+                user_id = await self._introspect_user_id(token)
 
         if self.anon_cookie not in request.cookies:
             response.set_cookie(
