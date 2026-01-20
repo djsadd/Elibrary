@@ -11,7 +11,7 @@ from app.api.catalog_common import _ensure_authors, _ensure_subjects, _to_out, g
 from app.models.book import Author, Book, Subject, UserBook, book_subjects
 from app.schemas.book import BookCreate, BookList, BookOut, BookUpdate
 from app.services.search_sync import index_book_in_search
-from app.utils.authz import require_roles
+from app.utils.authz import AuthUser, get_current_user, require_roles
 from app.utils.pagination import clamp_limit, clamp_offset
 
 router = APIRouter()
@@ -20,6 +20,7 @@ router = APIRouter()
 @router.get("/books/batch", response_model=list[BookOut])
 def get_books_batch(
     ids: str = Query(..., description="Comma-separated book IDs, e.g. 1,2,3"),
+    user: AuthUser = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     try:
@@ -81,6 +82,7 @@ def stream_book(book_id: int, db: Session = Depends(get_db)):
 
 @router.get("/books", response_model=BookList)
 def list_books(
+    user: AuthUser = Depends(get_current_user),
     db: Session = Depends(get_db),
     q: Optional[str] = None,
     author: Optional[str] = None,
@@ -126,6 +128,7 @@ def list_books(
 
 @router.get("/books/search", response_model=BookList)
 def search_books(
+    user: AuthUser = Depends(get_current_user),
     db: Session = Depends(get_db),
     q: Optional[str] = None,
     lang: Optional[str] = None,
@@ -176,7 +179,11 @@ def search_books(
 
 
 @router.get("/books/{book_id}", response_model=BookOut)
-def get_book(book_id: int, db: Session = Depends(get_db)):
+def get_book(
+    book_id: int,
+    user: AuthUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
     book = db.get(Book, book_id)
     if not book:
         raise HTTPException(404, "Book not found")
@@ -186,6 +193,7 @@ def get_book(book_id: int, db: Session = Depends(get_db)):
 @router.get("/books/{book_id}/related", response_model=list[BookOut])
 def get_related_books(
     book_id: int,
+    user: AuthUser = Depends(get_current_user),
     limit: int = Query(10, ge=1, le=10),
     db: Session = Depends(get_db),
 ):

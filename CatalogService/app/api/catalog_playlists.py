@@ -4,12 +4,17 @@ from sqlalchemy.orm import Session
 from app.api.catalog_common import get_db
 from app.models.book import Book, Playlist
 from app.schemas.playlist import PlaylistCreate, PlaylistOut, PlaylistUpdate
+from app.utils.authz import AuthUser, get_current_user
 
 router = APIRouter()
 
 
 @router.post("/playlists", response_model=PlaylistOut, status_code=status.HTTP_201_CREATED)
-def create_playlist(payload: PlaylistCreate, db: Session = Depends(get_db)):
+def create_playlist(
+    payload: PlaylistCreate,
+    user: AuthUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
     playlist = Playlist(title=payload.title, description=payload.description)
 
     if payload.book_ids:
@@ -23,13 +28,20 @@ def create_playlist(payload: PlaylistCreate, db: Session = Depends(get_db)):
 
 
 @router.get("/playlists", response_model=list[PlaylistOut])
-def list_playlists(db: Session = Depends(get_db)):
+def list_playlists(
+    user: AuthUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
     playlists = db.query(Playlist).order_by(Playlist.created_at.desc()).all()
     return playlists
 
 
 @router.get("/playlists/{playlist_id}", response_model=PlaylistOut)
-def get_playlist(playlist_id: int, db: Session = Depends(get_db)):
+def get_playlist(
+    playlist_id: int,
+    user: AuthUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
     playlist = db.query(Playlist).filter(Playlist.id == playlist_id).first()
     if not playlist:
         raise HTTPException(status_code=404, detail="Playlist not found")
@@ -37,7 +49,12 @@ def get_playlist(playlist_id: int, db: Session = Depends(get_db)):
 
 
 @router.put("/playlists/{playlist_id}", response_model=PlaylistOut)
-def update_playlist(playlist_id: int, payload: PlaylistUpdate, db: Session = Depends(get_db)):
+def update_playlist(
+    playlist_id: int,
+    payload: PlaylistUpdate,
+    user: AuthUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
     playlist = db.query(Playlist).filter(Playlist.id == playlist_id).first()
     if not playlist:
         raise HTTPException(status_code=404, detail="Playlist not found")
@@ -56,7 +73,11 @@ def update_playlist(playlist_id: int, payload: PlaylistUpdate, db: Session = Dep
 
 
 @router.delete("/playlists/{playlist_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_playlist(playlist_id: int, db: Session = Depends(get_db)):
+def delete_playlist(
+    playlist_id: int,
+    user: AuthUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
     playlist = db.query(Playlist).filter(Playlist.id == playlist_id).first()
     if not playlist:
         raise HTTPException(status_code=404, detail="Playlist not found")

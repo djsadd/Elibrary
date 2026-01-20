@@ -8,12 +8,17 @@ from app.api.catalog_common import _subject_to_detail, get_db
 from app.models.book import Subject
 from app.schemas.book import SubjectOut
 from app.schemas.subjects import SubjectCreate, SubjectDetail, SubjectUpdate
+from app.utils.authz import AuthUser, get_current_user
 
 router = APIRouter()
 
 
 @router.post("/subjects", response_model=str, status_code=status.HTTP_201_CREATED)
-def create_subject(payload: SubjectCreate, db: Session = Depends(get_db)):
+def create_subject(
+    payload: SubjectCreate,
+    user: AuthUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
     subject = Subject(name=payload.name.strip())
 
     db.add(subject)
@@ -34,6 +39,7 @@ def create_subject(payload: SubjectCreate, db: Session = Depends(get_db)):
 def update_subject(
     subject_id: int,
     payload: SubjectUpdate,
+    user: AuthUser = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     subject = db.get(Subject, subject_id)
@@ -60,6 +66,7 @@ def update_subject(
 
 @router.get("/subjects", response_model=list[str])
 def list_subjects(
+    user: AuthUser = Depends(get_current_user),
     db: Session = Depends(get_db),
     q: Optional[str] = None,
     limit: int = Query(50, ge=1, le=200),
@@ -73,6 +80,7 @@ def list_subjects(
 
 @router.get("/subjects/details", response_model=list[SubjectOut])
 def list_subjects_details(
+    user: AuthUser = Depends(get_current_user),
     db: Session = Depends(get_db),
     q: Optional[str] = None,
     limit: int = Query(50, ge=1, le=200),
@@ -85,7 +93,11 @@ def list_subjects_details(
 
 
 @router.get("/subjects/{subject_id}", response_model=SubjectDetail)
-def get_subject(subject_id: int, db: Session = Depends(get_db)):
+def get_subject(
+    subject_id: int,
+    user: AuthUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
     subject = db.get(Subject, subject_id)
     if not subject:
         raise HTTPException(status_code=404, detail="Subject not found")

@@ -3,6 +3,7 @@ import hashlib
 import time
 from datetime import timedelta
 from typing import Iterable
+from urllib.parse import urljoin
 
 import httpx
 from jose import jwt, JWTError
@@ -96,9 +97,10 @@ class AnalyticsMiddleware(BaseHTTPMiddleware):
             return cached.get("user_id")
 
         base = str(settings.AUTH_SERVICE_URL).rstrip("/") + "/"
-        url = base + "auth/introspect"
+        url = urljoin(base, "auth/introspect")
         try:
-            async with httpx.AsyncClient(timeout=self.timeout_s) as client:
+            timeout = max(float(self.timeout_s), 1.0)
+            async with httpx.AsyncClient(timeout=timeout) as client:
                 resp = await client.post(url, json={"token": token})
             if not resp.ok:
                 return None
