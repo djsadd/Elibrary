@@ -1,6 +1,7 @@
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Request, Depends
 from app.core.config import settings
 from app.services.proxy import forward
+from app.services.auth_guard import auth_optional
 
 router = APIRouter(tags=["public"])
 
@@ -16,11 +17,11 @@ async def auth_proxy(path: str, request: Request):
 
 
 @router.api_route("/catalog", methods=["GET", "POST", "PUT", "PATCH", "DELETE"])
-async def catalog_root(request: Request):
+async def catalog_root(request: Request, _=Depends(auth_optional)):
     return await forward(request, settings.CATALOG_SERVICE_URL, path_suffix="catalog")
 
 
 @router.api_route("/catalog/{path:path}", methods=["GET", "POST", "PUT", "PATCH", "DELETE"])
-async def catalog_proxy(path: str, request: Request):
+async def catalog_proxy(path: str, request: Request, _=Depends(auth_optional)):
     return await forward(request, settings.CATALOG_SERVICE_URL, path_suffix=f"catalog/{path}")
 

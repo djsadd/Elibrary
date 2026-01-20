@@ -101,3 +101,49 @@ async def auth_required(request: Request):
 
     request.state.user = user
     return user
+
+
+async def auth_optional(request: Request):
+    """
+    "Мягкая" аутентификация: если bearer-токен есть и валиден — положит user в request.state.user.
+    Если токена нет/он невалиден/интроспект недоступен — НЕ падает 401, а просто возвращает None.
+    Нужна для публичных роутов (например, /catalog), чтобы аналитика и прокси-headers
+    могли понимать авторизованного пользователя, не блокируя гостей.
+    """
+    auth_header = request.headers.get("authorization", "")
+    if not auth_header.lower().startswith("bearer "):
+        return None
+
+    token = auth_header.split(" ", 1)[1]
+
+    # 1) Пытаемся декодировать локально
+    try:
+        payload = jwt.decode(token, settings.JWT_SECRET, algorithms=["HS256"])
+        user = {
+            "user_id": str(payload.get("sub")),
+            "roles": payload.get("roles", []),
+        }
+        request.state.user = user
+        return user
+    except JWTError:
+        pass
+
+    # 2) Кэш introspect
+    cached = TOKEN_CACHE.get(token)
+    if cached and cached["expires"] > time.time():
+        request.state.user = cached["user"]
+        return cached["user"]
+
+    # 3) introspect (без исключений наружу)
+    try:
+        data = await introspect(token)
+    except Exception:
+        return cached["user"] if cached else None
+
+    if not data or not getattr(data, "active", False):
+        return None
+
+    user = {"user_id": str(data.user_id), "roles": data.roles or []}
+    TOKEN_CACHE[token] = {"user": user, "expires": time.time() + CACHE_TTL}
+    request.state.user = user
+    return user
