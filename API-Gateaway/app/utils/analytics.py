@@ -44,6 +44,22 @@ class AnalyticsMiddleware(BaseHTTPMiddleware):
         raw = f"{self.ip_hash_secret}:{ip}".encode("utf-8")
         return hashlib.sha256(raw).hexdigest()
 
+    def _extract_client_ip(self, request: Request) -> str | None:
+        xff = request.headers.get("x-forwarded-for")
+        if xff:
+            # "client, proxy1, proxy2"
+            parts = [p.strip() for p in xff.split(",") if p.strip()]
+            for p in parts:
+                if p.lower() != "unknown":
+                    return p
+        xri = request.headers.get("x-real-ip")
+        if xri and xri.strip():
+            return xri.strip()
+        cfc = request.headers.get("cf-connecting-ip")
+        if cfc and cfc.strip():
+            return cfc.strip()
+        return request.client.host if request.client else None
+
     def _extract_user_id(self, request: Request) -> int | None:
         auth_header = request.headers.get("authorization", "")
         if not auth_header.lower().startswith("bearer "):
@@ -88,7 +104,8 @@ class AnalyticsMiddleware(BaseHTTPMiddleware):
 
         user_agent = request.headers.get("user-agent")
         referrer = request.headers.get("referer")
-        ip_hash = self._hash_ip(request.client.host if request.client else None)
+        client_ip = self._extract_client_ip(request)
+        ip_hash = self._hash_ip(client_ip)
         user_id = self._extract_user_id(request)
 
         derived_anon_id = self._derive_anon_id(ip_hash, user_agent)
@@ -129,7 +146,7 @@ class AnalyticsMiddleware(BaseHTTPMiddleware):
             "status_code": response.status_code,
             "user_agent": user_agent,
             "referrer": referrer,
-            "ip": request.client.host if request.client else None,
+            "ip": client_ip,
             "ip_hash": ip_hash,
             "request_id": request.headers.get("x-request-id") or getattr(request.state, "request_id", None),
             "service": "gateway",
