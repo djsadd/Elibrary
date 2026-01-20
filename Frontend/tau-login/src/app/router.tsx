@@ -37,6 +37,11 @@ import IntegrationsPage from "../pages/admin/sections/IntegrationsPage";
 import ReportsPage from "../pages/admin/sections/ReportsPage";
 import RolesPage from "../pages/admin/sections/RolesPage";
 import NotFoundPage from "../pages/NotFoundPage";
+import AnalyticsLayout from "../pages/analytics/AnalyticsLayout";
+import AnalyticsOverviewPage from "../pages/analytics/sections/AnalyticsOverviewPage";
+import AnalyticsUsersPage from "../pages/analytics/sections/AnalyticsUsersPage";
+import AnalyticsTrafficPage from "../pages/analytics/sections/AnalyticsTrafficPage";
+import AnalyticsBooksPage from "../pages/analytics/sections/AnalyticsBooksPage";
 
 function WithTitle({ title, children }: { title: string; children: ReactNode }) {
   useEffect(() => {
@@ -64,6 +69,16 @@ const router = createBrowserRouter([
       { path: "catalog", element: <WithTitle title="Catalog - TAU"><CatalogListPage /></WithTitle> },
       { path: "search", element: <WithTitle title="Search - TAU"><SearchResultsPage /></WithTitle> },
       { path: "intelligent-search", element: <WithTitle title="Intelligent Search - TAU"><IntelligentSearchPage /></WithTitle> },
+      {
+        path: "analytics",
+        element: <WithTitle title="Analytics - TAU"><AnalyticsLayout /></WithTitle>,
+        children: [
+          { index: true, element: <WithTitle title="Analytics Overview - TAU"><AnalyticsOverviewPage /></WithTitle> },
+          { path: "users", element: <WithTitle title="Analytics Users - TAU"><AnalyticsUsersPage /></WithTitle> },
+          { path: "traffic", element: <WithTitle title="Analytics Traffic - TAU"><AnalyticsTrafficPage /></WithTitle> },
+          { path: "books", element: <WithTitle title="Analytics Books - TAU"><AnalyticsBooksPage /></WithTitle> },
+        ],
+      },
       { path: "catalog/:id", element: <WithTitle title="Book Details - TAU"><CatalogDetailPage /></WithTitle> },
       { path: "catalog/books/:id", element: <WithTitle title="Book Details - TAU"><CatalogDetailPage /></WithTitle> },
       { path: "catalog/:id/notes", element: <WithTitle title="My Notes - TAU"><BookNotesPage /></WithTitle> },

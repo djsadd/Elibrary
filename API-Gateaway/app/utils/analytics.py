@@ -129,6 +129,7 @@ class AnalyticsMiddleware(BaseHTTPMiddleware):
             "status_code": response.status_code,
             "user_agent": user_agent,
             "referrer": referrer,
+            "ip": request.client.host if request.client else None,
             "ip_hash": ip_hash,
             "request_id": request.headers.get("x-request-id") or getattr(request.state, "request_id", None),
             "service": "gateway",

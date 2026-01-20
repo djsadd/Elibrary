@@ -17,6 +17,7 @@ class EventIn(BaseModel):
 
     user_agent: Optional[str] = None
     referrer: Optional[str] = None
+    ip: Optional[str] = None
     ip_hash: Optional[str] = None
 
     request_id: Optional[str] = None

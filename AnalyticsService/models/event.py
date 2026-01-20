@@ -22,6 +22,7 @@ class Event(Base):
 
     user_agent: Mapped[str | None] = mapped_column(String(512))
     referrer: Mapped[str | None] = mapped_column(String(512))
+    ip: Mapped[str | None] = mapped_column(String(64))
     ip_hash: Mapped[str | None] = mapped_column(String(128))
 
     request_id: Mapped[str | None] = mapped_column(String(64), index=True)

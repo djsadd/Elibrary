@@ -32,7 +32,12 @@ export default function Sidebar() {
     { to: "/catalog", label: t("nav.catalog"), icon: CatalogIcon },
     { to: "/shelf", label: t("nav.shelf"), icon: ShelfIcon },
     { to: "/favorites", label: t("nav.favorites"), icon: HeartIcon },
-    ...(isAdmin ? [{ to: "/admin", label: t("nav.admin"), icon: AdminIcon }] : ([] as any)),
+    ...(isAdmin
+      ? ([
+          { to: "/admin", label: t("nav.admin"), icon: AdminIcon },
+          { to: "/analytics", label: t("nav.analytics"), icon: AnalyticsIcon },
+        ] as any)
+      : ([] as any)),
     { to: "/intelligent-search", label: "Интеллектуальный поиск", icon: SearchIcon },
     { to: "/profile", label: t("nav.profile"), icon: UserIcon },
     { to: "#", label: t("nav.contribute"), icon: ContributeIcon },
@@ -183,6 +188,14 @@ function AdminIcon({ className = "", ...props }: any) {
       fill="currentColor"
     >
       <path d="M4 5h16v2H4V5zm0 4h16v10H4V9zm2 2v6h12v-6H6z" />
+    </svg>
+  );
+}
+
+function AnalyticsIcon({ className = "", ...props }: any) {
+  return (
+    <svg {...props} className={className} viewBox="0 0 24 24" fill="currentColor">
+      <path d="M4 19h16v2H4v-2zm2-8h3v6H6v-6zm5-4h3v10h-3V7zm5 2h3v8h-3V9z" />
     </svg>
   );
 }

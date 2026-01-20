@@ -44,6 +44,7 @@ def ensure_schema() -> None:
                 status_code UInt16,
                 user_agent String,
                 referrer String,
+                ip String,
                 ip_hash String,
                 request_id String,
                 service String,
@@ -55,6 +56,10 @@ def ensure_schema() -> None:
             ORDER BY (event_date, event_type, path)
             """
         )
+        try:
+            client.command("ALTER TABLE events ADD COLUMN IF NOT EXISTS ip String AFTER referrer")
+        except Exception:
+            pass
     except Exception:
         return
 
@@ -83,6 +88,7 @@ def insert_event(row: dict[str, Any]) -> None:
         int(row.get("status_code") or 0),
         str(row.get("user_agent") or ""),
         str(row.get("referrer") or ""),
+        str(row.get("ip") or ""),
         str(row.get("ip_hash") or ""),
         str(row.get("request_id") or ""),
         str(row.get("service") or ""),
@@ -101,6 +107,7 @@ def insert_event(row: dict[str, Any]) -> None:
         "status_code",
         "user_agent",
         "referrer",
+        "ip",
         "ip_hash",
         "request_id",
         "service",

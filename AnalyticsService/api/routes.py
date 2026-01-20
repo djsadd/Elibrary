@@ -3,13 +3,13 @@ from typing import List, Optional, Union
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
-from sqlalchemy import func, case
+from sqlalchemy import func, case, literal, select, union_all
 
 from core.db import SessionLocal
 from core.config import settings
 from models.event import Event
 from schemas.event import EventIn, EventOut
-from schemas.stats import DailyStatsRow, SummaryStats, TopPathRow
+from schemas.stats import DailyStatsRow, EventsPage, SummaryStats, TopPathRow, VisitorsPage, VisitorRow
 from services.ingest import add_event
 from utils.time import range_for_dates
 
@@ -135,3 +135,141 @@ def top_paths(
     )
 
     return [TopPathRow(path=row.path, count=int(row.count)) for row in query.all() if row.path]
+
+
+@router.get("/stats/events", response_model=EventsPage)
+def list_events(
+    day: Optional[date] = None,
+    from_date: Optional[date] = Query(None, alias="from"),
+    to_date: Optional[date] = Query(None, alias="to"),
+    who: str = Query("all"),
+    event_type: Optional[str] = None,
+    path_prefix: Optional[str] = None,
+    user_id: Optional[int] = None,
+    anon_id: Optional[str] = None,
+    ip: Optional[str] = None,
+    limit: int = Query(100, ge=1, le=500),
+    offset: int = Query(0, ge=0, le=100000),
+    db: Session = Depends(get_db),
+):
+    if who not in ("all", "users", "guests"):
+        raise HTTPException(status_code=400, detail="Invalid 'who' (use all|users|guests)")
+
+    start_utc, end_utc = range_for_dates(day, day) if day else range_for_dates(from_date, to_date)
+
+    query = db.query(Event).filter(Event.event_time >= start_utc, Event.event_time < end_utc)
+    if event_type:
+        query = query.filter(Event.event_type == event_type)
+    if path_prefix:
+        query = query.filter(Event.path.ilike(f"{path_prefix}%"))
+    if who == "users":
+        query = query.filter(Event.user_id.isnot(None))
+    elif who == "guests":
+        query = query.filter(Event.user_id.is_(None))
+    if user_id is not None:
+        query = query.filter(Event.user_id == user_id)
+    if anon_id:
+        query = query.filter(Event.anon_id == anon_id)
+    if ip:
+        query = query.filter(Event.ip == ip)
+
+    total = int(query.count())
+    items = (
+        query.order_by(Event.event_time.desc())
+        .offset(offset)
+        .limit(limit)
+        .all()
+    )
+    return EventsPage(total=total, items=items)
+
+
+@router.get("/stats/visitors", response_model=VisitorsPage)
+def visitors_stats(
+    day: Optional[date] = None,
+    from_date: Optional[date] = Query(None, alias="from"),
+    to_date: Optional[date] = Query(None, alias="to"),
+    who: str = Query("all"),
+    event_type: Optional[str] = None,
+    path_prefix: Optional[str] = None,
+    limit: int = Query(100, ge=1, le=500),
+    offset: int = Query(0, ge=0, le=100000),
+    db: Session = Depends(get_db),
+):
+    if who not in ("all", "users", "guests"):
+        raise HTTPException(status_code=400, detail="Invalid 'who' (use all|users|guests)")
+
+    start_utc, end_utc = range_for_dates(day, day) if day else range_for_dates(from_date, to_date)
+
+    base_filters = [Event.event_time >= start_utc, Event.event_time < end_utc]
+    if event_type:
+        base_filters.append(Event.event_type == event_type)
+    if path_prefix:
+        base_filters.append(Event.path.ilike(f"{path_prefix}%"))
+
+    users_sel = (
+        select(
+            literal("user").label("kind"),
+            Event.user_id.label("user_id"),
+            literal(None).label("anon_id"),
+            literal(None).label("ip"),
+            func.count(Event.id).label("events"),
+            func.count(func.distinct(Event.session_id)).label("sessions"),
+            func.count(func.distinct(Event.path)).label("paths"),
+            func.min(Event.event_time).label("first_seen"),
+            func.max(Event.event_time).label("last_seen"),
+        )
+        .where(Event.user_id.isnot(None), *base_filters)
+        .group_by(Event.user_id)
+    )
+
+    guests_sel = (
+        select(
+            literal("guest").label("kind"),
+            literal(None).label("user_id"),
+            Event.anon_id.label("anon_id"),
+            Event.ip.label("ip"),
+            func.count(Event.id).label("events"),
+            func.count(func.distinct(Event.session_id)).label("sessions"),
+            func.count(func.distinct(Event.path)).label("paths"),
+            func.min(Event.event_time).label("first_seen"),
+            func.max(Event.event_time).label("last_seen"),
+        )
+        .where(Event.user_id.is_(None), *base_filters)
+        .group_by(Event.anon_id, Event.ip)
+    )
+
+    selects = []
+    if who in ("all", "users"):
+        selects.append(users_sel)
+    if who in ("all", "guests"):
+        selects.append(guests_sel)
+
+    if not selects:
+        return VisitorsPage(total=0, items=[])
+
+    combined = union_all(*selects).subquery("visitors")
+    total = int(db.execute(select(func.count()).select_from(combined)).scalar() or 0)
+
+    rows = db.execute(
+        select(combined)
+        .order_by(combined.c.last_seen.desc())
+        .offset(offset)
+        .limit(limit)
+    ).all()
+
+    items = [
+        VisitorRow(
+            kind=str(r.kind),
+            user_id=r.user_id,
+            anon_id=r.anon_id,
+            ip=r.ip,
+            events=int(r.events or 0),
+            sessions=int(r.sessions or 0),
+            paths=int(r.paths or 0),
+            first_seen=r.first_seen,
+            last_seen=r.last_seen,
+        )
+        for r in rows
+    ]
+
+    return VisitorsPage(total=total, items=items)
