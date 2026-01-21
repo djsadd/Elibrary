@@ -37,6 +37,19 @@ class Settings(BaseSettings):
     ANALYTICS_COOKIE_MAX_AGE_DAYS: int = 365
     ANALYTICS_SESSION_MAX_AGE_HOURS: int = 24
     ANALYTICS_IP_HASH_SECRET: str = "change-me"
+    ANALYTICS_CAPTURE_BODY: bool = True
+    ANALYTICS_MAX_BODY_BYTES: int = 8192
+    ANALYTICS_REDACT_KEYS: List[str] = [
+        "password",
+        "pass",
+        "pwd",
+        "secret",
+        "token",
+        "access_token",
+        "refresh_token",
+        "authorization",
+        "cookie",
+    ]
 
     @field_validator("CORS_ALLOW_ORIGINS", mode="before")
     @classmethod

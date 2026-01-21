@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import or_, func
 from typing import Optional
@@ -29,6 +29,13 @@ from app.utils.security import hash_password, verify_password
 from app.utils.tokens import create_access, create_refresh, decode
 from app.services.email_sender import send_2fa_code_email, send_activation_code_email
 from app.services.twofa import create_challenge, resend_code, verify_code
+from app.utils.authz import (
+    AuthUser,
+    get_current_user,
+    get_current_user_from_access_body_optional,
+    get_current_user_from_refresh_body,
+    require_roles,
+)
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -41,19 +48,7 @@ def get_db():
         db.close()
 
 
-def require_admin(request: Request) -> dict:
-    auth = request.headers.get("authorization", "")
-    tok = auth.split(" ", 1)[1] if auth.lower().startswith("bearer ") else None
-    data = decode(tok) if tok else None
-    if not data:
-        raise HTTPException(401, "Invalid token")
-    roles = data.get("roles") or []
-    if isinstance(roles, str):
-        roles = [roles]
-    role_set = {str(r).strip().lower() for r in roles if r}
-    if not role_set.intersection({"admin", "librarian"}):
-        raise HTTPException(403, "Forbidden")
-    return data
+require_admin = require_roles("admin", "librarian")
 
 
 @router.post("/register", status_code=201)
@@ -311,12 +306,14 @@ def platonus_login(req: PlatonusLoginRequest, db: Session = Depends(get_db)):
 
 
 @router.post("/refresh", response_model=TokenPair)
-def refresh_token(body: IntrospectRequest, db: Session = Depends(get_db)):
-    data = decode(body.token)
-    if not data or data.get("typ") != "refresh":
-        raise HTTPException(401, "Invalid refresh")
-    user_id = int(data["sub"])
-    u = db.get(User, user_id)
+def refresh_token(
+    body: IntrospectRequest,
+    user: AuthUser = Depends(get_current_user_from_refresh_body),
+    db: Session = Depends(get_db),
+):
+    u = db.get(User, int(user.user_id))
+    if not u:
+        raise HTTPException(404, "User not found")
 
     access, exp = create_access(u.id, u.role or "")
     new_refresh, _ = create_refresh(u.id)
@@ -328,9 +325,9 @@ def refresh_token(body: IntrospectRequest, db: Session = Depends(get_db)):
 
 
 @router.post("/introspect", response_model=IntrospectResponse)
-def introspect(body: IntrospectRequest):
+def introspect(body: IntrospectRequest, user: AuthUser | None = Depends(get_current_user_from_access_body_optional)):
     data = decode(body.token)
-    if not data or data.get("typ") != "access":
+    if not data or data.get("typ") != "access" or not user:
         return IntrospectResponse(active=False)
     return IntrospectResponse(
         active=True,
@@ -341,24 +338,13 @@ def introspect(body: IntrospectRequest):
 
 
 @router.get("/me")
-def me(request: Request):
-    auth = request.headers.get("authorization","")
-    tok = auth.split(" ", 1)[1] if auth.lower().startswith("bearer ") else None
-    data = decode(tok) if tok else None
-    if not data: raise HTTPException(401, "Invalid token")
-    return {"user_id": int(data["sub"]), "roles": data.get("roles", [])}
+def me(user: AuthUser = Depends(get_current_user)):
+    return {"user_id": int(user.user_id), "roles": user.roles}
 
 
 @router.put("/profile")
-def update_profile(req: UpdateProfileRequest, request: Request, db: Session = Depends(get_db)):
-    auth = request.headers.get("authorization", "")
-    tok = auth.split(" ", 1)[1] if auth.lower().startswith("bearer ") else None
-    data = decode(tok) if tok else None
-    if not data:
-        raise HTTPException(401, "Invalid token")
-
-    user_id = int(data["sub"])
-    u = db.get(User, user_id)
+def update_profile(req: UpdateProfileRequest, user: AuthUser = Depends(get_current_user), db: Session = Depends(get_db)):
+    u = db.get(User, int(user.user_id))
     if not u:
         raise HTTPException(404, "User not found")
 
@@ -372,15 +358,8 @@ def update_profile(req: UpdateProfileRequest, request: Request, db: Session = De
 
 
 @router.get("/profile")
-def get_profile(request: Request, db: Session = Depends(get_db)):
-    auth = request.headers.get("authorization", "")
-    tok = auth.split(" ", 1)[1] if auth.lower().startswith("bearer ") else None
-    data = decode(tok) if tok else None
-    if not data:
-        raise HTTPException(401, "Invalid token")
-
-    user_id = int(data["sub"])
-    u = db.get(User, user_id)
+def get_profile(user: AuthUser = Depends(get_current_user), db: Session = Depends(get_db)):
+    u = db.get(User, int(user.user_id))
     if not u:
         raise HTTPException(404, "User not found")
 
@@ -407,13 +386,12 @@ def get_profile(request: Request, db: Session = Depends(get_db)):
 
 @router.get("/users", response_model=UsersListResponse)
 def list_users(
-    request: Request,
+    _: AuthUser = Depends(require_admin),
     db: Session = Depends(get_db),
     q: Optional[str] = None,
     limit: int = 100,
     offset: int = 0,
 ):
-    require_admin(request)
     safe_limit = max(1, min(limit, 200))
     safe_offset = max(0, offset)
     query = db.query(User)
@@ -465,10 +443,9 @@ def list_users(
 
 @router.get("/admin/stats")
 def admin_stats(
-    request: Request,
+    _: AuthUser = Depends(require_admin),
     db: Session = Depends(get_db),
 ):
-    require_admin(request)
     total_users = db.query(func.count(User.id)).scalar() or 0
     active_users = db.query(func.count(User.id)).filter(User.is_active.is_(True)).scalar() or 0
     inactive_users = db.query(func.count(User.id)).filter(User.is_active.is_(False)).scalar() or 0
@@ -537,10 +514,9 @@ def twofa_resend(body: TwoFAResendRequest, db: Session = Depends(get_db)):
 @router.get("/users/{user_id}", response_model=UserAdminOut)
 def get_user_admin(
     user_id: int,
-    request: Request,
+    _: AuthUser = Depends(require_admin),
     db: Session = Depends(get_db),
 ):
-    require_admin(request)
     u = db.get(User, user_id)
     if not u:
         raise HTTPException(404, "User not found")

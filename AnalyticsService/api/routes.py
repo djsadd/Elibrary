@@ -145,9 +145,13 @@ def list_events(
     who: str = Query("all"),
     event_type: Optional[str] = None,
     path_prefix: Optional[str] = None,
+    method: Optional[str] = None,
+    status_code: Optional[int] = None,
     user_id: Optional[int] = None,
     anon_id: Optional[str] = None,
     ip: Optional[str] = None,
+    request_id: Optional[str] = None,
+    service: Optional[str] = None,
     limit: int = Query(100, ge=1, le=500),
     offset: int = Query(0, ge=0, le=100000),
     db: Session = Depends(get_db),
@@ -162,6 +166,10 @@ def list_events(
         query = query.filter(Event.event_type == event_type)
     if path_prefix:
         query = query.filter(Event.path.ilike(f"{path_prefix}%"))
+    if method:
+        query = query.filter(func.lower(Event.method) == method.lower())
+    if status_code is not None:
+        query = query.filter(Event.status_code == status_code)
     if who == "users":
         query = query.filter(Event.user_id.isnot(None))
     elif who == "guests":
@@ -172,6 +180,10 @@ def list_events(
         query = query.filter(Event.anon_id == anon_id)
     if ip:
         query = query.filter(Event.ip == ip)
+    if request_id:
+        query = query.filter(Event.request_id == request_id)
+    if service:
+        query = query.filter(Event.service == service)
 
     total = int(query.count())
     items = (
@@ -181,6 +193,52 @@ def list_events(
         .all()
     )
     return EventsPage(total=total, items=items)
+
+
+@router.get("/traffic", response_model=EventsPage)
+def traffic(
+    day: Optional[date] = None,
+    from_date: Optional[date] = Query(None, alias="from"),
+    to_date: Optional[date] = Query(None, alias="to"),
+    who: str = Query("all"),
+    path_prefix: Optional[str] = None,
+    method: Optional[str] = None,
+    status_code: Optional[int] = None,
+    user_id: Optional[int] = None,
+    anon_id: Optional[str] = None,
+    ip: Optional[str] = None,
+    request_id: Optional[str] = None,
+    service: Optional[str] = None,
+    limit: int = Query(100, ge=1, le=500),
+    offset: int = Query(0, ge=0, le=100000),
+    db: Session = Depends(get_db),
+):
+    return list_events(
+        day=day,
+        from_date=from_date,
+        to_date=to_date,
+        who=who,
+        event_type="api_request",
+        path_prefix=path_prefix,
+        method=method,
+        status_code=status_code,
+        user_id=user_id,
+        anon_id=anon_id,
+        ip=ip,
+        request_id=request_id,
+        service=service,
+        limit=limit,
+        offset=offset,
+        db=db,
+    )
+
+
+@router.get("/traffic/{event_id}", response_model=EventOut)
+def traffic_event(event_id: int, db: Session = Depends(get_db)):
+    ev = db.query(Event).filter(Event.id == event_id, Event.event_type == "api_request").first()
+    if not ev:
+        raise HTTPException(status_code=404, detail="Not found")
+    return ev
 
 
 @router.get("/stats/visitors", response_model=VisitorsPage)

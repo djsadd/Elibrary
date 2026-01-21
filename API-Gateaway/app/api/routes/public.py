@@ -7,12 +7,12 @@ router = APIRouter(tags=["public"])
 
 
 @router.api_route("/auth", methods=["GET", "POST", "PUT", "PATCH", "DELETE"])
-async def auth_root(request: Request):
+async def auth_root(request: Request, _=Depends(auth_optional)):
     return await forward(request, settings.AUTH_SERVICE_URL, path_suffix="auth")
 
 
 @router.api_route("/auth/{path:path}", methods=["GET", "POST", "PUT", "PATCH", "DELETE"])
-async def auth_proxy(path: str, request: Request):
+async def auth_proxy(path: str, request: Request, _=Depends(auth_optional)):
     return await forward(request, settings.AUTH_SERVICE_URL, path_suffix=f"auth/{path}")
 
 

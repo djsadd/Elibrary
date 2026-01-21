@@ -1,8 +1,9 @@
 import asyncio
 import hashlib
+import json
 import time
 from datetime import timedelta
-from typing import Iterable
+from typing import Any, Iterable
 from urllib.parse import urljoin
 
 import httpx
@@ -84,6 +85,42 @@ class AnalyticsMiddleware(BaseHTTPMiddleware):
         except (JWTError, ValueError):
             return None
 
+    async def _extract_user_id_from_body_token(self, request: Request) -> int | None:
+        # For /api/auth/refresh and /api/auth/introspect the token is usually in JSON body: {"token": "<jwt>"}
+        path = request.url.path.rstrip("/")
+        if request.method.upper() != "POST":
+            return None
+        if path not in ("/api/auth/refresh", "/api/auth/introspect"):
+            return None
+        try:
+            body = await request.body()
+            if not body:
+                return None
+            data = json.loads(body.decode("utf-8"))
+            if not isinstance(data, dict):
+                return None
+            token = data.get("token")
+            if not token or not isinstance(token, str):
+                return None
+            # analytics-only: don't fail on expiration
+            try:
+                payload = jwt.decode(
+                    token,
+                    settings.JWT_SECRET,
+                    algorithms=["HS256"],
+                    options={"verify_exp": False},
+                )
+                sub = payload.get("sub")
+                if sub is None:
+                    return None
+                return int(sub)
+            except (JWTError, ValueError):
+                # If gateway secret differs from AuthService secret in prod, local decode fails.
+                # Fall back to AuthService introspect for access tokens.
+                return await self._introspect_user_id(token)
+        except Exception:
+            return None
+
     def _extract_bearer(self, request: Request) -> str | None:
         auth_header = request.headers.get("authorization", "")
         if not auth_header.lower().startswith("bearer "):
@@ -131,6 +168,147 @@ class AnalyticsMiddleware(BaseHTTPMiddleware):
         seed = f"{time.time_ns()}:{request.client.host if request.client else ''}:{name}"
         return hashlib.sha256(seed.encode("utf-8")).hexdigest()[:32]
 
+    def _safe_headers_for_meta(self, request: Request) -> dict[str, str]:
+        allowed = {
+            "content-type",
+            "content-length",
+            "accept",
+            "accept-language",
+            "user-agent",
+            "referer",
+            "origin",
+            "x-request-id",
+        }
+        out: dict[str, str] = {}
+        for k, v in request.headers.items():
+            lk = k.lower()
+            if lk in allowed:
+                out[lk] = v
+        return out
+
+    def _query_params_for_meta(self, request: Request) -> dict[str, Any]:
+        out: dict[str, Any] = {}
+        for key in request.query_params.keys():
+            values = request.query_params.getlist(key)
+            if not values:
+                continue
+            out[key] = values[0] if len(values) == 1 else values
+        return out
+
+    def _redact_obj(self, obj: Any, redact_keys: set[str], depth: int = 0) -> Any:
+        if depth > 6:
+            return obj
+        if isinstance(obj, dict):
+            redacted: dict[str, Any] = {}
+            for k, v in obj.items():
+                key = str(k)
+                if key.lower() in redact_keys:
+                    redacted[key] = "***redacted***"
+                else:
+                    redacted[key] = self._redact_obj(v, redact_keys, depth + 1)
+            return redacted
+        if isinstance(obj, list):
+            return [self._redact_obj(v, redact_keys, depth + 1) for v in obj[:200]]
+        return obj
+
+    def _request_body_meta(self, request: Request, body: bytes) -> dict[str, Any]:
+        content_type = (request.headers.get("content-type") or "").lower()
+        max_bytes = max(int(getattr(settings, "ANALYTICS_MAX_BODY_BYTES", 8192)), 0)
+        preview = body if max_bytes <= 0 else body[:max_bytes]
+
+        meta: dict[str, Any] = {
+            "content_type": request.headers.get("content-type"),
+            "content_length": request.headers.get("content-length"),
+            "body_size": len(body),
+            "body_truncated": len(body) > len(preview),
+        }
+
+        text_preview: str | None = None
+        try:
+            text_preview = preview.decode("utf-8")
+        except Exception:
+            text_preview = None
+
+        if "application/json" in content_type and text_preview is not None:
+            try:
+                parsed = json.loads(text_preview)
+                redact_keys = {k.lower() for k in getattr(settings, "ANALYTICS_REDACT_KEYS", [])}
+                meta["json"] = self._redact_obj(parsed, redact_keys)
+            except Exception as e:
+                meta["json_error"] = str(e)
+                meta["body_preview"] = text_preview
+        elif text_preview is not None and (
+            content_type.startswith("text/") or "application/x-www-form-urlencoded" in content_type
+        ):
+            meta["body_preview"] = text_preview
+
+        return meta
+
+    async def _capture_request_meta(self, request: Request) -> dict[str, Any] | None:
+        if not getattr(settings, "ANALYTICS_CAPTURE_BODY", True):
+            return None
+
+        # Avoid reading potentially huge uploads (reading Request.body() buffers entire request).
+        path = request.url.path.rstrip("/")
+        content_type = (request.headers.get("content-type") or "").lower()
+        if "multipart/form-data" in content_type or "application/octet-stream" in content_type:
+            return {
+                "query": self._query_params_for_meta(request),
+                "headers": self._safe_headers_for_meta(request),
+                "body_skipped": True,
+                "body_skip_reason": "content-type",
+            }
+        if path in ("/files/upload",):
+            return {
+                "query": self._query_params_for_meta(request),
+                "headers": self._safe_headers_for_meta(request),
+                "body_skipped": True,
+                "body_skip_reason": "path",
+            }
+
+        max_bytes = max(int(getattr(settings, "ANALYTICS_MAX_BODY_BYTES", 8192)), 0)
+        content_length = request.headers.get("content-length")
+        if content_length:
+            try:
+                if int(content_length) > max_bytes:
+                    return {
+                        "query": self._query_params_for_meta(request),
+                        "headers": self._safe_headers_for_meta(request),
+                        "body_skipped": True,
+                        "body_skip_reason": "content-length",
+                        "content_type": request.headers.get("content-type"),
+                        "content_length": content_length,
+                    }
+            except ValueError:
+                pass
+        elif not (
+            "application/json" in content_type
+            or "application/x-www-form-urlencoded" in content_type
+            or content_type.startswith("text/")
+        ):
+            return {
+                "query": self._query_params_for_meta(request),
+                "headers": self._safe_headers_for_meta(request),
+                "body_skipped": True,
+                "body_skip_reason": "unknown-length-non-text",
+                "content_type": request.headers.get("content-type"),
+            }
+
+        try:
+            body = await request.body()
+        except Exception as e:
+            return {
+                "query": self._query_params_for_meta(request),
+                "headers": self._safe_headers_for_meta(request),
+                "body_read_error": str(e),
+            }
+
+        return {
+            "query": self._query_params_for_meta(request),
+            "headers": self._safe_headers_for_meta(request),
+            "body": self._request_body_meta(request, body),
+        }
+
     async def _send(self, payload: dict) -> None:
         url = f"{self.endpoint}/analytics/events"
         try:
@@ -144,6 +322,7 @@ class AnalyticsMiddleware(BaseHTTPMiddleware):
         if self._should_skip(path) or not settings.ANALYTICS_ENABLED:
             return await call_next(request)
 
+        request_meta = await self._capture_request_meta(request)
         user_agent = request.headers.get("user-agent")
         referrer = request.headers.get("referer")
         client_ip = self._extract_client_ip(request)
@@ -161,6 +340,9 @@ class AnalyticsMiddleware(BaseHTTPMiddleware):
         response: Response = await call_next(request)
 
         user_id = self._extract_user_id(request)
+        if user_id is None:
+            user_id = await self._extract_user_id_from_body_token(request)
+
         if user_id is None:
             token = self._extract_bearer(request)
             if token:
@@ -198,6 +380,7 @@ class AnalyticsMiddleware(BaseHTTPMiddleware):
             "request_id": request.headers.get("x-request-id") or getattr(request.state, "request_id", None),
             "service": "gateway",
             "is_authenticated": bool(user_id),
+            "meta": {"request": request_meta} if request_meta else None,
         }
         asyncio.create_task(self._send(payload))
         return response
