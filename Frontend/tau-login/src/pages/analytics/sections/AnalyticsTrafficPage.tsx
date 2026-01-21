@@ -451,28 +451,7 @@ export default function AnalyticsTrafficPage() {
           <div className="text-xs text-slate-500">{t("analytics.traffic.hint")}</div>
         </div>
 
-        <div className="flex flex-wrap items-end gap-2">
-          <DateRangePicker
-            fromStr={fromStr}
-            toStr={toStr}
-            onApply={(nextFrom, nextTo) => {
-              setFromStr(nextFrom);
-              setToStr(nextTo);
-            }}
-          />
-          <label className="text-xs text-slate-600">
-            {t("analytics.traffic.who")}
-            <select
-              value={who}
-              onChange={(e) => setWho(e.target.value as any)}
-              className="ml-2 rounded-md border border-slate-200 bg-white px-2 py-1 text-sm shadow-sm"
-            >
-              <option value="all">{t("analytics.traffic.whoAll")}</option>
-              <option value="users">{t("analytics.traffic.whoUsers")}</option>
-              <option value="guests">{t("analytics.traffic.whoGuests")}</option>
-            </select>
-          </label>
-        </div>
+        <div />
       </div>
 
       <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
@@ -512,26 +491,62 @@ export default function AnalyticsTrafficPage() {
               </div>
 
               <div className="lg:col-span-8">
-                <div className="flex h-28 items-end gap-1 rounded-lg border border-slate-200 bg-gradient-to-b from-white to-slate-50 p-3">
+                <div className="flex h-44 items-end gap-1 rounded-lg border border-slate-200 bg-gradient-to-b from-white to-slate-50 px-3 pb-3 pt-10">
                   {daily.map((row) => {
                     const active = selectedDay === row.day;
-                    const h = maxDaily ? Math.max(6, Math.round((row.total / maxDaily) * 100)) : 6;
+                    const h = maxDaily ? Math.max(6, Math.min(92, Math.round((row.total / maxDaily) * 100))) : 6;
+                    const visitorsCount = (row.users || 0) + (row.guests || 0);
+                    const reqPerVisitor = visitorsCount ? (row.total / visitorsCount).toFixed(1) : "-";
                     return (
                       <button
                         key={row.day}
                         type="button"
                         title={`${row.day} · ${t("analytics.traffic.total")}: ${row.total}`}
                         onClick={() => setSelectedDay(row.day)}
-                        className={`flex-1 rounded-md transition ${active ? "bg-slate-900" : "bg-slate-200 hover:bg-slate-300"}`}
+                        className={`flex-1 relative rounded-md transition ${active ? "bg-slate-900" : "bg-slate-200 hover:bg-slate-300"}`}
                         style={{ height: `${h}%` }}
                         aria-label={row.day}
-                      />
+                      >
+                        <span
+                          className={`absolute -top-7 left-1/2 -translate-x-1/2 text-[10px] leading-none whitespace-nowrap pointer-events-none ${
+                            active ? "text-slate-900 font-semibold" : "text-slate-600 font-medium"
+                          }`}
+                        >
+                          {row.total}
+                          <br />
+                          <span className="text-[9px] text-slate-500 font-normal">
+                            {row.users}/{row.guests} · {reqPerVisitor}
+                          </span>
+                        </span>
+                      </button>
                     );
                   })}
                 </div>
                 <div className="mt-2 flex items-center justify-between text-[11px] text-slate-500">
                   <div>{daily.at(0)?.day || ""}</div>
                   <div>{daily.at(-1)?.day || ""}</div>
+                </div>
+                <div className="mt-3 flex flex-col sm:flex-row sm:items-end sm:justify-between gap-2">
+                  <DateRangePicker
+                    fromStr={fromStr}
+                    toStr={toStr}
+                    onApply={(nextFrom, nextTo) => {
+                      setFromStr(nextFrom);
+                      setToStr(nextTo);
+                    }}
+                  />
+                  <label className="text-xs text-slate-600">
+                    {t("analytics.traffic.who")}
+                    <select
+                      value={who}
+                      onChange={(e) => setWho(e.target.value as any)}
+                      className="ml-2 rounded-md border border-slate-200 bg-white px-3 py-2 text-xs shadow-sm"
+                    >
+                      <option value="all">{t("analytics.traffic.whoAll")}</option>
+                      <option value="users">{t("analytics.traffic.whoUsers")}</option>
+                      <option value="guests">{t("analytics.traffic.whoGuests")}</option>
+                    </select>
+                  </label>
                 </div>
               </div>
             </div>
