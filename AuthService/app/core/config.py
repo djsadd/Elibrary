@@ -21,7 +21,9 @@ class Settings(BaseSettings):
     JWT_ALG: str = "HS256"
     ACCESS_EXPIRES_MIN: int = 30
     REFRESH_EXPIRES_DAYS: int = 30
-    PLATONUS_AUTH_URL: str = "http://platonusauth:8013/auth_platonus"
+    # Platonus REST API (external)
+    # Used for /auth/platonus login flow
+    PLATONUS_AUTH_URL: str = "https://platonus.tau-edu.kz/rest/api/login"
 
     # Auth abuse protection (rate limits / lockouts / step-up)
     AUTH_TRUST_PROXY_HEADERS: bool = True

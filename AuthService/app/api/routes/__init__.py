@@ -31,6 +31,8 @@ from app.utils.tokens import create_access, create_refresh, decode
 from app.services.email_sender import send_2fa_code_email, send_activation_code_email
 from app.services.twofa import create_challenge, resend_code, verify_code
 from app.services.audit import audit_event
+from app.services import platonus_rest
+from app.services.platonus_rest import PlatonusAuthError
 from app.services.security_controls import (
     check_lockout,
     clear_login_failures,
@@ -456,39 +458,65 @@ def platonus_login(req: PlatonusLoginRequest, request: Request, db: Session = De
 
     audit_event("auth.platonus_attempt", request, extra={"ip": ip, "login": req.login})
     try:
-        response = requests.post(
-            settings.PLATONUS_AUTH_URL,
-            json={"username": req.login, "password": req.password},
-            timeout=60,
+        session = platonus_rest.login(
+            login=req.login,
+            password=req.password,
+            iin=getattr(req, "iin", None),
+            ic_number=getattr(req, "icNumber", None),
+            allow_deducted=bool(getattr(req, "authForDeductedStudentsAndGraduates", False)),
         )
-    except requests.RequestException:
-        audit_event("auth.platonus_failed", request, success=False, reason="upstream_unavailable", extra={"ip": ip})
-        raise HTTPException(502, "Platonus auth service unavailable")
-
-    if response.status_code != 200:
+        person_id = platonus_rest.get_person_id(session=session)
+        roles = platonus_rest.get_roles(session=session)
+    except PlatonusAuthError as e:
         register_login_failure(email=None, ip=ip)
-        detail = "Platonus auth failed"
-        try:
-            detail = response.json().get("detail", detail)
-        except ValueError:
-            detail = response.text or detail
-        audit_event(
-            "auth.platonus_failed",
-            request,
-            success=False,
-            reason="upstream_rejected",
-            extra={"ip": ip, "status_code": response.status_code},
-        )
-        raise HTTPException(response.status_code, detail)
+        audit_event("auth.platonus_failed", request, success=False, reason="invalid", extra={"ip": ip, "error": str(e)})
+        raise HTTPException(status_code=401, detail=str(e) or "Platonus login failed")
+    except requests.RequestException as e:
+        audit_event("auth.platonus_failed", request, success=False, reason="upstream_unavailable", extra={"ip": ip, "error": str(e)})
+        raise HTTPException(502, "Platonus service unavailable")
+    except Exception as e:
+        audit_event("auth.platonus_failed", request, success=False, reason="upstream_error", extra={"ip": ip, "error": str(e)})
+        raise HTTPException(502, "Platonus service error")
 
-    data = response.json()
-    info = data.get("info") or data.get("student_info")
-    role = data.get("role")
+    role_names = [
+        str(r.get("name") or "").strip().lower()
+        for r in roles
+        if isinstance(r, dict)
+    ]
+
+    def _has(substr: str) -> bool:
+        s = substr.lower()
+        return any(s in name for name in role_names if name)
+
+    if _has("декан"):
+        register_login_failure(email=None, ip=ip)
+        raise HTTPException(status_code=403, detail="Доступ запрещен для роли 'деканат'")
+
+    try:
+        if _has("студент"):
+            role = "student"
+            info = platonus_rest.get_student_info(session=session, person_id=person_id, lang="ru")
+        elif _has("библиотек"):
+            role = "librarian"
+            info = platonus_rest.get_employee_info(session=session, person_id=person_id, org_id=3, lang="ru", dn=1)
+        elif _has("преподав"):
+            role = "teacher"
+            info = platonus_rest.get_employee_info(session=session, person_id=person_id, org_id=3, lang="ru", dn=1)
+        else:
+            role = None
+            info = platonus_rest.get_student_info(session=session, person_id=person_id, lang="ru")
+    except requests.RequestException as e:
+        audit_event("auth.platonus_failed", request, success=False, reason="upstream_unavailable", extra={"ip": ip, "error": str(e)})
+        raise HTTPException(502, "Platonus service unavailable")
+    except Exception as e:
+        audit_event("auth.platonus_failed", request, success=False, reason="upstream_error", extra={"ip": ip, "error": str(e)})
+        raise HTTPException(502, "Platonus service error")
+
     if not info:
-        raise HTTPException(502, "Invalid response from Platonus auth")
+        raise HTTPException(502, "Invalid response from Platonus")
 
     desired_role = None
-    if role in {"преподаватель", "библиотека"}:
+    if role in {"teacher", "librarian"}:
         employee = info.get("employee") or info.get("person") or {}
         iin = employee.get("iin") or info.get("iin")
         corporate_email = (
@@ -510,10 +538,7 @@ def platonus_login(req: PlatonusLoginRequest, request: Request, db: Session = De
             or info.get("lastname")
             or info.get("last_name")
         )
-        if role == "библиотека":
-            desired_role = "librarian"
-        elif role == "преподаватель":
-            desired_role = "teacher"
+        desired_role = role
     else:
         student = info.get("student") or {}
         iin = student.get("iin") or info.get("iin")

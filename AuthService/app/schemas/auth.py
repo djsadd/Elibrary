@@ -46,6 +46,9 @@ class LoginRequest(BaseModel):
 class PlatonusLoginRequest(BaseModel):
     login: str
     password: str
+    iin: Optional[str] = None
+    icNumber: Optional[str] = None
+    authForDeductedStudentsAndGraduates: Optional[bool] = False
 
 
 class VerifyCodeRequest(BaseModel):
