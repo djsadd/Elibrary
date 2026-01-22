@@ -18,6 +18,7 @@ const dict: Record<Lang, Record<string, any>> = {
         reports: 'Reports',
         settings: 'Settings',
         integrations: 'Integrations',
+        protection: 'Protection',
       },
       common: {
         catalogSearchPlaceholder: 'Search catalog',
@@ -33,6 +34,24 @@ const dict: Record<Lang, Record<string, any>> = {
         selected: 'Selected',
         noResults: 'No results',
         confirmDeleteBook: 'Delete this book?',
+      },
+      protection: {
+        refresh: 'Refresh',
+        ident: 'Identifier',
+        reason: 'Reason',
+        duration: 'Duration (sec)',
+        ban: 'Ban',
+        unban: 'Unban',
+        note: 'Shows current AuthService lockouts (Redis). Admin-only.',
+        empty: 'No lockouts',
+        table: {
+          ident: 'Identifier',
+          ttl: 'TTL',
+          reason: 'Reason',
+          lockedAt: 'Locked at',
+          failures: 'Failures',
+          actions: 'Actions',
+        },
       },
       home: {
         heading: 'Admin Dashboard',
@@ -281,6 +300,7 @@ const dict: Record<Lang, Record<string, any>> = {
         reports: 'Отчеты',
         settings: 'Настройки',
         integrations: 'Интеграции',
+        protection: 'Защита',
       },
       common: {
         catalogSearchPlaceholder: 'Поиск по каталогу',
@@ -296,6 +316,24 @@ const dict: Record<Lang, Record<string, any>> = {
         selected: '�������',
         noResults: '��� �����������',
         confirmDeleteBook: '������� ��� �����?',
+      },
+      protection: {
+        refresh: 'Обновить',
+        ident: 'Идентификатор',
+        reason: 'Причина',
+        duration: 'Длительность (сек)',
+        ban: 'Забанить',
+        unban: 'Разбанить',
+        note: 'Показывает текущие блокировки (lockout) AuthService в Redis. Только для админов.',
+        empty: 'Блокировок нет',
+        table: {
+          ident: 'Идентификатор',
+          ttl: 'TTL',
+          reason: 'Причина',
+          lockedAt: 'Время блокировки',
+          failures: 'Ошибки',
+          actions: 'Действия',
+        },
       },
       home: {
         heading: 'Админ-панель',
@@ -510,6 +548,24 @@ const dict: Record<Lang, Record<string, any>> = {
   },
   kk: {
     admin: {
+      protection: {
+        refresh: 'Жаңарту',
+        ident: 'Идентификатор',
+        reason: 'Себебі',
+        duration: 'Ұзақтығы (сек)',
+        ban: 'Бұғаттау',
+        unban: 'Бұғаттан шығару',
+        note: 'AuthService lockout бұғаттауларын көрсетеді (Redis). Тек әкімшілерге.',
+        empty: 'Бұғаттау жоқ',
+        table: {
+          ident: 'Идентификатор',
+          ttl: 'TTL',
+          reason: 'Себебі',
+          lockedAt: 'Бұғатталған уақыты',
+          failures: 'Қателер',
+          actions: 'Әрекеттер',
+        },
+      },
       nav: {
         overview: 'Шолу',
         books: 'Кітаптар',
@@ -525,6 +581,7 @@ const dict: Record<Lang, Record<string, any>> = {
         reports: 'Есептер',
         settings: 'Баптаулар',
         integrations: 'Интеграциялар',
+        protection: 'Қорғаныс',
       },
       common: {
         catalogSearchPlaceholder: 'Каталогты іздеу',

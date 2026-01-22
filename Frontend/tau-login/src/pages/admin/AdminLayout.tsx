@@ -16,6 +16,7 @@ const nav = [
   { to: "/admin/reports", label: () => t('admin.nav.reports') },
   { to: "/admin/integrations", label: () => t('admin.nav.integrations') },
   { to: "/admin/settings", label: () => t('admin.nav.settings') },
+  { to: "/admin/protection", label: () => t('admin.nav.protection') },
 ] as const;
 
 export default function AdminLayout() {

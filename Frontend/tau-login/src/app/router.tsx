@@ -36,6 +36,7 @@ import SettingsPage from "../pages/admin/sections/SettingsPage";
 import IntegrationsPage from "../pages/admin/sections/IntegrationsPage";
 import ReportsPage from "../pages/admin/sections/ReportsPage";
 import RolesPage from "../pages/admin/sections/RolesPage";
+import ProtectionPage from "../pages/admin/sections/ProtectionPage";
 import NotFoundPage from "../pages/NotFoundPage";
 import AnalyticsLayout from "../pages/analytics/AnalyticsLayout";
 import AnalyticsOverviewPage from "../pages/analytics/sections/AnalyticsOverviewPage";
@@ -107,6 +108,7 @@ const router = createBrowserRouter([
             { path: "reports", element: <WithTitle title="Admin Reports - TAU"><ReportsPage /></WithTitle> },
             { path: "integrations", element: <WithTitle title="Admin Integrations - TAU"><IntegrationsPage /></WithTitle> },
             { path: "settings", element: <WithTitle title="Admin Settings - TAU"><SettingsPage /></WithTitle> },
+            { path: "protection", element: <WithTitle title="Admin Protection - TAU"><ProtectionPage /></WithTitle> },
           ],
         },
     ],
