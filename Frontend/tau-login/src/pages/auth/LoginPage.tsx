@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 
-import { login, platonusLogin as platonusLoginApi, resend2fa, verify, verify2fa } from "@/features/auth/api";
+import { login, platonusEmailRequest, platonusEmailVerify, platonusLogin as platonusLoginApi, resend2fa, verify, verify2fa } from "@/features/auth/api";
 import LanguageSwitcher from "@/components/common/LanguageSwitcher";
 import { useAuth } from "@/shared/auth/AuthContext";
 import { t } from "@/shared/i18n";
@@ -66,6 +66,11 @@ export default function LoginPage() {
   const [isPlatonusMode, setIsPlatonusMode] = useState(true);
   const [platonusLogin, setPlatonusLogin] = useState("");
   const [platonusPassword, setPlatonusPassword] = useState("");
+  const [platonusEmailChallengeId, setPlatonusEmailChallengeId] = useState<string | null>(null);
+  const [platonusNewEmail, setPlatonusNewEmail] = useState("");
+  const [platonusEmailCode, setPlatonusEmailCode] = useState("");
+  const [platonusEmailCodeSent, setPlatonusEmailCodeSent] = useState(false);
+  const [platonusEmailResendCooldown, setPlatonusEmailResendCooldown] = useState(0);
 
   function extractToken(obj: any): string | null {
     if (!obj) return null;
@@ -103,6 +108,26 @@ export default function LoginPage() {
   }
 
   function tokenMissingError(resp: unknown) {
+    const anyResp = resp as any;
+    const unwrap = (v: any): any => (v && typeof v === "object" ? (v.data ?? v.result ?? v) : v);
+    const v = unwrap(anyResp);
+
+    if (v?.requires_email && v?.challenge_id) {
+      setPlatonusEmailChallengeId(String(v.challenge_id));
+      setPlatonusEmailCode("");
+      setPlatonusNewEmail("");
+      setPlatonusEmailCodeSent(false);
+      setPlatonusEmailResendCooldown(0);
+      setError(v?.message || t("auth.login.errorGeneric"));
+      return;
+    }
+    if (v?.requires_2fa && v?.challenge_id) {
+      setTwofaChallengeId(String(v.challenge_id));
+      setTwofaCode("");
+      setTwofaResendCooldown(0);
+      return;
+    }
+
     setError(t("auth.login.errorTokenMissing", { response: JSON.stringify(resp) }));
   }
 
@@ -224,6 +249,15 @@ export default function LoginPage() {
     try {
       const resp = await platonusLoginApi({ login: platonusLogin, password: platonusPassword });
       const anyResp = resp as any;
+      if (anyResp?.requires_email && anyResp?.challenge_id) {
+        setPlatonusEmailChallengeId(String(anyResp.challenge_id));
+        setPlatonusEmailCode("");
+        setPlatonusNewEmail("");
+        setPlatonusEmailCodeSent(false);
+        setPlatonusEmailResendCooldown(0);
+        setError(anyResp?.message || t("auth.login.errorGeneric"));
+        return;
+      }
       if (anyResp?.requires_2fa && anyResp?.challenge_id) {
         setTwofaChallengeId(String(anyResp.challenge_id));
         setTwofaCode("");
@@ -235,6 +269,54 @@ export default function LoginPage() {
       const refreshToken = extractRefresh(resp);
       if (!token) return tokenMissingError(resp);
 
+      storeTokens(token, refreshToken);
+      const to = loc?.state?.from?.pathname || "/";
+      nav(to, { replace: true });
+    } catch (err: any) {
+      setError(err?.message || JSON.stringify(err) || t("auth.login.errorGeneric"));
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function handlePlatonusEmailSend() {
+    setError(null);
+    if (!platonusEmailChallengeId) return;
+    const email = platonusNewEmail.trim();
+    if (!email) return setError(t("auth.login.errorMissing"));
+    setSubmitting(true);
+    try {
+      await platonusEmailRequest({ challenge_id: platonusEmailChallengeId, email });
+      setPlatonusEmailCodeSent(true);
+      setPlatonusEmailResendCooldown(30);
+      const interval = window.setInterval(() => {
+        setPlatonusEmailResendCooldown((v) => {
+          if (v <= 1) {
+            window.clearInterval(interval);
+            return 0;
+          }
+          return v - 1;
+        });
+      }, 1000);
+    } catch (err: any) {
+      setError(err?.message || JSON.stringify(err) || t("auth.login.errorGeneric"));
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function handlePlatonusEmailVerify(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    if (!platonusEmailChallengeId) return;
+    const email = platonusNewEmail.trim();
+    if (!email || !platonusEmailCode) return setError(t("auth.login.errorMissing"));
+    setSubmitting(true);
+    try {
+      const resp = await platonusEmailVerify({ challenge_id: platonusEmailChallengeId, email, code: platonusEmailCode });
+      const token = extractToken(resp);
+      const refreshToken = extractRefresh(resp);
+      if (!token) return tokenMissingError(resp);
       storeTokens(token, refreshToken);
       const to = loc?.state?.from?.pathname || "/";
       nav(to, { replace: true });
@@ -298,6 +380,71 @@ export default function LoginPage() {
                 ? t("auth.common.resendCooldown", { seconds: twofaResendCooldown })
                 : t("auth.common.resendCode")}
             </button>
+          </form>
+        ) : platonusEmailChallengeId ? (
+          <form onSubmit={handlePlatonusEmailVerify} className="space-y-4">
+            <div className="text-slate-600 text-sm">{t("auth.login.platonusEmailChangePrompt")}</div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">{t("auth.login.emailLabel")}</label>
+              <input
+                type="email"
+                className="w-full rounded-lg border border-slate-200 focus:border-[#7b0f2b] focus:ring-[#7b0f2b] px-3 py-2 outline-none"
+                value={platonusNewEmail}
+                onChange={(e) => setPlatonusNewEmail(e.target.value)}
+                placeholder={t("auth.login.emailPlaceholder")}
+                autoComplete="email"
+                required
+              />
+            </div>
+
+            {platonusEmailCodeSent && (
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">{t("auth.login.verifyCodeLabel")}</label>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  className="w-full rounded-lg border border-slate-200 focus:border-[#7b0f2b] focus:ring-[#7b0f2b] px-3 py-2 outline-none"
+                  value={platonusEmailCode}
+                  onChange={(e) => setPlatonusEmailCode(e.target.value)}
+                  placeholder="000000"
+                  autoComplete="one-time-code"
+                  required
+                />
+              </div>
+            )}
+
+            {error && <div className="text-sm text-red-600">{error}</div>}
+
+            {!platonusEmailCodeSent ? (
+              <button
+                type="button"
+                disabled={isSubmitting}
+                onClick={handlePlatonusEmailSend}
+                className="w-full rounded-lg bg-[#7b0f2b] text-white py-2 font-medium disabled:opacity-60"
+              >
+                {isSubmitting ? t("auth.login.loading") : t("auth.common.sendCode")}
+              </button>
+            ) : (
+              <>
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="w-full rounded-lg bg-[#7b0f2b] text-white py-2 font-medium disabled:opacity-60"
+                >
+                  {isSubmitting ? t("auth.login.loading") : t("auth.common.verify")}
+                </button>
+                <button
+                  type="button"
+                  onClick={handlePlatonusEmailSend}
+                  disabled={isSubmitting || platonusEmailResendCooldown > 0}
+                  className="w-full rounded-lg border border-slate-200 py-2 font-medium disabled:opacity-60"
+                >
+                  {platonusEmailResendCooldown > 0
+                    ? t("auth.common.resendCooldown", { seconds: platonusEmailResendCooldown })
+                    : t("auth.common.resendCode")}
+                </button>
+              </>
+            )}
           </form>
         ) : !isPlatonusMode ? (
           <>
@@ -462,4 +609,3 @@ export default function LoginPage() {
     </div>
   );
 }
-

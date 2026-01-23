@@ -74,6 +74,24 @@ class PlatonusLoginResponse(TokenPair):
     info: Dict[str, Any]
 
 
+class PlatonusEmailRequiredResponse(BaseModel):
+    requires_email: bool = True
+    challenge_id: str
+    existing_email: Optional[EmailStr] = None
+    message: str = "Email already registered. Please provide another email and verify it."
+
+
+class PlatonusEmailRequest(BaseModel):
+    challenge_id: str
+    email: EmailStr
+
+
+class PlatonusEmailVerifyRequest(BaseModel):
+    challenge_id: str
+    email: EmailStr
+    code: str
+
+
 class IntrospectRequest(BaseModel):
     token: str
 
@@ -83,6 +101,15 @@ class IntrospectResponse(BaseModel):
     user_id: Optional[int] = None
     roles: List[str] = []
     exp: Optional[int] = None
+
+
+class IntrospectAnyResponse(BaseModel):
+    # For internal/analytics usage: verifies signature but ignores exp and accepts refresh/access.
+    active: bool
+    user_id: Optional[int] = None
+    roles: List[str] = []
+    exp: Optional[int] = None
+    typ: Optional[str] = None
 
 
 class UserAdminOut(BaseModel):

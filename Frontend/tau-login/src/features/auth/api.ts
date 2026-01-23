@@ -5,6 +5,8 @@ import type {
   LoginResp,
   PlatonusLoginDto,
   PlatonusLoginResp,
+  PlatonusEmailRequestDto,
+  PlatonusEmailVerifyDto,
   TwoFAResendDto,
   TwoFAVerifyDto,
 } from "./types";
@@ -19,6 +21,20 @@ export async function login(body: LoginDto) {
 
 export async function platonusLogin(body: PlatonusLoginDto) {
   return api<PlatonusLoginResp>("/api/auth/platonus", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export async function platonusEmailRequest(body: PlatonusEmailRequestDto) {
+  return api<{ ok: boolean; expires_in?: number }>("/api/auth/platonus/email/request", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export async function platonusEmailVerify(body: PlatonusEmailVerifyDto) {
+  return api<LoginResp>("/api/auth/platonus/email/verify", {
     method: "POST",
     body: JSON.stringify(body),
   });

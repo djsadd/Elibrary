@@ -106,6 +106,22 @@ function extractRefreshToken(obj: any): string | null {
   return null;
 }
 
+function uiLangHeader(): string | null {
+  try {
+    const raw = (localStorage.getItem("ui_lang") || "").toLowerCase();
+    if (raw.startsWith("ru")) return "ru";
+    if (raw.startsWith("kk") || raw.startsWith("kz")) return "kk";
+    if (raw.startsWith("en")) return "en";
+  } catch {}
+  try {
+    const nav = (navigator?.language || "").toLowerCase();
+    if (nav.startsWith("ru")) return "ru";
+    if (nav.startsWith("kk") || nav.startsWith("kz")) return "kk";
+    if (nav.startsWith("en")) return "en";
+  } catch {}
+  return null;
+}
+
 export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
   const token = localStorage.getItem("token") || sessionStorage.getItem("token");
   const isAuthEndpoint = /^\/?api\/auth\/(login|register|refresh|verify|platonus|2fa)/i.test(path);
@@ -116,10 +132,12 @@ export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
     throw new Error("No bearer token");
   }
   const doFetch = async (auth?: string) => {
+    const lang = uiLangHeader();
     const mergedHeaders = {
       "Content-Type": "application/json",
       ...(init.headers || {} as any),
       ...(auth ? { Authorization: `Bearer ${auth}` } : (token ? { Authorization: `Bearer ${token}` } : {})),
+      ...(lang ? { "Accept-Language": lang, "X-UI-Lang": lang } : {}),
     } as any;
     return fetch(`${BASE}${path}`, {
       cache: init.cache ?? "no-store",

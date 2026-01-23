@@ -134,7 +134,8 @@ class AnalyticsMiddleware(BaseHTTPMiddleware):
             return cached.get("user_id")
 
         base = str(settings.AUTH_SERVICE_URL).rstrip("/") + "/"
-        url = urljoin(base, "auth/introspect")
+        # Use 'introspect_any' so analytics can attribute even for expired tokens and refresh tokens.
+        url = urljoin(base, "auth/introspect_any")
         try:
             timeout = max(float(self.timeout_s), 1.0)
             async with httpx.AsyncClient(timeout=timeout) as client:

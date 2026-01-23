@@ -1421,6 +1421,7 @@ dict.kk.common.catalogSearchPlaceholder = "Каталогты іздеу";
       or: "or",
       verificationCodeLabel: "Verification code",
       verificationCodeHelp: "Enter the code we sent to your email.",
+      sendCode: "Send code",
       verify: "Verify",
       resendCode: "Resend code",
       resendCooldown: "Resend code ({{seconds}})",
@@ -1452,6 +1453,7 @@ dict.kk.common.catalogSearchPlaceholder = "Каталогты іздеу";
       backToDefault: "Back to normal login",
       twofaPrompt: "Enter the code from your authentication app.",
       twofaCodeLabel: "2FA code",
+      platonusEmailChangePrompt: "This Platonus email is already used. Enter another email and verify it with a code.",
     },
   register: {
     title: "Registration",
@@ -1490,6 +1492,7 @@ dict.ru.auth = {
     or: "или",
     verificationCodeLabel: "Код подтверждения",
     verificationCodeHelp: "Введите код, который мы отправили вам на email.",
+    sendCode: "Отправить код",
     verify: "Подтвердить",
     resendCode: "Отправить код повторно",
     resendCooldown: "Отправить код повторно ({{seconds}})",
@@ -1520,6 +1523,7 @@ dict.ru.auth = {
     backToDefault: "Вернуться к обычному входу",
     twofaPrompt: "Введите код из приложения-аутентификатора.",
     twofaCodeLabel: "Код 2FA",
+    platonusEmailChangePrompt: "Эта почта из Platonus уже занята. Введите другую почту и подтвердите её кодом из письма.",
   },
   register: {
     title: "Регистрация",
@@ -1557,6 +1561,7 @@ dict.kk.auth = {
     or: "немесе",
     verificationCodeLabel: "Растау коды",
     verificationCodeHelp: "Email-ға жіберілген кодты енгізіңіз.",
+    sendCode: "Код жіберу",
     verify: "Растау",
     resendCode: "Кодты қайта жіберу",
     resendCooldown: "Кодты қайта жіберу ({{seconds}})",
@@ -1587,6 +1592,7 @@ dict.kk.auth = {
     backToDefault: "Қалыпты кіруге оралу",
     twofaPrompt: "Аутентификатор қолданбасындағы кодты енгізіңіз.",
     twofaCodeLabel: "2FA коды",
+    platonusEmailChangePrompt: "Platonus поштасы бос емес. Басқа поштаны енгізіп, email-ге келген кодпен растаңыз.",
   },
   register: {
     title: "Тіркелу",

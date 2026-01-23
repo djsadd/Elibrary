@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import or_, func
 from typing import Optional
 import json
+import secrets
 import random
 import requests
 from app.core.db import SessionLocal
@@ -15,10 +16,14 @@ from app.schemas.auth import (
     LoginRequest,
     PlatonusLoginRequest,
     PlatonusLoginResponse,
+    PlatonusEmailRequiredResponse,
+    PlatonusEmailRequest,
+    PlatonusEmailVerifyRequest,
     TokenPair,
     TwoFAChallengeResponse,
     IntrospectRequest,
     IntrospectResponse,
+    IntrospectAnyResponse,
     UpdateProfileRequest,
     VerifyCodeRequest,
     TwoFAVerifyRequest,
@@ -33,6 +38,10 @@ from app.services.twofa import create_challenge, resend_code, verify_code
 from app.services.audit import audit_event
 from app.services import platonus_rest
 from app.services.platonus_rest import PlatonusAuthError
+from app.services.platonus_email_change import create_challenge as create_email_change_challenge
+from app.services.platonus_email_change import request_code as request_email_change_code
+from app.services.platonus_email_change import verify_code as verify_email_change_code
+from app.utils.lang import get_lang
 from app.services.security_controls import (
     check_lockout,
     clear_login_failures,
@@ -435,7 +444,7 @@ def login(req: LoginRequest, request: Request, db: Session = Depends(get_db)):
     )
 
 
-@router.post("/platonus", response_model=Union[PlatonusLoginResponse, TwoFAChallengeResponse])
+@router.post("/platonus", response_model=Union[PlatonusLoginResponse, TwoFAChallengeResponse, PlatonusEmailRequiredResponse])
 def platonus_login(req: PlatonusLoginRequest, request: Request, db: Session = Depends(get_db)):
     ip = get_client_ip(request)
     enforce_rate_limit(
@@ -566,6 +575,36 @@ def platonus_login(req: PlatonusLoginRequest, request: Request, db: Session = De
             detail=f"Platonus auth missing fields: {', '.join(missing_fields)}",
         )
 
+    existing_by_email = db.query(User).filter_by(email=corporate_email).first()
+    if existing_by_email and (existing_by_email.iin or "") != (iin or ""):
+        lang = get_lang(request)
+        msg = {
+            "en": "Email already registered. Please enter another email and verify it with a code.",
+            "ru": "Эта почта уже зарегистрирована. Введите другую почту и подтвердите её кодом из письма.",
+            "kk": "Бұл email бұрын тіркелген. Басқа email енгізіп, хаттағы кодпен растаңыз.",
+        }.get(lang, "Email already registered. Please enter another email and verify it with a code.")
+        challenge_id, ttl = create_email_change_challenge(
+            payload={
+                "iin": iin,
+                "role": desired_role or "student",
+                "first_name": first_name,
+                "last_name": last_name,
+                "orig_email": corporate_email,
+            }
+        )
+        audit_event(
+            "auth.platonus_email_conflict",
+            request,
+            success=False,
+            reason="email_taken",
+            extra={"ip": ip, "existing_email": corporate_email, "challenge_id": challenge_id, "ttl": ttl},
+        )
+        return PlatonusEmailRequiredResponse(
+            challenge_id=challenge_id,
+            existing_email=corporate_email,
+            message=msg,
+        )
+
     u = db.query(User).filter_by(iin=iin).first()
     if not u:
 
@@ -637,6 +676,128 @@ def platonus_login(req: PlatonusLoginRequest, request: Request, db: Session = De
     )
 
 
+@router.post("/platonus/email/request")
+def platonus_email_request(body: PlatonusEmailRequest, request: Request):
+    ip = get_client_ip(request)
+    enforce_rate_limit(action="platonus_email_request", scope="ip", ident=ip or "unknown", limit=10, window_seconds=300)
+    lang = get_lang(request)
+
+    email = str(body.email).strip().lower()
+    if not email:
+        raise HTTPException(status_code=400, detail="Email is required")
+
+    # Ensure email is not already used
+    db = SessionLocal()
+    try:
+        if db.query(User).filter_by(email=email).first():
+            detail = {
+                "en": "Email already exists",
+                "ru": "Email уже используется",
+                "kk": "Email бұрыннан бар",
+            }.get(lang, "Email already exists")
+            raise HTTPException(status_code=409, detail=detail)
+    finally:
+        db.close()
+
+    try:
+        code, ttl = request_email_change_code(challenge_id=body.challenge_id, email=email)
+    except PermissionError as e:
+        try:
+            retry_after = int(str(e))
+        except Exception:
+            retry_after = int(settings.TWOFA_RESEND_COOLDOWN_SECONDS)
+        raise HTTPException(status_code=429, detail="Too many requests", headers={"Retry-After": str(retry_after)})
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e) or "Invalid challenge")
+    except Exception as e:
+        raise HTTPException(status_code=503, detail=f"Unavailable: {e}")
+
+    try:
+        send_activation_code_email(to_email=email, code=code, ttl_seconds=int(ttl))
+    except Exception as e:
+        raise HTTPException(status_code=503, detail=f"Failed to send email: {e}")
+
+    audit_event(
+        "auth.platonus_email_code_sent",
+        request,
+        success=True,
+        extra={"ip": ip, "challenge_id": body.challenge_id, "email": email},
+    )
+    return {"ok": True, "expires_in": int(ttl)}
+
+
+@router.post("/platonus/email/verify", response_model=TokenPair)
+def platonus_email_verify(body: PlatonusEmailVerifyRequest, request: Request, db: Session = Depends(get_db)):
+    ip = get_client_ip(request)
+    enforce_rate_limit(action="platonus_email_verify", scope="ip", ident=ip or "unknown", limit=20, window_seconds=300)
+    lang = get_lang(request)
+
+    email = str(body.email).strip().lower()
+    try:
+        payload = verify_email_change_code(challenge_id=body.challenge_id, email=email, code=body.code)
+    except ValueError as e:
+        msg = str(e) or "Invalid code"
+        if msg in {"Too many attempts"}:
+            raise HTTPException(status_code=429, detail=msg)
+        raise HTTPException(status_code=400, detail=msg)
+    except Exception as e:
+        raise HTTPException(status_code=503, detail=f"Unavailable: {e}")
+
+    iin = str(payload.get("iin") or "").strip()
+    new_role = str(payload.get("role") or "student").strip().lower()
+    first_name = payload.get("first_name")
+    last_name = payload.get("last_name")
+    if not iin:
+        raise HTTPException(status_code=400, detail="Invalid challenge payload")
+
+    email_owner = db.query(User).filter_by(email=email).first()
+    if email_owner and (email_owner.iin or "") != iin:
+        detail = {
+            "en": "Email already exists",
+            "ru": "Email уже используется",
+            "kk": "Email бұрыннан бар",
+        }.get(lang, "Email already exists")
+        raise HTTPException(status_code=409, detail=detail)
+
+    u = db.query(User).filter_by(iin=iin).first()
+    if not u:
+        u = User(
+            email=email,
+            hashed_password=hash_password(secrets.token_urlsafe(24)),
+            iin=iin,
+            is_active=True,
+            role=new_role or "student",
+        )
+        if first_name:
+            u.first_name = first_name
+        if last_name:
+            u.last_name = last_name
+        db.add(u)
+        db.commit()
+        db.refresh(u)
+    else:
+        u.email = email
+        if new_role and (not u.role or (u.role or "").strip().lower() == "student"):
+            u.role = new_role
+        if first_name and not u.first_name:
+            u.first_name = first_name
+        if last_name and not u.last_name:
+            u.last_name = last_name
+        u.is_active = True
+        db.commit()
+        db.refresh(u)
+
+    access, exp = create_access(u.id, u.role or "")
+    refresh, _ = create_refresh(u.id)
+    mark_known_ip(user_id=int(u.id), ip=ip)
+    audit_event("auth.platonus_email_verified", request, target_user_id=u.id, target_email=u.email, success=True, extra={"ip": ip})
+    return TokenPair(
+        access_token=access,
+        refresh_token=refresh,
+        expires_in=int(exp - __import__("time").time()),
+    )
+
+
 @router.post("/refresh", response_model=TokenPair)
 def refresh_token(
     body: IntrospectRequest,
@@ -666,6 +827,46 @@ def introspect(body: IntrospectRequest, user: AuthUser | None = Depends(get_curr
         user_id=int(data["sub"]),
         roles=data.get("roles", []),
         exp=data.get("exp"),
+    )
+
+
+@router.post("/introspect_any", response_model=IntrospectAnyResponse)
+def introspect_any(body: IntrospectRequest):
+    # Signature check but ignore expiration; supports both access/refresh tokens.
+    try:
+        from jose import jwt
+
+        payload = jwt.decode(
+            body.token,
+            settings.JWT_SECRET_KEY,
+            algorithms=[settings.JWT_ALG],
+            options={"verify_exp": False},
+        )
+    except Exception:
+        return IntrospectAnyResponse(active=False)
+
+    sub = payload.get("sub")
+    try:
+        user_id = int(sub) if sub is not None else None
+    except Exception:
+        user_id = None
+
+    roles = payload.get("roles") or []
+    if isinstance(roles, str):
+        roles = [roles]
+    if not isinstance(roles, list):
+        roles = []
+
+    typ = payload.get("typ")
+    if typ != "access":
+        roles = []
+
+    return IntrospectAnyResponse(
+        active=bool(user_id),
+        user_id=user_id,
+        roles=[str(r) for r in roles if r is not None],
+        exp=payload.get("exp"),
+        typ=str(typ) if typ is not None else None,
     )
 
 
