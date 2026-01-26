@@ -38,11 +38,8 @@ export default function ReaderPage() {
   const inflightRef = useRef<Set<number>>(new Set());
   const lastSentRef = useRef<string>("");
   const [saving, setSaving] = useState<"idle" | "saving" | "saved" | "error">("idle");
-  const dragStartX = useRef<number | null>(null);
-  const dragging = useRef(false);
   const pinchStartDistRef = useRef<number | null>(null);
   const pinchStartScaleRef = useRef<number>(1);
-  const lastTouchXRef = useRef<number | null>(null);
   const [nativeFullscreen, setNativeFullscreen] = useState(false);
   const [overlayFullscreen, setOverlayFullscreen] = useState(false);
 
@@ -497,9 +494,6 @@ export default function ReaderPage() {
     };
   }, [pdf, page, pageCount, twoPage]);
 
-  const prev = () => setPage((p) => Math.max(1, p - 1));
-  const next = () => setPage((p) => Math.min(pageCount, p + 1));
-
   const prevSpread = () => setPage((p) => Math.max(1, p - (twoPage ? 2 : 1)));
   const nextSpread = () => setPage((p) => Math.min(pageCount, p + (twoPage ? 2 : 1)));
 
@@ -511,25 +505,6 @@ export default function ReaderPage() {
     if (!e.ctrlKey) return;
     e.preventDefault();
     if (e.deltaY < 0) zoomIn(); else zoomOut();
-  };
-
-  const onPointerDown = (e: React.PointerEvent) => {
-    const target = e.currentTarget as HTMLElement;
-    target.setPointerCapture?.(e.pointerId);
-    dragStartX.current = e.clientX;
-    dragging.current = true;
-  };
-  const onPointerUp = (e: React.PointerEvent) => {
-    if (!dragging.current || dragStartX.current == null) return;
-    const dx = e.clientX - dragStartX.current;
-    dragging.current = false;
-    dragStartX.current = null;
-    const threshold = 50;
-    if (dx > threshold) prevSpread();
-    else if (dx < -threshold) nextSpread();
-  };
-  const onPointerMove = (_e: React.PointerEvent) => {
-    // no-op; placeholder for future panning
   };
 
   const enterNativeFullscreen = async (el: HTMLElement): Promise<boolean> => {
@@ -583,7 +558,7 @@ export default function ReaderPage() {
   };
 
   return (
-    <div className="space-y-4 overflow-x-hidden">
+    <div className={`space-y-4 overflow-x-hidden ${isMobile ? "pb-24" : ""}`}>
       <DashboardHeader />
 
       <div
@@ -606,7 +581,7 @@ export default function ReaderPage() {
                   const authors = namesFrom((bookMeta as any)?.authors);
                   const authorLine = authors.length ? authors.join(', ') : '';
                   const year = (bookMeta as any)?.year || '';
-                  const sep = authorLine && year ? ' — ' : '';
+                  const sep = authorLine && year ? ' â€” ' : '';
                   return `${authorLine}${sep}${year}` || '-';
                 })()}
               </div>
@@ -631,7 +606,36 @@ export default function ReaderPage() {
           </div>
         </div>
 
-        <div className="flex flex-col md:flex-row gap-3 sm:gap-4 bg-slate-800 p-3 sm:p-6 max-w-full overflow-x-auto" onWheel={onWheel} onPointerDown={onPointerDown} onPointerUp={onPointerUp} onPointerMove={onPointerMove} onTouchStart={(e)=>{ if (e.touches.length===2){ const [a,b]=[e.touches[0],e.touches[1]]; const dx=a.clientX-b.clientX; const dy=a.clientY-b.clientY; pinchStartDistRef.current=Math.hypot(dx,dy); pinchStartScaleRef.current=scale; } else if (e.touches.length===1){ lastTouchXRef.current=e.touches[0].clientX; } }} onTouchMove={(e)=>{ if (e.touches.length===2 && pinchStartDistRef.current){ e.preventDefault(); const [a,b]=[e.touches[0],e.touches[1]]; const dx=a.clientX-b.clientX; const dy=a.clientY-b.clientY; const dist=Math.hypot(dx,dy); const ratio=dist/(pinchStartDistRef.current||1); const next=Math.max(0.5, Math.min(2.5, +(pinchStartScaleRef.current*ratio).toFixed(2))); setScale(next);} }} onTouchEnd={(e)=>{ if (pinchStartDistRef.current && e.touches.length<2){ pinchStartDistRef.current=null;} if (e.changedTouches && e.changedTouches.length===1 && lastTouchXRef.current!=null){ const dx=e.changedTouches[0].clientX - lastTouchXRef.current; const threshold=60; if (dx>threshold) prevSpread(); else if (dx<-threshold) nextSpread(); lastTouchXRef.current=null; } }}>
+        <div
+          className="flex flex-col md:flex-row gap-3 sm:gap-4 bg-slate-800 p-3 sm:p-6 max-w-full overflow-x-auto"
+          onWheel={onWheel}
+          onTouchStart={(e) => {
+            if (e.touches.length === 2) {
+              const [a, b] = [e.touches[0], e.touches[1]];
+              const dx = a.clientX - b.clientX;
+              const dy = a.clientY - b.clientY;
+              pinchStartDistRef.current = Math.hypot(dx, dy);
+              pinchStartScaleRef.current = scale;
+            }
+          }}
+          onTouchMove={(e) => {
+            if (e.touches.length === 2 && pinchStartDistRef.current) {
+              e.preventDefault();
+              const [a, b] = [e.touches[0], e.touches[1]];
+              const dx = a.clientX - b.clientX;
+              const dy = a.clientY - b.clientY;
+              const dist = Math.hypot(dx, dy);
+              const ratio = dist / (pinchStartDistRef.current || 1);
+              const next = Math.max(0.5, Math.min(2.5, +(pinchStartScaleRef.current * ratio).toFixed(2)));
+              setScale(next);
+            }
+          }}
+          onTouchEnd={(e) => {
+            if (pinchStartDistRef.current && e.touches.length < 2) {
+              pinchStartDistRef.current = null;
+            }
+          }}
+        >
           <div className="flex-1 min-w-0 flex items-start justify-center">
             <div className="bg-slate-100 p-3 sm:p-4 rounded-md shadow-inner max-w-full overflow-x-auto mx-auto w-full sm:w-auto sm:max-w-full max-w-[420px]">
               <div className="flex gap-3 sm:gap-4 flex-wrap md:flex-nowrap items-start justify-center">
@@ -669,21 +673,61 @@ export default function ReaderPage() {
 
         {isMobile && (
           <>
-            <button aria-label={t("reader.openNotes")} onClick={() => setNotesOpen(true)} className="fixed bottom-4 right-4 z-50 p-3 rounded-full bg-white shadow border text-slate-700">
-              <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6">
-                <path d="M4 4h16v12H7l-3 3V4z" />
-                <path d="M14 8l-4 4" />
-                <path d="M10 8l4 4" />
-              </svg>
-            </button>
-            <button aria-label={t("reader.toggleFullscreen")} title={t("reader.full")} onClick={toggleFullscreen} className="fixed bottom-4 left-4 z-50 p-3 rounded-full bg-white shadow border text-slate-700">
-              <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <path d="M15 3h6v6" />
-                <path d="M21 3l-7 7" />
-                <path d="M9 21H3v-6" />
-                <path d="M3 21l7-7" />
-              </svg>
-            </button>
+            <div className="fixed inset-x-0 bottom-0 z-50 bg-white/95 backdrop-blur border-t border-slate-200 pb-[env(safe-area-inset-bottom)]">
+              <div className="mx-auto max-w-lg px-3 py-2 flex items-center justify-between gap-2">
+                <button
+                  onClick={prevSpread}
+                  disabled={page <= 1}
+                  className="px-3 py-2 rounded-md border border-slate-200 text-slate-700 disabled:opacity-40 disabled:cursor-not-allowed"
+                  aria-label={t("common.prev")}
+                >
+                  <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M15 6l-6 6 6 6" />
+                  </svg>
+                </button>
+
+                <div className="text-xs text-slate-700 tabular-nums">
+                  {page} {t("reader.of")} {pageCount}
+                </div>
+
+                <button
+                  onClick={nextSpread}
+                  disabled={pageCount ? page >= pageCount : true}
+                  className="px-3 py-2 rounded-md border border-slate-200 text-slate-700 disabled:opacity-40 disabled:cursor-not-allowed"
+                  aria-label={t("common.next")}
+                >
+                  <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M9 6l6 6-6 6" />
+                  </svg>
+                </button>
+
+                <button
+                  aria-label={t("reader.openNotes")}
+                  onClick={() => setNotesOpen(true)}
+                  className="ml-auto px-3 py-2 rounded-md border border-slate-200 text-slate-700"
+                >
+                  <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6">
+                    <path d="M4 4h16v12H7l-3 3V4z" />
+                    <path d="M14 8l-4 4" />
+                    <path d="M10 8l4 4" />
+                  </svg>
+                </button>
+
+                <button
+                  aria-label={t("reader.toggleFullscreen")}
+                  title={t("reader.full")}
+                  onClick={toggleFullscreen}
+                  className="px-3 py-2 rounded-md border border-slate-200 text-slate-700"
+                >
+                  <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <path d="M15 3h6v6" />
+                    <path d="M21 3l-7 7" />
+                    <path d="M9 21H3v-6" />
+                    <path d="M3 21l7-7" />
+                  </svg>
+                </button>
+              </div>
+            </div>
             {notesOpen && (
               <div className="fixed inset-0 z-50">
                 <div className="absolute inset-0 bg-black/50" onClick={() => setNotesOpen(false)} />
