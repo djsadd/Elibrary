@@ -1,7 +1,7 @@
 import os
 from pathlib import Path
 
-from fastapi import APIRouter, HTTPException, Body
+from fastapi import APIRouter, Header, HTTPException, Body
 from dotenv import load_dotenv
 from pydantic import BaseModel
 import requests
@@ -10,10 +10,7 @@ load_dotenv(dotenv_path=Path(__file__).resolve().parents[2] / ".env")
 
 router = APIRouter()
 
-AUTH_LOGIN_URL = os.getenv("AI_AUTH_LOGIN_URL", "http://192.168.112.182/auth/login")
 CHAT_CARD_URL = os.getenv("AI_CHAT_CARD_URL", "http://192.168.112.182/api/chat_card")
-EXTERNAL_USERNAME = os.getenv("AI_EXTERNAL_USERNAME", "")
-EXTERNAL_PASSWORD = os.getenv("AI_EXTERNAL_PASSWORD", "")
 
 
 class ChatCardPayload(BaseModel):
@@ -27,42 +24,11 @@ def get_post(post_id: int):
     }
 
 
-def login_external_service(username: str, password: str):
-    if not username or not password:
-        raise HTTPException(status_code=500, detail="External auth credentials missing")
-    print("Logging in to external service...")
-    print(f"Username: {username}")
-    try:
-        response = requests.post(
-            AUTH_LOGIN_URL,
-            data={"username": username, "password": password},
-            timeout=5,
-        )
-    except requests.RequestException as exc:
-        raise HTTPException(status_code=502, detail="Auth service unavailable") from exc
+def chat_card_external_service(authorization: str, payload: dict):
+    if not authorization:
+        raise HTTPException(status_code=401, detail="Missing bearer token")
 
-    if response.status_code != 200:
-        detail = "Auth failed"
-        try:
-            detail = response.json().get("detail", detail)
-        except ValueError:
-            pass
-        raise HTTPException(status_code=response.status_code, detail=detail)
-
-    try:
-        return response.json()
-    except ValueError as exc:
-        raise HTTPException(status_code=502, detail="Invalid auth response") from exc
-
-
-def chat_card_external_service(username: str, password: str, payload: dict):
-    auth_data = login_external_service(username, password)
-    token = auth_data.get("access_token")
-    token_type = auth_data.get("token_type", "bearer")
-    if not token:
-        raise HTTPException(status_code=502, detail="Auth token missing")
-
-    headers = {"Authorization": f"{token_type.capitalize()} {token}"}
+    headers = {"Authorization": authorization}
     try:
         response = requests.post(
             CHAT_CARD_URL,
@@ -90,9 +56,6 @@ def chat_card_external_service(username: str, password: str, payload: dict):
 @router.post("/chat_card")
 def chat_card(
     payload: ChatCardPayload = Body(...),
+    authorization: str | None = Header(default=None),
 ):
-    return chat_card_external_service(
-        EXTERNAL_USERNAME,
-        EXTERNAL_PASSWORD,
-        payload.dict(),
-    )
+    return chat_card_external_service(authorization or "", payload.dict())
