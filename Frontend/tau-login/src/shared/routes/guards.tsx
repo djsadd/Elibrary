@@ -5,6 +5,27 @@ function readTokenFromStorage(): string | null {
   return localStorage.getItem("token") || sessionStorage.getItem("token");
 }
 
+function rolesFromToken(token: string | null): string[] {
+  if (!token) return [];
+  try {
+    const parts = token.split(".");
+    if (parts.length < 2) return [];
+    const payload = JSON.parse(atob(parts[1].replace(/-/g, "+").replace(/_/g, "/")));
+    const r = payload?.roles;
+    if (!r) return [];
+    if (Array.isArray(r)) return r.map((x) => String(x));
+    if (typeof r === "string") return [r];
+    return [];
+  } catch {
+    return [];
+  }
+}
+
+function isAdminOrLibrarian(token: string | null): boolean {
+  const roles = rolesFromToken(token);
+  return roles.some((r) => /^(admin|librarian)$/i.test(String(r)));
+}
+
 export function ProtectedRoute({ children }: { children: React.ReactNode }) {
   // Try to read token from context first; if context is not available for some reason,
   // fall back to reading from storage directly. This makes the guard robust in dev.
@@ -38,6 +59,13 @@ export function PublicRoute({ children }: { children: React.ReactNode }) {
 export function ProtectedRouteSync({ children }: { children: React.ReactNode }) {
   const token = readTokenFromStorage();
   if (!token) return <Navigate to="/login" replace />;
+  return <>{children}</>;
+}
+
+export function AdminRouteSync({ children }: { children: React.ReactNode }) {
+  const token = readTokenFromStorage();
+  if (!token) return <Navigate to="/login" replace />;
+  if (!isAdminOrLibrarian(token)) return <Navigate to="/" replace />;
   return <>{children}</>;
 }
 

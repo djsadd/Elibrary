@@ -60,7 +60,7 @@ export default function BooksListPage() {
           <input
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="Напишите название книги или автора"
+            placeholder={t('admin.common.catalogSearchPlaceholder')}
             className="px-3 py-2 rounded-md border border-slate-200 text-sm min-w-[220px]"
           />
           <select
@@ -75,8 +75,8 @@ export default function BooksListPage() {
           {total ? `Page ${page} of ${pages}` : ""}
         </div>
       </div>
-      {loading && <div className="text-slate-500">Loading…</div>}
-      {error && <div className="text-red-600">Failed to load: {error}</div>}
+      {loading && <div className="text-slate-500">{t('admin.common.loading')}</div>}
+      {error && <div className="text-red-600">{t('admin.common.failed')}: {error}</div>}
       {!loading && !error && (
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
@@ -86,7 +86,7 @@ export default function BooksListPage() {
                 <th>{t('admin.books.table.year')}</th>
                 <th>{t('admin.books.table.lang')}</th>
                 <th>{t('admin.books.table.authors')}</th>
-                <th className="w-16 text-center">{t('admin.books.table.actions')}</th>
+                <th className="w-24 text-center">{t('admin.books.table.actions')}</th>
               </tr>
             </thead>
             <tbody>
@@ -97,6 +97,17 @@ export default function BooksListPage() {
                   <td className="text-slate-600">{b.lang || '-'}</td>
                   <td className="text-slate-600">{Array.isArray((b as any).authors) ? (b as any).authors.map((x:any)=> typeof x==='string'?x: x?.name).filter(Boolean).join(', ') : '-'}</td>
                   <td className="text-center">
+                    <Link
+                      to={`/admin/books/${b.id}`}
+                      className="inline-flex items-center justify-center w-8 h-8 rounded hover:bg-slate-100"
+                      title={t('admin.common.view')}
+                      aria-label={t('admin.common.view')}
+                    >
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#7b0f2b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z" />
+                        <circle cx="12" cy="12" r="3" />
+                      </svg>
+                    </Link>
                     <Link
                       to={`/admin/books/${b.id}/edit`}
                       className="inline-flex items-center justify-center w-8 h-8 rounded hover:bg-slate-100"

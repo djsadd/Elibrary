@@ -8,7 +8,7 @@ import AppLayout from "@/components/layout/AppLayout";
 
 import DashboardPage from "../pages/dashboard/DashboardPage";
 import ProfilePage from "../pages/profile/ProfilePage";
-import { ProtectedRoute, PublicRoute, ProtectedRouteSync, PublicRouteSync } from "@/shared/routes/guards";
+import { ProtectedRouteSync, PublicRouteSync, AdminRouteSync } from "@/shared/routes/guards";
 import CatalogListPage from "../pages/catalog/CatalogListPage";
 import CatalogDetailPage from "../pages/catalog/CatalogDetailPage";
 import BookNotesPage from "../pages/notes/BookNotesPage";
@@ -24,6 +24,7 @@ import CreatePlaylistPage from "../pages/admin/CreatePlaylistPage";
 import BooksListPage from "../pages/admin/sections/BooksListPage";
 import PlaylistsListPage from "../pages/admin/sections/PlaylistsListPage";
 import EditBookPage from "../pages/admin/EditBookPage";
+import AdminBookDetailPage from "../pages/admin/AdminBookDetailPage";
 import EditPlaylistPage from "../pages/admin/EditPlaylistPage";
 import UsersPage from "../pages/admin/sections/UsersPage";
 import UserDetailPage from "../pages/admin/sections/UserDetailPage";
@@ -72,7 +73,11 @@ const router = createBrowserRouter([
       { path: "intelligent-search", element: <WithTitle title="Intelligent Search - TAU"><IntelligentSearchPage /></WithTitle> },
       {
         path: "analytics",
-        element: <WithTitle title="Analytics - TAU"><AnalyticsLayout /></WithTitle>,
+        element: (
+          <AdminRouteSync>
+            <WithTitle title="Analytics - TAU"><AnalyticsLayout /></WithTitle>
+          </AdminRouteSync>
+        ),
         children: [
           { index: true, element: <WithTitle title="Analytics Overview - TAU"><AnalyticsOverviewPage /></WithTitle> },
           { path: "users", element: <WithTitle title="Analytics Users - TAU"><AnalyticsUsersPage /></WithTitle> },
@@ -88,11 +93,16 @@ const router = createBrowserRouter([
       { path: "reader", element: <WithTitle title="Reader - TAU"><ReaderPage /></WithTitle> },
         {
           path: "admin",
-          element: <WithTitle title="Admin - TAU"><AdminLayout /></WithTitle>,
+          element: (
+            <AdminRouteSync>
+              <WithTitle title="Admin - TAU"><AdminLayout /></WithTitle>
+            </AdminRouteSync>
+          ),
           children: [
             { index: true, element: <WithTitle title="Admin Home - TAU"><AdminHome /></WithTitle> },
             { path: "books", element: <WithTitle title="Admin Books - TAU"><BooksListPage /></WithTitle> },
             { path: "books/new", element: <WithTitle title="Add Book - TAU"><CreateBookPage /></WithTitle> },
+            { path: "books/:id", element: <WithTitle title="Book Details - TAU"><AdminBookDetailPage /></WithTitle> },
             { path: "books/:id/edit", element: <WithTitle title="Edit Book - TAU"><EditBookPage /></WithTitle> },
             { path: "playlists", element: <WithTitle title="Admin Playlists - TAU"><PlaylistsListPage /></WithTitle> },
             { path: "playlists/new", element: <WithTitle title="Add Playlist - TAU"><CreatePlaylistPage /></WithTitle> },
