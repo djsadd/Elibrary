@@ -41,6 +41,7 @@ from app.services.platonus_rest import PlatonusAuthError
 from app.services.platonus_email_change import create_challenge as create_email_change_challenge
 from app.services.platonus_email_change import request_code as request_email_change_code
 from app.services.platonus_email_change import verify_code as verify_email_change_code
+from app.services.platonus_email_change import peek_payload as peek_email_change_payload
 from app.utils.lang import get_lang
 from app.services.security_controls import (
     check_lockout,
@@ -575,9 +576,64 @@ def platonus_login(req: PlatonusLoginRequest, request: Request, db: Session = De
             detail=f"Platonus auth missing fields: {', '.join(missing_fields)}",
         )
 
+    u_by_iin = db.query(User).filter_by(iin=iin).first()
     existing_by_email = db.query(User).filter_by(email=corporate_email).first()
     if existing_by_email and (existing_by_email.iin or "") != (iin or ""):
         lang = get_lang(request)
+        def _looks_like_email(value: str) -> bool:
+            v = str(value or "").strip()
+            if "@" not in v:
+                return False
+            local, domain = v.rsplit("@", 1)
+            domain = domain.strip()
+            return bool(local.strip()) and bool(domain) and "." in domain and not domain.startswith(".") and not domain.endswith(".")
+
+        if (
+            u_by_iin
+            and u_by_iin.email
+            and str(u_by_iin.email).strip().lower() != str(corporate_email).strip().lower()
+            and _looks_like_email(str(u_by_iin.email))
+        ):
+            payload = {
+                "iin": iin,
+                "role": desired_role or "student",
+                "first_name": first_name,
+                "last_name": last_name,
+                "orig_email": corporate_email,
+            }
+            bound_email = str(u_by_iin.email).strip().lower()
+            challenge_id, ttl = create_email_change_challenge(payload=payload)
+            try:
+                code, code_ttl = request_email_change_code(challenge_id=challenge_id, email=bound_email)
+                send_activation_code_email(to_email=bound_email, code=code, ttl_seconds=int(code_ttl))
+            except PermissionError as e:
+                try:
+                    retry_after = int(str(e))
+                except Exception:
+                    retry_after = int(settings.TWOFA_RESEND_COOLDOWN_SECONDS)
+                raise HTTPException(status_code=429, detail="Too many requests", headers={"Retry-After": str(retry_after)})
+            except Exception as e:
+                raise HTTPException(status_code=503, detail=f"Failed to send email: {e}")
+
+            audit_event(
+                "auth.platonus_email_code_sent",
+                request,
+                success=True,
+                extra={"ip": ip, "challenge_id": challenge_id, "email": bound_email, "ttl": ttl},
+            )
+            msg_code_sent = {
+                "en": "We sent a verification code to your linked email.",
+                "ru": "Мы отправили код подтверждения на вашу привязанную почту.",
+                "kk": "Байланыстырылған поштаңызға растау коды жіберілді.",
+            }.get(lang, "We sent a verification code to your linked email.")
+            return PlatonusEmailRequiredResponse(
+                challenge_id=challenge_id,
+                existing_email=corporate_email,
+                bound_email=bound_email,
+                code_sent=True,
+                expires_in=int(code_ttl),
+                message=msg_code_sent,
+            )
         msg = {
             "en": "Email already registered. Please enter another email and verify it with a code.",
             "ru": "Эта почта уже зарегистрирована. Введите другую почту и подтвердите её кодом из письма.",
@@ -686,10 +742,18 @@ def platonus_email_request(body: PlatonusEmailRequest, request: Request):
     if not email:
         raise HTTPException(status_code=400, detail="Email is required")
 
+    payload_iin = ""
+    try:
+        payload = peek_email_change_payload(challenge_id=body.challenge_id)
+        payload_iin = str(payload.get("iin") or "").strip()
+    except Exception:
+        payload_iin = ""
+
     # Ensure email is not already used
     db = SessionLocal()
     try:
-        if db.query(User).filter_by(email=email).first():
+        owner = db.query(User).filter_by(email=email).first()
+        if owner and (not payload_iin or (owner.iin or "") != payload_iin):
             detail = {
                 "en": "Email already exists",
                 "ru": "Email уже используется",

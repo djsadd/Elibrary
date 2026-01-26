@@ -71,6 +71,7 @@ export default function LoginPage() {
   const [platonusEmailCode, setPlatonusEmailCode] = useState("");
   const [platonusEmailCodeSent, setPlatonusEmailCodeSent] = useState(false);
   const [platonusEmailResendCooldown, setPlatonusEmailResendCooldown] = useState(0);
+  const [platonusEmailFixed, setPlatonusEmailFixed] = useState(false);
 
   function extractToken(obj: any): string | null {
     if (!obj) return null;
@@ -107,6 +108,19 @@ export default function LoginPage() {
     } catch {}
   }
 
+  function startPlatonusEmailCooldown(seconds = 30) {
+    setPlatonusEmailResendCooldown(seconds);
+    const interval = window.setInterval(() => {
+      setPlatonusEmailResendCooldown((v) => {
+        if (v <= 1) {
+          window.clearInterval(interval);
+          return 0;
+        }
+        return v - 1;
+      });
+    }, 1000);
+  }
+
   function tokenMissingError(resp: unknown) {
     const anyResp = resp as any;
     const unwrap = (v: any): any => (v && typeof v === "object" ? (v.data ?? v.result ?? v) : v);
@@ -115,10 +129,14 @@ export default function LoginPage() {
     if (v?.requires_email && v?.challenge_id) {
       setPlatonusEmailChallengeId(String(v.challenge_id));
       setPlatonusEmailCode("");
-      setPlatonusNewEmail("");
-      setPlatonusEmailCodeSent(false);
+      const bound = typeof v?.bound_email === "string" ? v.bound_email : "";
+      const codeSent = Boolean(v?.code_sent) && Boolean(bound);
+      setPlatonusNewEmail(codeSent ? bound : "");
+      setPlatonusEmailFixed(codeSent);
+      setPlatonusEmailCodeSent(codeSent);
       setPlatonusEmailResendCooldown(0);
-      setError(v?.message || t("auth.login.errorGeneric"));
+      setError(codeSent ? null : (v?.message || t("auth.login.errorGeneric")));
+      if (codeSent) startPlatonusEmailCooldown(30);
       return;
     }
     if (v?.requires_2fa && v?.challenge_id) {
@@ -252,10 +270,14 @@ export default function LoginPage() {
       if (anyResp?.requires_email && anyResp?.challenge_id) {
         setPlatonusEmailChallengeId(String(anyResp.challenge_id));
         setPlatonusEmailCode("");
-        setPlatonusNewEmail("");
-        setPlatonusEmailCodeSent(false);
+        const bound = typeof anyResp?.bound_email === "string" ? anyResp.bound_email : "";
+        const codeSent = Boolean(anyResp?.code_sent) && Boolean(bound);
+        setPlatonusNewEmail(codeSent ? bound : "");
+        setPlatonusEmailFixed(codeSent);
+        setPlatonusEmailCodeSent(codeSent);
         setPlatonusEmailResendCooldown(0);
-        setError(anyResp?.message || t("auth.login.errorGeneric"));
+        setError(codeSent ? null : (anyResp?.message || t("auth.login.errorGeneric")));
+        if (codeSent) startPlatonusEmailCooldown(30);
         return;
       }
       if (anyResp?.requires_2fa && anyResp?.challenge_id) {
@@ -288,16 +310,7 @@ export default function LoginPage() {
     try {
       await platonusEmailRequest({ challenge_id: platonusEmailChallengeId, email });
       setPlatonusEmailCodeSent(true);
-      setPlatonusEmailResendCooldown(30);
-      const interval = window.setInterval(() => {
-        setPlatonusEmailResendCooldown((v) => {
-          if (v <= 1) {
-            window.clearInterval(interval);
-            return 0;
-          }
-          return v - 1;
-        });
-      }, 1000);
+      startPlatonusEmailCooldown(30);
     } catch (err: any) {
       setError(err?.message || JSON.stringify(err) || t("auth.login.errorGeneric"));
     } finally {
@@ -383,19 +396,30 @@ export default function LoginPage() {
           </form>
         ) : platonusEmailChallengeId ? (
           <form onSubmit={handlePlatonusEmailVerify} className="space-y-4">
-            <div className="text-slate-600 text-sm">{t("auth.login.platonusEmailChangePrompt")}</div>
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">{t("auth.login.emailLabel")}</label>
-              <input
-                type="email"
-                className="w-full rounded-lg border border-slate-200 focus:border-[#7b0f2b] focus:ring-[#7b0f2b] px-3 py-2 outline-none"
-                value={platonusNewEmail}
-                onChange={(e) => setPlatonusNewEmail(e.target.value)}
-                placeholder={t("auth.login.emailPlaceholder")}
-                autoComplete="email"
-                required
-              />
+            <div className="text-slate-600 text-sm">
+              {platonusEmailFixed
+                ? t("auth.login.platonusEmailVerifyPrompt")
+                : t("auth.login.platonusEmailChangePrompt")}
             </div>
+
+            {platonusEmailFixed ? (
+              <div className="text-sm text-slate-700">
+                <span className="font-medium">{t("auth.login.emailLabel")}:</span> {platonusNewEmail}
+              </div>
+            ) : (
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">{t("auth.login.emailLabel")}</label>
+                <input
+                  type="email"
+                  className="w-full rounded-lg border border-slate-200 focus:border-[#7b0f2b] focus:ring-[#7b0f2b] px-3 py-2 outline-none"
+                  value={platonusNewEmail}
+                  onChange={(e) => setPlatonusNewEmail(e.target.value)}
+                  placeholder={t("auth.login.emailPlaceholder")}
+                  autoComplete="email"
+                  required
+                />
+              </div>
+            )}
 
             {platonusEmailCodeSent && (
               <div>

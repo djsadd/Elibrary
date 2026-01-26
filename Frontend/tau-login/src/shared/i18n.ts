@@ -1457,6 +1457,7 @@ dict.kk.common.catalogSearchPlaceholder = "Каталогты іздеу";
       twofaPrompt: "Enter the code from your authentication app.",
       twofaCodeLabel: "2FA code",
       platonusEmailChangePrompt: "This Platonus email is already used. Enter another email and verify it with a code.",
+      platonusEmailVerifyPrompt: "Enter the verification code we sent to your linked email.",
     },
   register: {
     title: "Registration",
@@ -1527,6 +1528,7 @@ dict.ru.auth = {
     twofaPrompt: "Введите код из приложения-аутентификатора.",
     twofaCodeLabel: "Код 2FA",
     platonusEmailChangePrompt: "Эта почта из Platonus уже занята. Введите другую почту и подтвердите её кодом из письма.",
+    platonusEmailVerifyPrompt: "Введите код, отправленный на привязанную почту.",
   },
   register: {
     title: "Регистрация",
@@ -1596,6 +1598,7 @@ dict.kk.auth = {
     twofaPrompt: "Аутентификатор қолданбасындағы кодты енгізіңіз.",
     twofaCodeLabel: "2FA коды",
     platonusEmailChangePrompt: "Platonus поштасы бос емес. Басқа поштаны енгізіп, email-ге келген кодпен растаңыз.",
+    platonusEmailVerifyPrompt: "Байланыстырылған поштаға жіберілген кодты енгізіңіз.",
   },
   register: {
     title: "Тіркелу",

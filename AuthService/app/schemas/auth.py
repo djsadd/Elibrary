@@ -78,6 +78,9 @@ class PlatonusEmailRequiredResponse(BaseModel):
     requires_email: bool = True
     challenge_id: str
     existing_email: Optional[EmailStr] = None
+    bound_email: Optional[EmailStr] = None
+    code_sent: bool = False
+    expires_in: Optional[int] = None
     message: str = "Email already registered. Please provide another email and verify it."
 
 

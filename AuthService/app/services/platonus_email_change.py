@@ -122,3 +122,19 @@ def verify_code(*, challenge_id: str, email: str, code: str) -> dict[str, Any]:
     r.delete(_key(challenge_id))
     return payload
 
+
+def peek_payload(*, challenge_id: str) -> dict[str, Any]:
+    raw = r.get(_key(challenge_id))
+    if not raw:
+        raise ValueError("Challenge not found")
+
+    try:
+        state = json.loads(raw)
+    except Exception:
+        r.delete(_key(challenge_id))
+        raise ValueError("Challenge invalid")
+
+    payload = state.get("payload") or {}
+    if not isinstance(payload, dict):
+        return {}
+    return payload
