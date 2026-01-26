@@ -40,7 +40,7 @@ def get_books_batch(
 @router.get(
     "/books/{book_id}/download",
     response_class=FileResponse,
-    dependencies=[Depends(require_roles("librarian", "admin"))],
+    dependencies=[Depends(require_roles("librarian", "admin", "student"))],
 )
 def download_book(book_id: int, db: Session = Depends(get_db)):
     book = db.get(Book, book_id)
@@ -61,7 +61,7 @@ def download_book(book_id: int, db: Session = Depends(get_db)):
 
 @router.get(
     "/books/{book_id}/stream",
-    dependencies=[Depends(require_roles("librarian", "admin"))],
+    dependencies=[Depends(require_roles("librarian", "admin", "student"))],
 )
 def stream_book(book_id: int, db: Session = Depends(get_db)):
     book = db.get(Book, book_id)
