@@ -1,6 +1,8 @@
 import httpx
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
+
+from app.utils.authz import AuthUser, get_current_user
 
 router = APIRouter()
 
@@ -23,7 +25,10 @@ async def login_to_auth_service():
 
 
 @router.post("/chat_card")
-async def chat_card(data: dict):
+async def chat_card(
+    data: dict,
+    user: AuthUser = Depends(get_current_user),
+):
     auth_data = await login_to_auth_service()
     token = auth_data.get("access_token")
     if not token:
@@ -39,7 +44,10 @@ async def chat_card(data: dict):
 
 
 @router.post("/generate_llm_context")
-async def generate_llm_context(data: dict):
+async def generate_llm_context(
+    data: dict,
+    user: AuthUser = Depends(get_current_user),
+):
     try:
         auth_data = await login_to_auth_service()
         token = auth_data.get("access_token")
