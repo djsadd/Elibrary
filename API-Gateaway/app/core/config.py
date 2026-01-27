@@ -33,7 +33,14 @@ class Settings(BaseSettings):
 
     ANALYTICS_ENABLED: bool = True
     ANALYTICS_TIMEOUT_S: float = 0.2
-    ANALYTICS_SKIP_PATHS: List[str] = ["/health", "/docs", "/openapi.json", "/analytics", "/api/analytics"]
+    ANALYTICS_SKIP_PATHS: List[str] = [
+        "/health",
+        "/docs",
+        "/openapi.json",
+        "/analytics",
+        "/api/analytics",
+        "/api/auth/introspect",
+    ]
     ANALYTICS_COOKIE_MAX_AGE_DAYS: int = 365
     ANALYTICS_SESSION_MAX_AGE_HOURS: int = 24
     ANALYTICS_IP_HASH_SECRET: str = "change-me"
