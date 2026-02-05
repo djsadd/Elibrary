@@ -29,6 +29,6 @@ async def catalog_proxy(path: str, request: Request, _=Depends(auth_optional)):
 
 
 @router.post("/public/track")
-async def public_track_page_view(payload: PublicPageViewIn, request: Request):
+async def public_track_page_view(payload: PublicPageViewIn, request: Request, _=Depends(auth_optional)):
     return await track_public_page_view(request, payload)
 

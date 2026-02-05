@@ -31,11 +31,22 @@ export function PublicPageLayout({
       referrer: document.referrer || undefined,
     };
 
+    const token = (() => {
+      try {
+        return localStorage.getItem("token") || sessionStorage.getItem("token");
+      } catch {
+        return null;
+      }
+    })();
+
     try {
       // keepalive makes it resilient to quick navigations / tab close
       fetch("/api/public/track", {
         method: "POST",
-        headers: { "content-type": "application/json" },
+        headers: {
+          "content-type": "application/json",
+          ...(token ? { authorization: `Bearer ${token}` } : {}),
+        },
         credentials: "include",
         keepalive: true,
         body: JSON.stringify(payload),

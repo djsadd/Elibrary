@@ -58,7 +58,7 @@ def _ensure_cookie(request: Request, response: Response, name: str, max_age_s: i
 
 async def track_public_page_view(request: Request, body: PublicPageViewIn) -> Response:
     """
-    Accepts a lightweight public page view event and forwards it to AnalyticsService as event_type=page_view.
+    Accepts a lightweight public page view event and forwards it to AnalyticsService.
     Middleware is configured to skip this path to avoid double-counting.
     """
     response = Response(status_code=204)
@@ -66,6 +66,17 @@ async def track_public_page_view(request: Request, body: PublicPageViewIn) -> Re
     user_agent = request.headers.get("user-agent")
     client_ip = _extract_client_ip(request)
     ip_hash = _hash_ip(client_ip)
+
+    user_id: int | None = None
+    is_authenticated = False
+    user = getattr(request.state, "user", None)
+    if isinstance(user, dict) and user.get("user_id") is not None:
+        try:
+            user_id = int(user["user_id"])
+            is_authenticated = True
+        except (TypeError, ValueError):
+            user_id = None
+            is_authenticated = False
 
     anon_id = _ensure_cookie(
         request,
@@ -84,8 +95,8 @@ async def track_public_page_view(request: Request, body: PublicPageViewIn) -> Re
     analytics_url = f"{str(settings.ANALYTICS_SERVICE_URL).rstrip('/')}/analytics/events"
     payload = {
         "event_time": datetime.now(timezone.utc).isoformat(),
-        "event_type": "page_view",
-        "user_id": None,
+        "event_type": "api_request",
+        "user_id": user_id,
         "anon_id": anon_id,
         "session_id": session_id,
         "path": body.path,
@@ -97,8 +108,11 @@ async def track_public_page_view(request: Request, body: PublicPageViewIn) -> Re
         "ip_hash": ip_hash,
         "request_id": request.headers.get("x-request-id") or getattr(request.state, "request_id", None),
         "service": "public-web",
-        "is_authenticated": False,
-        "meta": {"title": body.title} if body.title else None,
+        "is_authenticated": is_authenticated,
+        "meta": {
+            "page_view": True,
+            **({"title": body.title} if body.title else {}),
+        },
     }
 
     try:
@@ -108,4 +122,3 @@ async def track_public_page_view(request: Request, body: PublicPageViewIn) -> Re
         pass
 
     return response
-
