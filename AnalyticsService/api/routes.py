@@ -224,7 +224,7 @@ def traffic(
     limit: int = Query(100, ge=1, le=500),
     offset: int = Query(0, ge=0, le=100000),
     db: Session = Depends(get_db),
-):
+    ):
     return list_events(
         day=day,
         from_date=from_date,
@@ -239,6 +239,30 @@ def traffic(
         ip=ip,
         request_id=request_id,
         service=service,
+        limit=limit,
+        offset=offset,
+        db=db,
+    )
+
+
+@router.get("/public-traffic", response_model=EventsPage)
+def public_traffic(
+    day: Optional[date] = None,
+    from_date: Optional[date] = Query(None, alias="from"),
+    to_date: Optional[date] = Query(None, alias="to"),
+    who: str = Query("all"),
+    path_prefix: Optional[str] = None,
+    limit: int = Query(100, ge=1, le=500),
+    offset: int = Query(0, ge=0, le=100000),
+    db: Session = Depends(get_db),
+):
+    return list_events(
+        day=day,
+        from_date=from_date,
+        to_date=to_date,
+        who=who,
+        event_type="page_view",
+        path_prefix=path_prefix or "/public",
         limit=limit,
         offset=offset,
         db=db,

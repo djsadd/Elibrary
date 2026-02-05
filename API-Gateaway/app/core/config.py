@@ -40,6 +40,7 @@ class Settings(BaseSettings):
         "/metrics",
         "/analytics",
         "/api/analytics",
+        "/api/public/track",
         "/api/auth/introspect",
     ]
     ANALYTICS_COOKIE_MAX_AGE_DAYS: int = 365
