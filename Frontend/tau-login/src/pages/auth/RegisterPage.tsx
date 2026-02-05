@@ -45,6 +45,8 @@ function EyeOffIcon({ className }: { className?: string }) {
 }
 
 export default function RegisterPage() {
+  const REGISTRATION_CLOSED = true;
+
   const [email, setEmail] = useState("");
   const [iin, setIin] = useState("");
   const [phone, setPhone] = useState("");
@@ -65,6 +67,7 @@ export default function RegisterPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (REGISTRATION_CLOSED) return;
     setError(null);
     setSubmitting(true);
     try {
@@ -103,6 +106,8 @@ export default function RegisterPage() {
     }
   };
 
+  const isFormDisabled = REGISTRATION_CLOSED || isSubmitting;
+
   return (
     <div className="min-h-screen w-full bg-gradient-to-br from-[#7b0f2b] via-[#8d1837] to-[#f2f2f5] flex items-center justify-center p-4">
       <div className="w-full max-w-md rounded-2xl shadow-2xl bg-white/95 backdrop-blur border border-white/70 px-8 py-8">
@@ -122,6 +127,33 @@ export default function RegisterPage() {
           {step === 1 ? t("auth.register.subtitle") : t("auth.register.verifySubtitle")}
         </div>
 
+        {REGISTRATION_CLOSED && (
+          <div className="mb-4 rounded-2xl border border-amber-200 bg-gradient-to-br from-amber-50 to-white p-4 shadow-sm">
+            <div className="flex items-start gap-3">
+              <div className="mt-0.5 flex h-10 w-10 items-center justify-center rounded-xl bg-amber-100 text-amber-700">
+                <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                  <path d="M12 9v4" strokeLinecap="round" />
+                  <path d="M12 17h.01" strokeLinecap="round" />
+                  <path
+                    d="M10.3 3.6 2.9 16.2A2 2 0 0 0 4.6 19h14.8a2 2 0 0 0 1.7-2.8L13.7 3.6a2 2 0 0 0-3.4 0Z"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+              </div>
+              <div className="min-w-0">
+                <div className="text-sm font-semibold text-slate-900">{t("auth.register.closedTitle")}</div>
+                <div className="mt-1 text-sm leading-6 text-slate-700">{t("auth.register.closedBody")}</div>
+                <div className="mt-2 text-xs text-slate-500">
+                  {t("auth.register.closedHint")}{" "}
+                  <Link to="/auth/login" className="font-semibold text-[#7b0f2b] hover:underline">
+                    {t("auth.register.actionLink")}
+                  </Link>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         <form onSubmit={handleSubmit} className="space-y-4">
           {step === 1 && (
             <div>
@@ -131,7 +163,8 @@ export default function RegisterPage() {
                 onChange={(e) => setIin(e.target.value)}
                 maxLength={12}
                 placeholder={t("auth.register.iinPlaceholder")}
-                className="w-full rounded-lg border border-slate-200 px-3 py-2"
+                disabled={isFormDisabled}
+                className="w-full rounded-lg border border-slate-200 px-3 py-2 disabled:bg-slate-100 disabled:text-slate-500"
               />
             </div>
           )}
@@ -145,7 +178,8 @@ export default function RegisterPage() {
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder={t("auth.register.emailPlaceholder")}
                 required
-                className="w-full rounded-lg border border-slate-200 px-3 py-2"
+                disabled={isFormDisabled}
+                className="w-full rounded-lg border border-slate-200 px-3 py-2 disabled:bg-slate-100 disabled:text-slate-500"
               />
             </div>
           )}
@@ -157,7 +191,8 @@ export default function RegisterPage() {
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
                 placeholder={t("auth.register.phonePlaceholder")}
-                className="w-full rounded-lg border border-slate-200 px-3 py-2"
+                disabled={isFormDisabled}
+                className="w-full rounded-lg border border-slate-200 px-3 py-2 disabled:bg-slate-100 disabled:text-slate-500"
               />
             </div>
           )}
@@ -169,7 +204,8 @@ export default function RegisterPage() {
                 value={institution}
                 onChange={(e) => setInstitution(e.target.value)}
                 placeholder={t("auth.register.institutionPlaceholder")}
-                className="w-full rounded-lg border border-slate-200 px-3 py-2"
+                disabled={isFormDisabled}
+                className="w-full rounded-lg border border-slate-200 px-3 py-2 disabled:bg-slate-100 disabled:text-slate-500"
               />
             </div>
           )}
@@ -181,7 +217,8 @@ export default function RegisterPage() {
                 value={faculty}
                 onChange={(e) => setFaculty(e.target.value)}
                 placeholder={t("auth.register.facultyPlaceholder")}
-                className="w-full rounded-lg border border-slate-200 px-3 py-2"
+                disabled={isFormDisabled}
+                className="w-full rounded-lg border border-slate-200 px-3 py-2 disabled:bg-slate-100 disabled:text-slate-500"
               />
             </div>
           )}
@@ -193,7 +230,8 @@ export default function RegisterPage() {
                 value={groupName}
                 onChange={(e) => setGroupName(e.target.value)}
                 placeholder={t("auth.register.groupPlaceholder")}
-                className="w-full rounded-lg border border-slate-200 px-3 py-2"
+                disabled={isFormDisabled}
+                className="w-full rounded-lg border border-slate-200 px-3 py-2 disabled:bg-slate-100 disabled:text-slate-500"
               />
             </div>
           )}
@@ -204,7 +242,8 @@ export default function RegisterPage() {
               <input
                 value={verificationCode}
                 onChange={(e) => setVerificationCode(e.target.value)}
-                className="w-full rounded-lg border border-slate-200 px-3 py-2"
+                disabled={isFormDisabled}
+                className="w-full rounded-lg border border-slate-200 px-3 py-2 disabled:bg-slate-100 disabled:text-slate-500"
                 autoComplete="one-time-code"
               />
               <div className="mt-1 text-xs text-slate-500">{t("auth.common.verificationCodeHelp")}</div>
@@ -220,12 +259,14 @@ export default function RegisterPage() {
                 onChange={(e) => setPassword(e.target.value)}
                 required
                 placeholder={t("auth.register.passwordPlaceholder")}
-                className="w-full rounded-lg border border-slate-200 px-3 py-2 pr-10"
+                disabled={isFormDisabled}
+                className="w-full rounded-lg border border-slate-200 px-3 py-2 pr-10 disabled:bg-slate-100 disabled:text-slate-500"
               />
               <button
                 type="button"
                 onClick={() => setShowPwd((v) => !v)}
-                className="absolute inset-y-0 right-0 px-3 text-slate-500 hover:text-slate-700"
+                disabled={isFormDisabled}
+                className="absolute inset-y-0 right-0 px-3 text-slate-500 hover:text-slate-700 disabled:opacity-50 disabled:hover:text-slate-500"
                 aria-label={showPwd ? t("auth.common.hidePassword") : t("auth.common.showPassword")}
               >
                 {showPwd ? <EyeOffIcon className="h-5 w-5" /> : <EyeIcon className="h-5 w-5" />}
@@ -242,12 +283,14 @@ export default function RegisterPage() {
                 onChange={(e) => setConfirm(e.target.value)}
                 required
                 placeholder={t("auth.register.confirmPasswordPlaceholder")}
-                className="w-full rounded-lg border border-slate-200 px-3 py-2 pr-10"
+                disabled={isFormDisabled}
+                className="w-full rounded-lg border border-slate-200 px-3 py-2 pr-10 disabled:bg-slate-100 disabled:text-slate-500"
               />
               <button
                 type="button"
                 onClick={() => setShowPwd2((v) => !v)}
-                className="absolute inset-y-0 right-0 px-3 text-slate-500 hover:text-slate-700"
+                disabled={isFormDisabled}
+                className="absolute inset-y-0 right-0 px-3 text-slate-500 hover:text-slate-700 disabled:opacity-50 disabled:hover:text-slate-500"
                 aria-label={showPwd2 ? t("auth.common.hidePassword") : t("auth.common.showPassword")}
               >
                 {showPwd2 ? <EyeOffIcon className="h-5 w-5" /> : <EyeIcon className="h-5 w-5" />}
@@ -261,10 +304,10 @@ export default function RegisterPage() {
 
           <button
             type="submit"
-            disabled={isSubmitting}
+            disabled={isFormDisabled}
             className="w-full rounded-lg bg-[#7b0f2b] text-white font-semibold py-2.5 disabled:opacity-70 hover:bg-[#6b0d26] transition"
           >
-            {isSubmitting ? t("auth.register.success") : step === 1 ? t("auth.register.submit") : t("auth.common.verify")}
+            {REGISTRATION_CLOSED ? t("auth.register.closedButton") : isSubmitting ? t("auth.register.success") : step === 1 ? t("auth.register.submit") : t("auth.common.verify")}
           </button>
         </form>
 
@@ -280,4 +323,3 @@ export default function RegisterPage() {
     </div>
   );
 }
-

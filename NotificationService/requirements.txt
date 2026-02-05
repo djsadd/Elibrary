@@ -8,3 +8,5 @@ psycopg2-binary
 httpx
 python-dotenv
 celery
+prometheus-fastapi-instrumentator>=6.0.0
+python-json-logger>=2.0.0

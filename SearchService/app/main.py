@@ -5,13 +5,17 @@ import logging
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from prometheus_fastapi_instrumentator import Instrumentator
 
 from app.api.routes import router
 from app.core.config import settings
 from app.core.es import create_es
 from app.services.books_index import books_index_body, es_books_index
+from app.utils.logging_config import setup_logging
 
 log = logging.getLogger(__name__)
+
+setup_logging()
 
 app = FastAPI(title="SearchService", version="0.1.0")
 app.state.es_ready = False
@@ -25,6 +29,8 @@ app.add_middleware(
 )
 
 app.include_router(router)
+
+Instrumentator().instrument(app).expose(app, endpoint="/metrics")
 
 
 @app.get("/health")

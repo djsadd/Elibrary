@@ -15,6 +15,8 @@ from utils.time import range_for_dates
 
 router = APIRouter(prefix="/analytics", tags=["analytics"])
 
+IGNORED_PATHS: tuple[str, ...] = ("/metrics",)
+
 
 def get_db():
     db = SessionLocal()
@@ -22,6 +24,12 @@ def get_db():
         yield db
     finally:
         db.close()
+
+def _apply_ignored_paths(query):
+    if not IGNORED_PATHS:
+        return query
+    # Keep events without a path, but drop noisy technical endpoints like /metrics.
+    return query.filter((Event.path.is_(None)) | (~Event.path.in_(IGNORED_PATHS)))
 
 
 @router.get("/health")
@@ -53,6 +61,7 @@ def summary_stats(
     start_utc, end_utc = range_for_dates(from_date, to_date)
 
     query = db.query(Event).filter(Event.event_time >= start_utc, Event.event_time < end_utc)
+    query = _apply_ignored_paths(query)
     if event_type:
         query = query.filter(Event.event_type == event_type)
 
@@ -99,6 +108,7 @@ def daily_stats(
         .group_by(day_expr)
         .order_by(day_expr.asc())
     )
+    query = _apply_ignored_paths(query)
 
     if event_type:
         query = query.filter(Event.event_type == event_type)
@@ -129,6 +139,7 @@ def top_paths(
         db.query(Event.path, func.count(Event.id).label("count"))
         .filter(Event.event_time >= start_utc, Event.event_time < end_utc)
         .filter(Event.path.isnot(None))
+        .filter(~Event.path.in_(IGNORED_PATHS))
         .group_by(Event.path)
         .order_by(func.count(Event.id).desc())
         .limit(limit)
@@ -162,6 +173,7 @@ def list_events(
     start_utc, end_utc = range_for_dates(day, day) if day else range_for_dates(from_date, to_date)
 
     query = db.query(Event).filter(Event.event_time >= start_utc, Event.event_time < end_utc)
+    query = _apply_ignored_paths(query)
     if event_type:
         query = query.filter(Event.event_type == event_type)
     if path_prefix:
@@ -258,7 +270,11 @@ def visitors_stats(
 
     start_utc, end_utc = range_for_dates(day, day) if day else range_for_dates(from_date, to_date)
 
-    base_filters = [Event.event_time >= start_utc, Event.event_time < end_utc]
+    base_filters = [
+        Event.event_time >= start_utc,
+        Event.event_time < end_utc,
+        (Event.path.is_(None)) | (~Event.path.in_(IGNORED_PATHS)),
+    ]
     if event_type:
         base_filters.append(Event.event_type == event_type)
     if path_prefix:

@@ -1,3 +1,59 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Public pages theme */
+:root {
+  --public-accent: #7b0f2b;
+  --public-accent-hover: #6a0d25;
+  --public-bg: #ffffff;
+  --public-surface-muted: #fff7f9;
+  --public-border: #f1c7d2;
+  --public-gray: #f6e9ee;
+}
+
+html.public-theme body {
+  background-color: var(--public-bg);
+}
+
+html.public-theme .public-main .border,
+html.public-theme .public-main .border-t,
+html.public-theme .public-main .border-b,
+html.public-theme .public-main .border-l,
+html.public-theme .public-main .border-r {
+  border-color: var(--public-border) !important;
+}
+
+/* Ensure native <select> dropdown items stay readable (some browsers inherit color into <option>). */
+html.public-theme .public-lang-select option {
+  color: #0f172a;
+  background-color: #ffffff;
+}
+
+/* Public pages "low vision" mode */
+html.public-theme.public-a11y {
+  --public-accent: #111827;
+  --public-accent-hover: #0b1220;
+  --public-bg: #ffffff;
+  --public-surface-muted: #ffffff;
+  --public-border: #111827;
+  --public-gray: #ffffff;
+}
+
+html.public-theme.public-a11y body {
+  font-size: 18px;
+  line-height: 1.7;
+}
+
+html.public-theme.public-a11y *:focus-visible {
+  outline: 3px solid #111827;
+  outline-offset: 3px;
+}
+
+html.public-theme.public-a11y .public-main .border,
+html.public-theme.public-a11y .public-main .border-t,
+html.public-theme.public-a11y .public-main .border-b,
+html.public-theme.public-a11y .public-main .border-l,
+html.public-theme.public-a11y .public-main .border-r {
+  border-color: var(--public-border) !important;
+}

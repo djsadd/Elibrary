@@ -30,6 +30,33 @@ class BookCreate(BaseModel):
     is_public: bool = True
 
 
+class QuickBookCreate(BaseModel):
+    """
+    Быстрое создание книги/статьи для роли редактора (editor).
+    Минимальные требуемые поля для быстрой загрузки материалов.
+    """
+    title: str = Field(..., description="Название статьи/книги")
+    file_id: str = Field(..., description="ID загруженного файла")
+    formats: List[str] = Field(default_factory=lambda: ["EBOOK"], description="Форматы (EBOOK, AUDIOBOOK, VIDEOBOOK и т.д.)")
+    
+    # Опциональные поля
+    year: Optional[str] = Field(None, description="Год публикации")
+    lang: Optional[str] = Field(None, description="Язык (ru, en и т.д.)")
+    pub_info: Optional[str] = Field(None, description="Информация об издании")
+    summary: Optional[str] = Field(None, description="Краткое описание")
+    cover: Optional[str] = Field(None, description="Base64 обложка или URL")
+    cover_file: Optional[str] = Field(None, description="Путь к файлу обложки")
+    
+    authors: List[str] = Field(default_factory=list, description="Список авторов")
+    subjects: List[str] = Field(default_factory=list, description="Категории/предметы")
+    
+    isbn: Optional[str] = Field(None, description="ISBN (при наличии)")
+    edition: Optional[str] = Field(None, description="Издание")
+    page_count: Optional[int] = Field(None, description="Количество страниц")
+    available_copies: Optional[int] = Field(1, description="Доступное количество копий")
+    is_public: bool = Field(True, description="Публичный доступ")
+
+
 class BookUpdate(BaseModel):
     title: Optional[str] = None
     year: Optional[str] = None

@@ -37,6 +37,7 @@ class Settings(BaseSettings):
         "/health",
         "/docs",
         "/openapi.json",
+        "/metrics",
         "/analytics",
         "/api/analytics",
         "/api/auth/introspect",

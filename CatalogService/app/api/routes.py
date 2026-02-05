@@ -1,6 +1,7 @@
 from fastapi import APIRouter
 
 from app.api import (
+    catalog_about,
     catalog_admin,
     catalog_ai,
     catalog_authors,
@@ -15,6 +16,7 @@ from app.api import (
 
 router = APIRouter(prefix="/catalog", tags=["catalog"])
 
+router.include_router(catalog_about.router)
 router.include_router(catalog_files.router)
 router.include_router(catalog_filters.router)
 router.include_router(catalog_books.router)

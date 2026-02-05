@@ -28,6 +28,7 @@ export default function Sidebar() {
   const isAdmin = roles.some((r) => /^(admin|librarian)$/i.test(String(r)));
 
   const items = [
+    { to: "/public", label: "Домой", icon: HomeIcon },
     { to: "/", label: t("nav.home"), icon: HomeIcon },
     { to: "/catalog", label: t("nav.catalog"), icon: CatalogIcon },
     { to: "/shelf", label: t("nav.shelf"), icon: ShelfIcon },

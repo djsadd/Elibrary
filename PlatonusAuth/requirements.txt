@@ -3,3 +3,5 @@ fastapi
 uvicorn[standard]
 httpx
 pydantic
+prometheus-fastapi-instrumentator>=6.0.0
+python-json-logger>=2.0.0

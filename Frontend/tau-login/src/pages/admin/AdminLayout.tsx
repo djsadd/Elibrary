@@ -4,6 +4,7 @@ import { t } from "@/shared/i18n";
 
 const nav = [
   { to: "/admin", label: () => t('admin.nav.overview'), end: true },
+  { to: "/admin/articles/quick", label: () => "⚡ Quick Article" },
   { to: "/admin/books", label: () => t('admin.nav.books') },
   { to: "/admin/books/new", label: () => t('admin.nav.addBook') },
   { to: "/admin/playlists", label: () => t('admin.nav.playlists') },

@@ -4,6 +4,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.core.db import Base, engine
 from app.api.routes import router
 from app.api.ai import ai_router
+from app.utils.logging_config import setup_logging
+from prometheus_fastapi_instrumentator import Instrumentator
 import uvicorn
 
 # --- Патч на лимит multipart (обходит стандартный 1MB) ---
@@ -17,6 +19,8 @@ MultiPartParser.max_field_size = 2 * 1024 * 1024
 
 Base.metadata.create_all(bind=engine)
 
+setup_logging()
+
 app = FastAPI(title="CatalogService", version="0.1.0")
 
 app.add_middleware(
@@ -29,6 +33,8 @@ app.add_middleware(
 
 app.include_router(router)
 app.include_router(ai_router)
+
+Instrumentator().instrument(app).expose(app, endpoint="/metrics")
 
 
 @app.get("/health")

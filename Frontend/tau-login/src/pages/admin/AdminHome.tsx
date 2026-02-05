@@ -33,6 +33,7 @@ export default function AdminHome() {
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-lg font-semibold">{t('admin.home.heading')}</h2>
         <div className="flex items-center gap-2">
+          <Link to="articles/quick" className="px-4 py-2 bg-gradient-to-r from-[#7b0f2b] to-rose-600 text-white rounded-md font-medium hover:shadow-lg transition">⚡ {t('admin.home.quickArticleBtn') || 'Quick Article'}</Link>
           <Link to="books/new" className="px-4 py-2 bg-slate-700 text-white rounded-md">{t('admin.home.addBookBtn')}</Link>
           <Link to="playlists/new" className="px-4 py-2 bg-indigo-600 text-white rounded-md">{t('admin.home.addPlaylistBtn')}</Link>
         </div>

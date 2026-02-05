@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.api.catalog_common import _ensure_authors, _ensure_subjects, _to_out, get_db
 from app.models.book import Author, Book, Subject, UserBook, book_subjects
-from app.schemas.book import BookCreate, BookList, BookOut, BookUpdate
+from app.schemas.book import BookCreate, BookList, BookOut, BookUpdate, QuickBookCreate
 from app.services.search_sync import index_book_in_search
 from app.utils.authz import AuthUser, get_current_user, require_roles
 from app.utils.pagination import clamp_limit, clamp_offset
@@ -282,6 +282,67 @@ def create_book(payload: BookCreate, background_tasks: BackgroundTasks, db: Sess
         db.rollback()
         raise HTTPException(status_code=400, detail="Book already exists")
 
+    out = _to_out(book)
+    background_tasks.add_task(index_book_in_search, out.model_dump())
+    return out
+
+
+@router.post("/books/quick", response_model=BookOut, status_code=status.HTTP_201_CREATED)
+def quick_create_book(
+    payload: QuickBookCreate,
+    user: AuthUser = Depends(require_roles("editor", "admin", "librarian")),
+    db: Session = Depends(get_db),
+    background_tasks: BackgroundTasks = BackgroundTasks(),
+):
+    """
+    Быстрое создание книги/статьи для редакторов.
+    
+    Endpoint для максимально быстрой загрузки статей, верстанных файлов и т.д.
+    без прохождения всех этапов валидации.
+    
+    Требуемые поля:
+    - title: название статьи/книги
+    - file_id: ID загруженного файла
+    - formats: форматы (EBOOK, AUDIOBOOK и т.д.)
+    
+    Доступно для ролей: editor, admin, librarian
+    """
+    # Создаём книгу с минимальными требуемыми полями
+    book = Book(
+        title=payload.title,
+        year=payload.year,
+        lang=payload.lang,
+        pub_info=payload.pub_info,
+        summary=payload.summary,
+        cover=payload.cover or payload.cover_file,
+        cover_file=payload.cover_file,
+        file_id=payload.file_id,
+        source="LIBRARY",  # По умолчанию для быстрой загрузки
+        isbn=payload.isbn,
+        edition=payload.edition,
+        page_count=payload.page_count,
+        available_copies=payload.available_copies or 1,
+        is_public=payload.is_public,
+    )
+    
+    # Устанавливаем форматы
+    book.formats_list = [str(f).strip().upper() for f in (payload.formats or ["EBOOK"]) if str(f).strip()]
+    
+    # Устанавливаем авторов и категории
+    book.authors = _ensure_authors(db, payload.authors or [])
+    book.subjects = _ensure_subjects(db, payload.subjects or [])
+    
+    db.add(book)
+    try:
+        db.commit()
+        db.refresh(book)
+    except IntegrityError as e:
+        db.rollback()
+        raise HTTPException(status_code=400, detail=f"Failed to create book: {str(e)}")
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Internal error: {str(e)}")
+    
     out = _to_out(book)
     background_tasks.add_task(index_book_in_search, out.model_dump())
     return out

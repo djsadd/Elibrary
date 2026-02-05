@@ -5,3 +5,5 @@ pydantic-settings
 python-dotenv
 minio
 python-multipart
+prometheus-fastapi-instrumentator>=6.0.0
+python-json-logger>=2.0.0

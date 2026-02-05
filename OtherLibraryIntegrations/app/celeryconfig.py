@@ -1,5 +1,8 @@
 from celery import Celery
 from app.core.config import settings
+from app.utils.logging_config import setup_logging
+
+setup_logging()
 
 celery = Celery(
     "otherlibraryintegrations",
@@ -13,4 +16,5 @@ celery.conf.update(
     accept_content=["json"],
     timezone="UTC",
     enable_utc=True,
+    worker_hijack_root_logger=False,
 )

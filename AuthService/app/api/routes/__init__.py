@@ -2,10 +2,12 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 from sqlalchemy import or_, func
 from typing import Optional
+import logging
 import json
 import secrets
 import random
 import requests
+from prometheus_client import Counter
 from app.core.db import SessionLocal
 from app.core.config import settings
 from app.models.user import User
@@ -62,6 +64,8 @@ from app.utils.authz import (
 )
 
 router = APIRouter(prefix="/auth", tags=["auth"])
+log = logging.getLogger(__name__)
+AUTH_LOGIN_SUCCESS_TOTAL = Counter("auth_login_success_total", "Total successful logins")
 
 
 def get_db():
@@ -438,6 +442,11 @@ def login(req: LoginRequest, request: Request, db: Session = Depends(get_db)):
     refresh, _ = create_refresh(u.id)
     mark_known_ip(user_id=int(u.id), ip=ip)
     audit_event("auth.login_success", request, target_user_id=u.id, target_email=u.email, success=True, extra={"ip": ip})
+    AUTH_LOGIN_SUCCESS_TOTAL.inc()
+    log.info(
+        "User login",
+        extra={"event": "login_success", "user_id": int(u.id), "role": str(u.role or ""), "ip": ip},
+    )
     return TokenPair(
         access_token=access,
         refresh_token=refresh,

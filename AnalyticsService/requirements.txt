@@ -5,3 +5,5 @@ SQLAlchemy==2.0.36
 psycopg2-binary==2.9.9
 clickhouse-connect==0.7.19
 alembic==1.13.3
+prometheus-fastapi-instrumentator>=6.0.0
+python-json-logger>=2.0.0

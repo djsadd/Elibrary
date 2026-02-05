@@ -11,6 +11,7 @@ from app.utils.rate_limit import RateLimitMiddleware
 from app.utils.analytics import AnalyticsMiddleware
 from app.services.proxy import forward
 from app.services.auth_guard import auth_required
+from prometheus_fastapi_instrumentator import Instrumentator
 
 app = FastAPI(title="Elib API Gateway", version="0.1.0", redirect_slashes=False)
 
@@ -33,6 +34,8 @@ app.add_middleware(
 )
 
 setup_logging()
+
+Instrumentator().instrument(app).expose(app, endpoint="/metrics")
 
 app.include_router(api_router, prefix="/api")
 

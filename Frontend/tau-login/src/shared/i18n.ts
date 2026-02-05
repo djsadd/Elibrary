@@ -1486,6 +1486,10 @@ dict.kk.common.catalogSearchPlaceholder = "Каталогты іздеу";
     actionLink: "Login now",
     haveAccountPrefix: "Already a user?",
     guest: "Use as Guest",
+    closedTitle: "Registration is temporarily closed",
+    closedBody: "New user registration is currently unavailable. Please try again later or contact support.",
+    closedHint: "If you already have an account, you can",
+    closedButton: "Registration closed",
   },
 };
 
@@ -1556,6 +1560,10 @@ dict.ru.auth = {
     success: "Регистрация...",
     actionLink: "Войти",
     haveAccountPrefix: "Уже есть аккаунт?",
+    closedTitle: "Регистрация временно закрыта",
+    closedBody: "Регистрация новых пользователей сейчас недоступна. Пожалуйста, попробуйте позже или обратитесь в поддержку.",
+    closedHint: "Если у вас уже есть аккаунт, вы можете",
+    closedButton: "Регистрация закрыта",
   },
 };
 
@@ -1626,6 +1634,10 @@ dict.kk.auth = {
     success: "Тіркелу...",
     actionLink: "Кіру",
     haveAccountPrefix: "Аккаунтыңыз бар ма?",
+    closedTitle: "Тіркелу уақытша жабық",
+    closedBody: "Жаңа пайдаланушыларды тіркеу қазір қолжетімсіз. Кейінірек қайта көріңіз немесе қолдауға хабарласыңыз.",
+    closedHint: "Егер аккаунтыңыз болса, сіз",
+    closedButton: "Тіркелу жабық",
   },
 };
 
@@ -1756,5 +1768,240 @@ dict.kk.profile = {
     title: 'Интерфейс',
     compactMode: 'Ықшам режим',
     highContrast: 'Жоғары контраст',
+  },
+};
+
+// Public (unauthenticated) home page translations
+dict.en.publicHome = {
+  title: 'TAU Library',
+  logoAlt: 'University logo',
+  brand: 'TAU Library',
+  subtitle: 'Electronic Library',
+  nav: {
+    home: 'Home',
+    teachers: 'For teachers',
+    students: 'For students',
+    links: 'Useful links',
+    about: 'About us',
+    resources: 'Resources',
+  },
+  actions: { login: 'Login', register: 'Register', loginSystem: 'Sign in', cabinet: 'Go to dashboard' },
+  a11y: { enable: 'Low vision version', disable: 'Regular version' },
+  common: {
+    go: 'Open',
+    materials: 'Materials',
+    loading: 'Loading…',
+    error: 'Error',
+    comingSoon: 'Content will be added soon.',
+  },
+  hero: {
+    title: 'Welcome to the TAU Electronic Library',
+    subtitle: 'Access books, collections and resources. Sign in to your account to continue.',
+    cta: 'Sign in',
+    learnMore: 'Explore resources',
+  },
+  about: {
+    intro: 'Information about the library, services, and contact details.',
+    historyTitle: 'History',
+    missionTitle: 'Mission',
+    catalogCta: 'To access the full catalog, please sign in.',
+  },
+  usefulLinks: {
+    categories: {
+      misc: 'Misc',
+      periodicals: 'Periodicals',
+      officialKz: 'Official Kazakhstan',
+      eLibraries: 'Electronic libraries',
+    },
+    table: { title: 'Title', link: 'Link' },
+    go: 'Open',
+    empty: 'No links in this category yet.',
+  },
+  calendar: { title: 'Calendar', prev: 'Previous month', next: 'Next month', today: 'Today' },
+  sections: {
+    home: { title: 'Home', body: 'This is the public landing page. Use the menu above to navigate the main sections.' },
+    teachers: { title: 'For teachers', body: 'Guides, syllabi support, and recommendations for teaching materials.' },
+    students: { title: 'For students', body: 'Search materials, read online, and save books to your shelf after signing in.' },
+    links: {
+      title: 'Useful links',
+      items: { catalog: 'Library catalog', rules: 'Library rules', support: 'Support / Help desk' },
+    },
+    about: { title: 'About us', body: 'Information about the library, services, and contact details.' },
+    resources: {
+      title: 'Resources',
+      cards: {
+        guides: { title: 'Guides', body: 'How to search, cite, and work with sources.' },
+        databases: { title: 'Databases', body: 'Recommended external databases and collections.' },
+        citations: { title: 'Citations', body: 'Citation styles and examples.' },
+        contacts: { title: 'Contacts', body: 'How to reach the library team.' },
+      },
+    },
+  },
+  side: { title: 'Quick access', body: 'Sign in to open your dashboard, favorites, and personal shelf.' },
+  footer: {
+    left: '© Turan-Astana University',
+    about: 'About',
+    links: 'Links',
+    contactsTitle: 'Contacts',
+    address: 'Astana, Dukenūly st. 29',
+    hoursTitle: 'Hours',
+    hoursValue: 'Mon–Fri: 09:00–18:00',
+    quickTitle: 'Quick links',
+  },
+};
+
+dict.ru.publicHome = {
+  title: 'Библиотека TAU',
+  logoAlt: 'Логотип университета',
+  brand: 'Библиотека TAU',
+  subtitle: 'Электронная библиотека',
+  nav: {
+    home: 'Главная',
+    teachers: 'Преподавателям',
+    students: 'Обучающимся',
+    links: 'Полезные ссылки',
+    about: 'О нас',
+    resources: 'Ресурсы',
+  },
+  actions: { login: 'Войти', register: 'Регистрация', loginSystem: 'Войти в систему', cabinet: 'Войти в личный кабинет' },
+  a11y: { enable: 'Версия для слабовидящих', disable: 'Обычная версия' },
+  common: {
+    go: 'Перейти',
+    materials: 'Материалы',
+    loading: 'Загрузка…',
+    error: 'Ошибка',
+    comingSoon: 'Материал будет добавлен.',
+  },
+  hero: {
+    title: 'Добро пожаловать в электронную библиотеку TAU',
+    subtitle: 'Каталог книг и полезные ресурсы. Для доступа к личным функциям выполните вход.',
+    cta: 'Войти',
+    learnMore: 'Посмотреть ресурсы',
+  },
+  about: {
+    intro: 'Подробная информация о Библиотечно-информационном центре университета «Туран-Астана».',
+    historyTitle: 'История',
+    missionTitle: 'Миссия БИЦ',
+    catalogCta: 'Познакомиться с полным каталогом библиотеки',
+  },
+  usefulLinks: {
+    categories: {
+      misc: 'Разное',
+      periodicals: 'Периодические издания',
+      officialKz: 'Официальный Казахстан',
+      eLibraries: 'Электронные библиотеки',
+    },
+    table: { title: 'Название', link: 'Ссылка' },
+    go: 'Перейти',
+    empty: 'В этой категории пока нет ссылок',
+  },
+  calendar: { title: 'Календарь', prev: 'Предыдущий месяц', next: 'Следующий месяц', today: 'Сегодня' },
+  sections: {
+    home: { title: 'Главная', body: 'Публичная главная страница для гостей. Используйте меню сверху для перехода по разделам.' },
+    teachers: { title: 'Преподавателям', body: 'Методические материалы, рекомендации и подборки для учебного процесса.' },
+    students: { title: 'Обучающимся', body: 'Поиск материалов, чтение онлайн и сохранение книг в личную полку после входа.' },
+    links: {
+      title: 'Полезные ссылки',
+      items: { catalog: 'Каталог библиотеки', rules: 'Правила пользования', support: 'Поддержка / Help desk' },
+    },
+    about: { title: 'О нас', body: 'Информация о библиотеке, сервисах и контактах.' },
+    resources: {
+      title: 'Ресурсы',
+      cards: {
+        guides: { title: 'Гайды', body: 'Как искать, цитировать и работать с источниками.' },
+        databases: { title: 'Базы данных', body: 'Рекомендованные внешние базы и коллекции.' },
+        citations: { title: 'Оформление', body: 'Стили цитирования и примеры оформления.' },
+        contacts: { title: 'Контакты', body: 'Как связаться с командой библиотеки.' },
+      },
+    },
+  },
+  side: { title: 'Быстрый доступ', body: 'После входа будут доступны кабинет, избранное и личная полка.' },
+  footer: {
+    left: '© Turan-Astana University',
+    about: 'О нас',
+    links: 'Ссылки',
+    contactsTitle: 'Контакты',
+    address: 'г. Астана, ул. Дукенулы 29',
+    hoursTitle: 'Часы работы',
+    hoursValue: 'Понедельник – Пятница: 09:00 – 18:00',
+    quickTitle: 'Быстрые ссылки',
+  },
+};
+
+dict.kk.publicHome = {
+  title: 'TAU Кітапханасы',
+  logoAlt: 'Университет логотипі',
+  brand: 'TAU Кітапханасы',
+  subtitle: 'Электронды кітапхана',
+  nav: {
+    home: 'Басты бет',
+    teachers: 'Оқытушыларға',
+    students: 'Білім алушыларға',
+    links: 'Пайдалы сілтемелер',
+    about: 'Біз туралы',
+    resources: 'Ресурстар',
+  },
+  actions: { login: 'Кіру', register: 'Тіркелу', loginSystem: 'Жүйеге кіру', cabinet: 'Жеке кабинетке кіру' },
+  a11y: { enable: 'Нашар көретіндерге', disable: 'Қалыпты нұсқа' },
+  common: {
+    go: 'Өту',
+    materials: 'Материалдар',
+    loading: 'Жүктелуде…',
+    error: 'Қате',
+    comingSoon: 'Материал кейінірек қосылады.',
+  },
+  hero: {
+    title: 'TAU электронды кітапханасына қош келдіңіз',
+    subtitle: 'Кітаптар каталогы мен пайдалы ресурстар. Жеке функцияларға қол жеткізу үшін кіріңіз.',
+    cta: 'Кіру',
+    learnMore: 'Ресурстарды көру',
+  },
+  about: {
+    intro: 'Кітапхана, қызметтер және байланыс туралы ақпарат.',
+    historyTitle: 'Тарихы',
+    missionTitle: 'Миссия',
+    catalogCta: 'Толық каталогқа қол жеткізу үшін кіріңіз.',
+  },
+  usefulLinks: {
+    categories: {
+      misc: 'Әртүрлі',
+      periodicals: 'Мерзімді басылымдар',
+      officialKz: 'Ресми Қазақстан',
+      eLibraries: 'Электронды кітапханалар',
+    },
+    table: { title: 'Атауы', link: 'Сілтеме' },
+    go: 'Өту',
+    empty: 'Бұл санатта әзірге сілтемелер жоқ',
+  },
+  calendar: { title: 'Күнтізбе', prev: 'Алдыңғы ай', next: 'Келесі ай', today: 'Бүгін' },
+  sections: {
+    home: { title: 'Басты бет', body: 'Қонақтарға арналған басты бет. Жоғарғы мәзір арқылы бөлімдерге өтіңіз.' },
+    teachers: { title: 'Оқытушыларға', body: 'Әдістемелік материалдар, ұсыныстар және оқу ресурстары.' },
+    students: { title: 'Білім алушыларға', body: 'Материалдарды іздеу, онлайн оқу және кіргеннен кейін кітаптарды сөреге сақтау.' },
+    links: {
+      title: 'Пайдалы сілтемелер',
+      items: { catalog: 'Кітапхана каталогы', rules: 'Пайдалану ережелері', support: 'Қолдау / Help desk' },
+    },
+    about: { title: 'Біз туралы', body: 'Кітапхана, қызметтер және байланыс туралы ақпарат.' },
+    resources: {
+      title: 'Ресурстар',
+      cards: {
+        guides: { title: 'Нұсқаулықтар', body: 'Іздеу, дәйексөз келтіру және дереккөздермен жұмыс.' },
+        databases: { title: 'Дерекқорлар', body: 'Ұсынылатын сыртқы дерекқорлар мен жинақтар.' },
+        citations: { title: 'Рәсімдеу', body: 'Дәйексөз стилдері және үлгілер.' },
+        contacts: { title: 'Байланыс', body: 'Кітапхана командасымен байланысу жолдары.' },
+      },
+    },
+  },
+  side: { title: 'Жылдам қол жеткізу', body: 'Кіргеннен кейін кабинет, таңдаулылар және жеке сөре қолжетімді болады.' },
+  footer: {
+    left: '© Turan-Astana University',
+    about: 'Біз туралы',
+    links: 'Сілтемелер',
+    contactsTitle: 'Байланыс',
+    address: 'Астана қ., Дукенұлы көш. 29',
+    hoursTitle: 'Жұмыс уақыты',
+    hoursValue: 'Дүйсенбі – Жұма: 09:00 – 18:00',
+    quickTitle: 'Жедел сілтемелер',
   },
 };

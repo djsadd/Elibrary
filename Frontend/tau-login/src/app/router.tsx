@@ -1,4 +1,4 @@
-import { createBrowserRouter, RouterProvider } from "react-router-dom";
+import { createBrowserRouter, RouterProvider, Navigate, useLocation } from "react-router-dom";
 import { useEffect } from "react";
 import type { ReactNode } from "react";
 import LoginPage from "../pages/auth/LoginPage";
@@ -21,6 +21,7 @@ import AdminLayout from "../pages/admin/AdminLayout";
 import AdminHome from "../pages/admin/AdminHome";
 import CreateBookPage from "../pages/admin/CreateBookPage";
 import CreatePlaylistPage from "../pages/admin/CreatePlaylistPage";
+import QuickArticlePage from "../pages/admin/QuickArticlePage";
 import BooksListPage from "../pages/admin/sections/BooksListPage";
 import PlaylistsListPage from "../pages/admin/sections/PlaylistsListPage";
 import EditBookPage from "../pages/admin/EditBookPage";
@@ -44,6 +45,41 @@ import AnalyticsOverviewPage from "../pages/analytics/sections/AnalyticsOverview
 import AnalyticsUsersPage from "../pages/analytics/sections/AnalyticsUsersPage";
 import AnalyticsTrafficPage from "../pages/analytics/sections/AnalyticsTrafficPage";
 import AnalyticsBooksPage from "../pages/analytics/sections/AnalyticsBooksPage";
+import PublicHomePage from "../pages/public/PublicHomePage";
+import AboutPage from "../pages/public/AboutPage";
+import UsefulLinksPage from "../pages/public/UsefulLinksPage";
+import PublicTeachersPage from "../pages/public/PublicTeachersPage";
+import PublicStudentsPage from "../pages/public/PublicStudentsPage";
+import PublicResourcesPage from "../pages/public/PublicResourcesPage";
+import PublicUsefulLinksPage from "../pages/public/PublicUsefulLinksPage";
+import CitationIndexPage from "../pages/public/teachers/CitationIndexPage";
+import GostPublicationsPage from "../pages/public/teachers/GostPublicationsPage";
+import AcquisitionRequestsPage from "../pages/public/teachers/AcquisitionRequestsPage";
+import DatabaseInstructionsPage from "../pages/public/students/DatabaseInstructionsPage";
+import BibliographicListPage from "../pages/public/students/BibliographicListPage";
+import UdcBbkPage from "../pages/public/students/UdcBbkPage";
+import LostBookPage from "../pages/public/students/LostBookPage";
+import DigitalCopiesPage from "../pages/public/students/DigitalCopiesPage";
+import ReadingRoomPage from "../pages/public/students/ReadingRoomPage";
+
+function readTokenFromStorage(): string | null {
+  if (typeof window === "undefined") return null;
+  try {
+    return localStorage.getItem("token") || sessionStorage.getItem("token");
+  } catch {
+    return null;
+  }
+}
+
+function RootGate() {
+  const token = readTokenFromStorage();
+  const loc = useLocation();
+  if (!token) {
+    if (loc.pathname === "/") return <PublicHomePage />;
+    return <Navigate to="/login" replace state={{ from: loc }} />;
+  }
+  return <AppLayout />;
+}
 
 function WithTitle({ title, children }: { title: string; children: ReactNode }) {
   useEffect(() => {
@@ -53,18 +89,34 @@ function WithTitle({ title, children }: { title: string; children: ReactNode }) 
 }
 
 const router = createBrowserRouter([
+  // Public landing (available for both anonymous and authenticated users)
+  { path: "/public", element: <PublicHomePage /> },
+  { path: "/public/teachers", element: <WithTitle title="Teachers - TAU"><PublicTeachersPage /></WithTitle> },
+  { path: "/public/teachers/citation-index", element: <WithTitle title="Индекс цитирования - TAU"><CitationIndexPage /></WithTitle> },
+  { path: "/public/teachers/gost-publications", element: <WithTitle title="ГОСТы на оформление научных публикаций - TAU"><GostPublicationsPage /></WithTitle> },
+  { path: "/public/teachers/acquisition-requests", element: <WithTitle title="Порядок подачи заявок - TAU"><AcquisitionRequestsPage /></WithTitle> },
+  { path: "/public/students", element: <WithTitle title="Students - TAU"><PublicStudentsPage /></WithTitle> },
+  { path: "/public/students/database-instructions", element: <WithTitle title="Инструкции по базам данных - TAU"><DatabaseInstructionsPage /></WithTitle> },
+  { path: "/public/students/bibliographic-list", element: <WithTitle title="Библиографический список - TAU"><BibliographicListPage /></WithTitle> },
+  { path: "/public/students/udc-bbk", element: <WithTitle title="Индекс УДК/ББК - TAU"><UdcBbkPage /></WithTitle> },
+  { path: "/public/students/lost-book", element: <WithTitle title="Утрата книги - TAU"><LostBookPage /></WithTitle> },
+  { path: "/public/students/digital-copies", element: <WithTitle title="Цифровые копии - TAU"><DigitalCopiesPage /></WithTitle> },
+  { path: "/public/students/reading-room", element: <WithTitle title="Читальный зал - TAU"><ReadingRoomPage /></WithTitle> },
+  { path: "/public/resources", element: <WithTitle title="Resources - TAU"><PublicResourcesPage /></WithTitle> },
+  { path: "/public/links/:category", element: <WithTitle title="Useful Links - TAU"><PublicUsefulLinksPage /></WithTitle> },
+  { path: "/public/links", element: <WithTitle title="Useful Links - TAU"><PublicUsefulLinksPage /></WithTitle> },
+  { path: "/public/about", element: <WithTitle title="About - TAU"><AboutPage /></WithTitle> },
   { path: "/login", element: <PublicRouteSync><WithTitle title="Login - TAU"><LoginPage /></WithTitle></PublicRouteSync> },
   { path: "/auth/login", element: <PublicRouteSync><WithTitle title="Login - TAU"><LoginPage /></WithTitle></PublicRouteSync> },
   { path: "/auth/register", element: <PublicRouteSync><WithTitle title="Register - TAU"><RegisterPage /></WithTitle></PublicRouteSync> },
   { path: "/auth/forgot", element: <PublicRouteSync><WithTitle title="Forgot Password - TAU"><ForgotPasswordPage /></WithTitle></PublicRouteSync> },
+  { path: "/about", element: <WithTitle title="About - TAU"><AboutPage /></WithTitle> },
+  { path: "/links/:category", element: <WithTitle title="Useful Links - TAU"><UsefulLinksPage /></WithTitle> },
+  { path: "/links", element: <WithTitle title="Useful Links - TAU"><UsefulLinksPage /></WithTitle> },
   { path: "*", element: <WithTitle title="404 - TAU"><NotFoundPage /></WithTitle> },
   {
     path: "/",
-    element: (
-      <ProtectedRouteSync>
-        <AppLayout />
-      </ProtectedRouteSync>
-    ),
+    element: <RootGate />,
       children: [
       { index: true, element: <WithTitle title="Dashboard - TAU"><DashboardPage /></WithTitle> },
       { path: "profile", element: <WithTitle title="Profile - TAU"><ProfilePage /></WithTitle> },
@@ -102,6 +154,7 @@ const router = createBrowserRouter([
             { index: true, element: <WithTitle title="Admin Home - TAU"><AdminHome /></WithTitle> },
             { path: "books", element: <WithTitle title="Admin Books - TAU"><BooksListPage /></WithTitle> },
             { path: "books/new", element: <WithTitle title="Add Book - TAU"><CreateBookPage /></WithTitle> },
+            { path: "articles/quick", element: <WithTitle title="Quick Article - TAU"><QuickArticlePage /></WithTitle> },
             { path: "books/:id", element: <WithTitle title="Book Details - TAU"><AdminBookDetailPage /></WithTitle> },
             { path: "books/:id/edit", element: <WithTitle title="Edit Book - TAU"><EditBookPage /></WithTitle> },
             { path: "playlists", element: <WithTitle title="Admin Playlists - TAU"><PlaylistsListPage /></WithTitle> },
