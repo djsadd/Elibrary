@@ -61,7 +61,7 @@ def download_book(book_id: int, db: Session = Depends(get_db)):
 
 @router.get(
     "/books/{book_id}/stream",
-    dependencies=[Depends(require_roles("librarian", "admin", "student"))],
+    dependencies=[Depends(require_roles("librarian", "admin", "student", "teacher"))],
 )
 def stream_book(book_id: int, db: Session = Depends(get_db)):
     book = db.get(Book, book_id)
