@@ -5,6 +5,7 @@ import { t } from "@/shared/i18n";
 import { api } from "@/shared/api/client";
 import { suggestBooks, type SuggestItem } from "@/shared/api/search";
 import { namesFrom } from "@/shared/ui/text";
+import LanguageSwitcher from "@/components/common/LanguageSwitcher";
 
 type FilterId = "all" | "books" | "ebooks" | "audio" | "articles";
 const FILTER_TO_FORMAT: Record<FilterId, string | null> = {
@@ -437,6 +438,7 @@ export default function DashboardHeader() {
 
       {/* right: time, date, user */}
       <div className="flex items-center gap-3">
+        <LanguageSwitcher />
         <div ref={notifRef} className="relative">
           <Capsule>
             {/* Notifications bell */}
@@ -504,6 +506,7 @@ export function MobileDashboardHeader() {
     <div className="sm:hidden px-4 pt-3 pb-2 border-b">
       <div className="flex items-center justify-between gap-3">
         <div className="text-sm font-semibold text-slate-800">TAU</div>
+        <LanguageSwitcher className="ml-auto" />
       </div>
     </div>
   );

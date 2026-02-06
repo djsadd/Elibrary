@@ -47,7 +47,12 @@ export default function LanguageSwitcher({
         <path d="M3 12h18" strokeLinecap="round" />
         <path d="M12 3c2.8 2.9 4.2 6 4.2 9S14.8 18.1 12 21c-2.8-2.9-4.2-6-4.2-9S9.2 5.9 12 3Z" />
       </svg>
-      <select value={currentLang} onChange={handleChange} className={`${selectClassName} public-lang-select`} aria-label="Select language">
+      <select
+        value={currentLang}
+        onChange={handleChange}
+        className={`${selectClassName} public-lang-select`}
+        aria-label="Select language"
+      >
         {LANGS.map((lang) => (
           <option key={lang.code} value={lang.code}>
             {lang.label}
