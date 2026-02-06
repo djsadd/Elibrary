@@ -28,7 +28,7 @@ export default function Sidebar() {
   const isAdmin = roles.some((r) => /^(admin|librarian)$/i.test(String(r)));
 
   const items = [
-    { to: "/public", label: "Домой", icon: HomeIcon },
+    { to: "/public", label: "Домой", icon: GlobeIcon },
     { to: "/", label: t("nav.home"), icon: HomeIcon },
     { to: "/catalog", label: t("nav.catalog"), icon: CatalogIcon },
     { to: "/shelf", label: t("nav.shelf"), icon: ShelfIcon },
@@ -112,6 +112,16 @@ function HomeIcon({ className = "", ...props }: any) {
       fill="currentColor"
     >
       <path d="M3 12l9-9 9 9v8a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1v-8z" />
+    </svg>
+  );
+}
+
+function GlobeIcon({ className = "", ...props }: any) {
+  return (
+    <svg {...props} className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M3 12h18" strokeLinecap="round" />
+      <path d="M12 3c2.8 2.9 4.2 6 4.2 9S14.8 18.1 12 21c-2.8-2.9-4.2-6-4.2-9S9.2 5.9 12 3Z" />
     </svg>
   );
 }
