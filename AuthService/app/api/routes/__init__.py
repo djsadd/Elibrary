@@ -954,7 +954,10 @@ def update_profile(req: UpdateProfileRequest, user: AuthUser = Depends(get_curre
     if not u:
         raise HTTPException(404, "User not found")
 
+    # IIN is an immutable identifier and must never be updated via profile edits.
     for field, value in req.dict(exclude_unset=True).items():
+        if field == "iin":
+            continue
         setattr(u, field, value)
 
     db.commit()
@@ -972,7 +975,6 @@ def get_profile(user: AuthUser = Depends(get_current_user), db: Session = Depend
     return {
         "id": u.id,
         "email": u.email,
-        "iin": u.iin,
         "first_name": u.first_name,
         "last_name": u.last_name,
         "phone": u.phone,

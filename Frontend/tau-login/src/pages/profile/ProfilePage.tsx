@@ -71,7 +71,6 @@ type EditProfile = {
   first_name: string;
   last_name: string;
   phone: string;
-  iin: string;
   institution: string;
   faculty: string;
   group_name: string;
@@ -108,7 +107,6 @@ export default function ProfilePage() {
     first_name: "",
     last_name: "",
     phone: "",
-    iin: "",
     institution: "",
     faculty: "",
     group_name: "",
@@ -140,7 +138,6 @@ export default function ProfilePage() {
           first_name: String(p?.first_name ?? ""),
           last_name: String(p?.last_name ?? ""),
           phone: String(p?.phone ?? ""),
-          iin: String(p?.iin ?? ""),
           institution: String(p?.institution ?? ""),
           faculty: String(p?.faculty ?? ""),
           group_name: String(p?.group_name ?? ""),
@@ -392,10 +389,6 @@ export default function ProfilePage() {
                       <input value={edit.phone} onChange={(e) => setEdit({ ...edit, phone: e.target.value })} className="w-full border rounded-md px-3 py-2" />
                     </div>
                     <div>
-                      <label className="block text-sm text-slate-600 mb-1">{t("profile.account.iin")}</label>
-                      <input value={edit.iin} onChange={(e) => setEdit({ ...edit, iin: e.target.value })} className="w-full border rounded-md px-3 py-2" />
-                    </div>
-                    <div>
                       <label className="block text-sm text-slate-600 mb-1">{t("profile.account.role")}</label>
                       <input value={String(profile?.role || "")} readOnly className="w-full border rounded-md px-3 py-2 bg-slate-50 text-slate-600" />
                     </div>
@@ -450,7 +443,6 @@ export default function ProfilePage() {
                               first_name: edit.first_name || undefined,
                               last_name: edit.last_name || undefined,
                               phone: edit.phone || undefined,
-                              iin: edit.iin || undefined,
                               avatar_url: edit.avatar_url || undefined,
                               institution: edit.institution || undefined,
                               faculty: edit.faculty || undefined,
@@ -473,7 +465,6 @@ export default function ProfilePage() {
                           first_name: String(profile?.first_name ?? ""),
                           last_name: String(profile?.last_name ?? ""),
                           phone: String(profile?.phone ?? ""),
-                          iin: String(profile?.iin ?? ""),
                           institution: String(profile?.institution ?? ""),
                           faculty: String(profile?.faculty ?? ""),
                           group_name: String(profile?.group_name ?? ""),
