@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import re
+
 import httpx
 
 from app.core.config import settings
@@ -16,36 +18,63 @@ def openai_enabled() -> bool:
 
 def _student_label(profile: StudentProfile | None) -> str:
     if not profile:
-        return "student"
+        return "студенту"
 
-    parts = [
-        " ".join(x for x in [profile.first_name, profile.last_name] if x),
-        profile.role,
-        profile.faculty,
-        profile.group_name,
-        profile.institution,
-    ]
-    return ", ".join(part.strip() for part in parts if part and str(part).strip()) or "student"
+    full_name = " ".join(x for x in [profile.first_name, profile.last_name] if x).strip()
+    if full_name:
+        return full_name
+    return "студенту"
+
+
+def _clean_text(value: str | None) -> str:
+    text = str(value or "").replace("\r", " ").replace("\n", " ")
+    text = re.sub(r"\s+", " ", text).strip()
+    text = re.sub(r"\bстр\.\s*\d+\b", "", text, flags=re.IGNORECASE).strip()
+    return text
+
+
+def _snippet_preview(value: str | None, max_len: int = 260) -> str:
+    text = _clean_text(value)
+    if not text:
+        return ""
+
+    sentence_match = re.search(rf"^(.{{1,{max_len}}}[.!?])(?:\s|$)", text)
+    if sentence_match:
+        return sentence_match.group(1).strip()
+
+    if len(text) <= max_len:
+        return text
+
+    cut = text[:max_len]
+    last_space = cut.rfind(" ")
+    if last_space > 80:
+        cut = cut[:last_space]
+    return cut.rstrip(" ,;:-") + "..."
 
 
 def fallback_explanation(book: BookDoc, student_query: str | None, student_profile: StudentProfile | None) -> str:
     reasons: list[str] = []
 
-    if student_query:
-        reasons.append(f"Запрос студента связан с темой: {student_query.strip()}.")
+    if student_query and student_query.strip():
+        reasons.append(f"запрос студента связан с темой «{student_query.strip()}».")
     if book.subjects:
-        reasons.append(f"Книга покрывает направления: {', '.join(book.subjects[:4])}.")
+        reasons.append(f"книга раскрывает темы: {', '.join(book.subjects[:4])}.")
     if book.summary:
-        reasons.append(f"По описанию она полезна тем, что {book.summary.strip()[:220].rstrip(' .,;:')}.".strip())
+        preview = _snippet_preview(book.summary)
+        if preview:
+            reasons.append(f"Во фрагменте книги затрагивается следующее: {preview}")
     if book.authors:
-        reasons.append(f"Авторский фокус: {', '.join(book.authors[:2])}.")
+        reasons.append(f"Авторы книги: {', '.join(book.authors[:2])}.")
     if book.year:
-        reasons.append(f"Издание {book.year} года может быть актуально для учебной работы.")
+        reasons.append(f"Издание {book.year} года может быть полезно для учебной работы.")
 
-    intro = f"Эта книга может подойти именно {_student_label(student_profile)}"
+    intro = f"Эта книга может подойти именно {_student_label(student_profile)}, потому что"
     if reasons:
-        return f"{intro}, потому что " + " ".join(reasons)
-    return f"{intro}, потому что её тема и содержание совпадают с учебным интересом и задачами поиска."
+        return f"{intro} " + " ".join(reasons)
+    return (
+        f"Эта книга может подойти именно {_student_label(student_profile)}, "
+        "потому что тема и содержание книги совпадают с учебным интересом и задачами поиска."
+    )
 
 
 def _build_prompt(book: BookDoc, student_query: str | None, student_profile: StudentProfile | None) -> str:
@@ -63,22 +92,20 @@ def _build_prompt(book: BookDoc, student_query: str | None, student_profile: Stu
 
     subjects = ", ".join(book.subjects) if book.subjects else "не указаны"
     authors = ", ".join(book.authors) if book.authors else "не указаны"
-    summary = book.summary or "нет описания"
+    summary = _clean_text(book.summary) or "нет описания"
     query = student_query or "не указан"
 
     return (
         "Ты библиотечный AI-ассистент университета. "
-        "Твоя задача — кратко объяснить студенту, почему именно эта книга может быть ему полезна.\n\n"
-
+        "Твоя задача - кратко объяснить студенту, почему именно эта книга может быть ему полезна.\n\n"
         "Правила ответа:\n"
         "- Пиши на русском языке.\n"
-        "- Длина ответа: 2–4 предложения.\n"
+        "- Длина ответа: 2-4 предложения.\n"
         "- Не используй markdown, списки и служебные пояснения.\n"
         "- Не пересказывай книгу подробно.\n"
         "- Не выдумывай факты о студенте.\n"
         "- Обязательно свяжи запрос студента, его профиль (если указан) и тему книги.\n"
         "- Если информации мало, честно укажи, что книга подходит по теме запроса.\n\n"
-
         "Данные:\n"
         f"Запрос студента: {query}\n"
         f"Профиль студента: {'; '.join(profile_bits) if profile_bits else 'не указан'}\n"
@@ -88,7 +115,6 @@ def _build_prompt(book: BookDoc, student_query: str | None, student_profile: Stu
         f"Год: {book.year or 'не указан'}\n"
         f"Язык: {book.lang or 'не указан'}\n"
         f"Описание книги: {summary}\n\n"
-
         "Пример хорошего ответа:\n"
         "Эта книга может быть полезна студенту, так как его запрос связан с философией. "
         "В ней рассматривается происхождение философии и ее место в культуре, что помогает понять основные идеи этой дисциплины. "
