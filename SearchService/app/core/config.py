@@ -24,7 +24,7 @@ class Settings(BaseSettings):
 
     OPENAI_API_KEY: str = ""
     OPENAI_SECRET_KEY: str = ""
-    OPENAI_MODEL: str = "gpt-4o-mini"
+    OPENAI_MODEL: str = "gpt-5.2"
     OPENAI_TIMEOUT_S: float = 20.0
 
 
