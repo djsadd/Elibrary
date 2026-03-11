@@ -169,17 +169,23 @@ async def suggest(
 
 @router.post("/search/book-recommendation-explanation", response_model=BookRecommendationExplanationResponse)
 @router.post("/api/search/book-recommendation-explanation", response_model=BookRecommendationExplanationResponse)
-async def book_recommendation_explanation(payload: BookRecommendationExplanationRequest):
+async def book_recommendation_explanation(request: Request, payload: BookRecommendationExplanationRequest):
+    ui_language = None
+    try:
+        ui_language = (request.headers.get("x-ui-lang") or request.headers.get("accept-language") or "").split(",")[0].strip()
+    except Exception:
+        ui_language = None
     try:
         explanation, model, source = await generate_book_explanation(
             book=payload.book,
             student_query=payload.student_query,
             student_profile=payload.student_profile,
+            ui_language=ui_language,
         )
         return BookRecommendationExplanationResponse(explanation=explanation, model=model, source=source)
     except Exception:
         return BookRecommendationExplanationResponse(
-            explanation=fallback_explanation(payload.book, payload.student_query, payload.student_profile),
+            explanation=fallback_explanation(payload.book, payload.student_query, payload.student_profile, ui_language),
             model=settings.OPENAI_MODEL or None,
             source="fallback",
         )
