@@ -1,5 +1,4 @@
 import DashboardHeader from "@/components/layout/DashboardHeader";
-import LanguageSwitcher from "@/components/common/LanguageSwitcher";
 import placeholder from "@/assets/images/Image.png";
 import { getLang } from "@/shared/i18n";
 import { api } from "@/shared/api/client";
@@ -424,9 +423,6 @@ export default function IntelligentSearchPage() {
                   <span className="inline-flex items-center rounded-full border border-rose-200 bg-white/80 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.24em] text-[#7b0f2b]">
                     {copy.badge}
                   </span>
-                  <span className="inline-flex items-center rounded-full border border-white/80 bg-white/70 px-3 py-1 text-xs font-medium text-slate-600">
-                    {copy.labels.languageBadge}
-                  </span>
                 </div>
                 <h1 className="max-w-2xl text-3xl font-semibold leading-tight text-slate-950 sm:text-4xl">
                   {copy.title}
@@ -434,11 +430,6 @@ export default function IntelligentSearchPage() {
                 <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-600 sm:text-base">
                   {copy.subtitle}
                 </p>
-                <p className="mt-3 text-sm font-medium text-slate-700">{copy.helper}</p>
-              </div>
-
-              <div className="rounded-3xl border border-white/80 bg-white/75 p-4 shadow-sm backdrop-blur">
-                <LanguageSwitcher />
               </div>
             </div>
 
