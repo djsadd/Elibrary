@@ -65,3 +65,24 @@ class SuggestItem(BaseModel):
 class SuggestResponse(BaseModel):
     q: str
     items: list[SuggestItem]
+
+
+class StudentProfile(BaseModel):
+    first_name: str | None = None
+    last_name: str | None = None
+    role: str | None = None
+    faculty: str | None = None
+    group_name: str | None = None
+    institution: str | None = None
+
+
+class BookRecommendationExplanationRequest(BaseModel):
+    book: BookDoc
+    student_query: str | None = None
+    student_profile: StudentProfile | None = None
+
+
+class BookRecommendationExplanationResponse(BaseModel):
+    explanation: str
+    model: str | None = None
+    source: str = "fallback"

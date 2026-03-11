@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import DashboardHeader from "@/components/layout/DashboardHeader";
 import { t } from "@/shared/i18n";
 import { api } from "@/shared/api/client";
+import { getBookRecommendationExplanation, type StudentProfile } from "@/shared/api/search";
 import placeholder from "@/assets/images/Image.png";
 import { namesFrom } from "@/shared/ui/text";
 
@@ -23,6 +24,11 @@ type Book = {
 
 type Review = { id: string; rating: number; text: string; author?: string; created_at: string };
 
+type AuthProfile = StudentProfile & {
+  id: number;
+  email?: string | null;
+};
+
 function getApiBase(): string {
   const raw = import.meta.env.VITE_API_URL as string | undefined;
   if (raw && /^https?:\/\//i.test(raw)) return raw.replace(/\/$/, "");
@@ -32,6 +38,7 @@ function getApiBase(): string {
 export default function CatalogDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [book, setBook] = useState<Book | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -40,6 +47,9 @@ export default function CatalogDetailPage() {
   const [related, setRelated] = useState<Book[]>([]);
   const [relatedLoading, setRelatedLoading] = useState(false);
   const [relatedError, setRelatedError] = useState<string | null>(null);
+  const [llmExplanation, setLlmExplanation] = useState<string | null>(null);
+  const [llmLoading, setLlmLoading] = useState(false);
+  const [llmError, setLlmError] = useState<string | null>(null);
 
   const [readingCount, setReadingCount] = useState<{ currently_reading: number; have_read: number }>({
     currently_reading: 0,
@@ -50,6 +60,8 @@ export default function CatalogDetailPage() {
   const [reviewText, setReviewText] = useState<string>("");
 
   const BASE = getApiBase();
+  const openedFromVectorSearch = searchParams.get("from") === "vector-search";
+  const vectorSearchQuery = (searchParams.get("q") || "").trim();
 
   function humanizeFormat(val?: string | null): string {
     const v = String(val || "").toUpperCase();
@@ -90,6 +102,74 @@ export default function CatalogDetailPage() {
       cancelled = true;
     };
   }, [id]);
+
+  useEffect(() => {
+    if (!book || !openedFromVectorSearch) {
+      setLlmExplanation(null);
+      setLlmError(null);
+      setLlmLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+    const controller = new AbortController();
+
+    (async () => {
+      try {
+        setLlmLoading(true);
+        setLlmError(null);
+
+        let profile: AuthProfile | null = null;
+        try {
+          profile = await api<AuthProfile>("/api/auth/profile", { signal: controller.signal });
+        } catch {}
+
+        const result = await getBookRecommendationExplanation(
+          {
+            book: {
+              id: Number(book.id),
+              title: book.title,
+              authors: namesFrom(book.authors),
+              subjects: namesFrom(book.subjects),
+              lang: book.lang || null,
+              year: book.year || null,
+              summary: book.summary || null,
+              cover: book.cover || null,
+              popularity: 0,
+            },
+            student_query: vectorSearchQuery || undefined,
+            student_profile: profile
+              ? {
+                  first_name: profile.first_name || null,
+                  last_name: profile.last_name || null,
+                  role: profile.role || null,
+                  faculty: profile.faculty || null,
+                  group_name: profile.group_name || null,
+                  institution: profile.institution || null,
+                }
+              : null,
+          },
+          { signal: controller.signal }
+        );
+
+        if (!cancelled) {
+          setLlmExplanation(result.explanation || null);
+        }
+      } catch (e: any) {
+        if (!cancelled) {
+          setLlmError(e?.message || String(e));
+          setLlmExplanation(null);
+        }
+      } finally {
+        if (!cancelled) setLlmLoading(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
+  }, [book, openedFromVectorSearch, vectorSearchQuery]);
 
   useEffect(() => {
     if (!id) return;
@@ -371,6 +451,33 @@ export default function CatalogDetailPage() {
                 <div className="text-slate-600">{book.year ?? ""}</div>
               )}
               <div className="text-xs text-slate-500">{t("catalog.secondEdition")}</div>
+
+              {openedFromVectorSearch ? (
+                <div className="mt-4 rounded-2xl border border-[#7b0f2b]/15 bg-gradient-to-br from-rose-50 via-white to-amber-50 p-4 shadow-sm">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <div className="text-xs font-semibold uppercase tracking-[0.2em] text-[#7b0f2b]">
+                        AI Match
+                      </div>
+                      <div className="mt-1 text-sm font-medium text-slate-800">
+                        Почему эта книга подходит именно вам
+                      </div>
+                    </div>
+                    <span className="rounded-full bg-white px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-slate-500 border border-slate-200">
+                      Vector Search
+                    </span>
+                  </div>
+                  {vectorSearchQuery ? (
+                    <div className="mt-3 text-xs text-slate-500">
+                      По вашему запросу: <span className="font-medium text-slate-700">{vectorSearchQuery}</span>
+                    </div>
+                  ) : null}
+                  <div className="mt-3 text-sm leading-6 text-slate-700">
+                    {llmLoading ? "Подбираем персональное объяснение..." : llmExplanation || "Объяснение пока недоступно."}
+                  </div>
+                  {llmError ? <div className="mt-2 text-xs text-amber-700">AI временно недоступен: {llmError}</div> : null}
+                </div>
+              ) : null}
 
               {/* Ratings and counters */}
               <div className="flex flex-wrap items-center gap-4 text-sm text-slate-600 mt-2">

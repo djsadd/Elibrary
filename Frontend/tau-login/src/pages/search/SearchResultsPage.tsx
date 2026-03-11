@@ -166,7 +166,7 @@ export default function SearchResultsPage() {
           ? Array.from({ length: 12 }).map((_, idx) => <SkeletonCard key={`sk-${idx}`} />)
           : items.map((book) => (
               <Link
-                to={`/catalog/${book.id}`}
+                to={`/catalog/${book.id}?from=vector-search&q=${encodeURIComponent(q)}`}
                 key={String(book.id)}
                 className="group relative block bg-white border border-gray-100 rounded-lg p-2 sm:p-3 text-center shadow-sm hover:shadow-md transition-shadow"
               >

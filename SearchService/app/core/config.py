@@ -22,6 +22,10 @@ class Settings(BaseSettings):
     SUGGEST_DEFAULT_LIMIT: int = 10
     SUGGEST_MAX_LIMIT: int = 20
 
+    OPENAI_API_KEY: str = ""
+    OPENAI_SECRET_KEY: str = ""
+    OPENAI_MODEL: str = "gpt-4o-mini"
+    OPENAI_TIMEOUT_S: float = 20.0
+
 
 settings = Settings()
-

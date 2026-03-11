@@ -34,6 +34,27 @@ export type SuggestResponse = {
   items: SuggestItem[];
 };
 
+export type StudentProfile = {
+  first_name?: string | null;
+  last_name?: string | null;
+  role?: string | null;
+  faculty?: string | null;
+  group_name?: string | null;
+  institution?: string | null;
+};
+
+export type BookRecommendationExplanationRequest = {
+  book: SearchBook;
+  student_query?: string | null;
+  student_profile?: StudentProfile | null;
+};
+
+export type BookRecommendationExplanationResponse = {
+  explanation: string;
+  model?: string | null;
+  source: "openai" | "fallback" | string;
+};
+
 export async function searchBooks(
   q: string,
   opts: { lang?: string; year?: string; limit?: number; offset?: number; signal?: AbortSignal } = {}
@@ -58,3 +79,13 @@ export async function suggestBooks(
   return api<SuggestResponse>(`/api/search/suggest?${params.toString()}`, { signal: opts.signal });
 }
 
+export async function getBookRecommendationExplanation(
+  payload: BookRecommendationExplanationRequest,
+  opts: { signal?: AbortSignal } = {}
+): Promise<BookRecommendationExplanationResponse> {
+  return api<BookRecommendationExplanationResponse>("/api/search/book-recommendation-explanation", {
+    method: "POST",
+    body: JSON.stringify(payload),
+    signal: opts.signal,
+  });
+}

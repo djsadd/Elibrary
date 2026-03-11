@@ -6,9 +6,17 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from app.core.config import settings
 from app.core.es import create_es
 from app.core.security import require_admin_token
-from app.schemas.books import BookDoc, SearchResponse, SuggestItem, SuggestResponse
+from app.schemas.books import (
+    BookDoc,
+    BookRecommendationExplanationRequest,
+    BookRecommendationExplanationResponse,
+    SearchResponse,
+    SuggestItem,
+    SuggestResponse,
+)
 from app.services.books_index import book_to_es_doc, books_index_body, clamp_limit, es_books_index
 from app.services.catalog_client import fetch_books_batch, fetch_books_page
+from app.services.llm import fallback_explanation, generate_book_explanation
 
 router = APIRouter(tags=["search"])
 
@@ -157,6 +165,24 @@ async def suggest(
         raise HTTPException(status_code=503, detail="Search index not initialized")
     finally:
         await es.close()
+
+
+@router.post("/search/book-recommendation-explanation", response_model=BookRecommendationExplanationResponse)
+@router.post("/api/search/book-recommendation-explanation", response_model=BookRecommendationExplanationResponse)
+async def book_recommendation_explanation(payload: BookRecommendationExplanationRequest):
+    try:
+        explanation, model, source = await generate_book_explanation(
+            book=payload.book,
+            student_query=payload.student_query,
+            student_profile=payload.student_profile,
+        )
+        return BookRecommendationExplanationResponse(explanation=explanation, model=model, source=source)
+    except Exception:
+        return BookRecommendationExplanationResponse(
+            explanation=fallback_explanation(payload.book, payload.student_query, payload.student_profile),
+            model=settings.OPENAI_MODEL or None,
+            source="fallback",
+        )
 
 
 @router.post("/admin/init_index", dependencies=[Depends(require_admin_token)])
