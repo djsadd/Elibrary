@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import json
 import re
+from collections.abc import AsyncIterator
 
 import httpx
 
@@ -159,6 +161,13 @@ def _configured_api_key() -> str:
     return (settings.OPENAI_API_KEY or settings.OPENAI_SECRET_KEY or "").strip()
 
 
+def _headers() -> dict[str, str]:
+    return {
+        "Authorization": f"Bearer {_configured_api_key()}",
+        "Content-Type": "application/json",
+    }
+
+
 def openai_enabled() -> bool:
     return bool(_configured_api_key())
 
@@ -271,6 +280,94 @@ def _build_prompt(
     )
 
 
+def _chunk_text(text: str, chunk_size: int = 24) -> list[str]:
+    words = text.split()
+    if not words:
+        return []
+    chunks: list[str] = []
+    current = ""
+    for word in words:
+        candidate = f"{current} {word}".strip()
+        if current and len(candidate) > chunk_size:
+            chunks.append(f"{current} ")
+            current = word
+        else:
+            current = candidate
+    if current:
+        chunks.append(current)
+    return chunks
+
+
+def _extract_stream_delta(payload: dict) -> str:
+    if isinstance(payload.get("delta"), str):
+        return payload["delta"]
+    item = payload.get("item")
+    if isinstance(item, dict) and isinstance(item.get("delta"), str):
+        return item["delta"]
+    output = payload.get("output")
+    if isinstance(output, list):
+        for part in output:
+            if isinstance(part, dict) and isinstance(part.get("delta"), str):
+                return part["delta"]
+    return ""
+
+
+async def stream_book_explanation(
+    *,
+    book: BookDoc,
+    student_query: str | None,
+    student_profile: StudentProfile | None,
+    ui_language: UiLang | None = None,
+) -> AsyncIterator[str]:
+    api_key = _configured_api_key()
+    if not api_key:
+        for chunk in _chunk_text(fallback_explanation(book, student_query, student_profile, ui_language)):
+            yield chunk
+        return
+
+    payload = {
+        "model": settings.OPENAI_MODEL,
+        "input": _build_prompt(book, student_query, student_profile, ui_language),
+        "stream": True,
+    }
+
+    accumulated: list[str] = []
+    yielded = False
+
+    try:
+        async with httpx.AsyncClient(timeout=settings.OPENAI_TIMEOUT_S) as client:
+            async with client.stream("POST", "https://api.openai.com/v1/responses", headers=_headers(), json=payload) as response:
+                response.raise_for_status()
+                async for line in response.aiter_lines():
+                    if not line or not line.startswith("data:"):
+                        continue
+                    data = line[5:].strip()
+                    if not data or data == "[DONE]":
+                        continue
+                    try:
+                        event = json.loads(data)
+                    except json.JSONDecodeError:
+                        continue
+                    delta = _extract_stream_delta(event)
+                    if delta:
+                        accumulated.append(delta)
+                        yielded = True
+                        yield delta
+        if yielded:
+            return
+    except Exception:
+        pass
+
+    explanation, _, _ = await generate_book_explanation(
+        book=book,
+        student_query=student_query,
+        student_profile=student_profile,
+        ui_language=ui_language,
+    )
+    for chunk in _chunk_text(explanation):
+        yield chunk
+
+
 async def generate_book_explanation(
     *,
     book: BookDoc,
@@ -282,17 +379,13 @@ async def generate_book_explanation(
     if not api_key:
         return fallback_explanation(book, student_query, student_profile, ui_language), None, "fallback"
 
-    headers = {
-        "Authorization": f"Bearer {api_key}",
-        "Content-Type": "application/json",
-    }
     payload = {
         "model": settings.OPENAI_MODEL,
         "input": _build_prompt(book, student_query, student_profile, ui_language),
     }
 
     async with httpx.AsyncClient(timeout=settings.OPENAI_TIMEOUT_S) as client:
-        response = await client.post("https://api.openai.com/v1/responses", headers=headers, json=payload)
+        response = await client.post("https://api.openai.com/v1/responses", headers=_headers(), json=payload)
         response.raise_for_status()
         data = response.json()
 

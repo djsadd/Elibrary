@@ -3,7 +3,7 @@ import LanguageSwitcher from "@/components/common/LanguageSwitcher";
 import placeholder from "@/assets/images/Image.png";
 import { getLang } from "@/shared/i18n";
 import { api } from "@/shared/api/client";
-import { getBookRecommendationExplanation, type StudentProfile } from "@/shared/api/search";
+import type { StudentProfile } from "@/shared/api/search";
 import { useEffect, useState, type KeyboardEvent } from "react";
 
 const API_BASE =
@@ -348,29 +348,59 @@ export default function IntelligentSearchPage() {
         profile = await api<AuthProfile>("/api/auth/profile");
       } catch {}
 
-      const result = await getBookRecommendationExplanation({
-        book: {
-          id: 0,
-          title: v.title ?? "",
-          authors: [],
-          subjects: [],
-          summary: v.text_snippet ?? "",
-          popularity: 0,
-        },
-        student_query: query.trim() || undefined,
-        student_profile: profile
-          ? {
-              first_name: profile.first_name || null,
-              last_name: profile.last_name || null,
-              role: profile.role || null,
-              faculty: profile.faculty || null,
-              group_name: profile.group_name || null,
-              institution: profile.institution || null,
-            }
-          : null,
+      const token = localStorage.getItem("token") || sessionStorage.getItem("token");
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+        "X-UI-Lang": lang,
+      };
+      if (token) {
+        headers.Authorization = `Bearer ${token}`;
+      }
+
+      const resp = await fetch(`${API_BASE}/api/search/book-recommendation-explanation/stream`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          book: {
+            id: 0,
+            title: v.title ?? "",
+            authors: [],
+            subjects: [],
+            summary: v.text_snippet ?? "",
+            popularity: 0,
+          },
+          student_query: query.trim() || undefined,
+          student_profile: profile
+            ? {
+                first_name: profile.first_name || null,
+                last_name: profile.last_name || null,
+                role: profile.role || null,
+                faculty: profile.faculty || null,
+                group_name: profile.group_name || null,
+                institution: profile.institution || null,
+              }
+            : null,
+        }),
       });
 
-      setVectorExplanation(result.explanation || "");
+      if (!resp.ok) {
+        throw new Error(await resp.text());
+      }
+
+      const reader = resp.body?.getReader();
+      if (!reader) {
+        setVectorExplanation(await resp.text());
+        return;
+      }
+
+      const decoder = new TextDecoder("utf-8");
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        if (value) {
+          setVectorExplanation((prev) => prev + decoder.decode(value, { stream: true }));
+        }
+      }
     } catch (error: unknown) {
       console.log("[IntelligentSearch] generate_llm_context failed:", error);
     } finally {

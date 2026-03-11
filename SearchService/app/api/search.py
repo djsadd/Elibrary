@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from elasticsearch import NotFoundError
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi.responses import StreamingResponse
 
 from app.core.config import settings
 from app.core.es import create_es
@@ -16,7 +17,7 @@ from app.schemas.books import (
 )
 from app.services.books_index import book_to_es_doc, books_index_body, clamp_limit, es_books_index
 from app.services.catalog_client import fetch_books_batch, fetch_books_page
-from app.services.llm import fallback_explanation, generate_book_explanation
+from app.services.llm import fallback_explanation, generate_book_explanation, stream_book_explanation
 
 router = APIRouter(tags=["search"])
 
@@ -189,6 +190,27 @@ async def book_recommendation_explanation(request: Request, payload: BookRecomme
             model=settings.OPENAI_MODEL or None,
             source="fallback",
         )
+
+
+@router.post("/search/book-recommendation-explanation/stream")
+@router.post("/api/search/book-recommendation-explanation/stream")
+async def book_recommendation_explanation_stream(request: Request, payload: BookRecommendationExplanationRequest):
+    ui_language = None
+    try:
+        ui_language = (request.headers.get("x-ui-lang") or request.headers.get("accept-language") or "").split(",")[0].strip()
+    except Exception:
+        ui_language = None
+
+    async def _iter():
+        async for chunk in stream_book_explanation(
+            book=payload.book,
+            student_query=payload.student_query,
+            student_profile=payload.student_profile,
+            ui_language=ui_language,
+        ):
+            yield chunk
+
+    return StreamingResponse(_iter(), media_type="text/plain; charset=utf-8")
 
 
 @router.post("/admin/init_index", dependencies=[Depends(require_admin_token)])
