@@ -2,6 +2,8 @@ import DashboardHeader from "@/components/layout/DashboardHeader";
 import LanguageSwitcher from "@/components/common/LanguageSwitcher";
 import placeholder from "@/assets/images/Image.png";
 import { getLang } from "@/shared/i18n";
+import { api } from "@/shared/api/client";
+import { getBookRecommendationExplanation, type StudentProfile } from "@/shared/api/search";
 import { useEffect, useState, type KeyboardEvent } from "react";
 
 const API_BASE =
@@ -20,6 +22,11 @@ type AiVectorResult = {
   title?: string;
   download_url?: string;
   text_snippet?: string;
+};
+
+type AuthProfile = StudentProfile & {
+  id: number;
+  email?: string | null;
 };
 
 type ResultTab = "book_search" | "vector_search";
@@ -336,38 +343,34 @@ export default function IntelligentSearchPage() {
       setVectorStreaming(true);
       setVectorExplanation("");
 
-      const token = localStorage.getItem("token") || sessionStorage.getItem("token");
-      const headers: Record<string, string> = {
-        "Content-Type": "application/json",
-      };
-      if (token) {
-        headers.Authorization = `Bearer ${token}`;
-      }
+      let profile: AuthProfile | null = null;
+      try {
+        profile = await api<AuthProfile>("/api/auth/profile");
+      } catch {}
 
-      const resp = await fetch(`${API_BASE}/api/generate_llm_context`, {
-        method: "POST",
-        headers,
-        body: JSON.stringify({
-          query,
+      const result = await getBookRecommendationExplanation({
+        book: {
+          id: 0,
           title: v.title ?? "",
-          text_snippet: v.text_snippet ?? "",
-        }),
+          authors: [],
+          subjects: [],
+          summary: v.text_snippet ?? "",
+          popularity: 0,
+        },
+        student_query: query.trim() || undefined,
+        student_profile: profile
+          ? {
+              first_name: profile.first_name || null,
+              last_name: profile.last_name || null,
+              role: profile.role || null,
+              faculty: profile.faculty || null,
+              group_name: profile.group_name || null,
+              institution: profile.institution || null,
+            }
+          : null,
       });
 
-      const reader = resp.body?.getReader();
-      if (!reader) {
-        setVectorExplanation(await resp.text());
-        return;
-      }
-
-      const decoder = new TextDecoder("utf-8");
-      while (true) {
-        const { value, done } = await reader.read();
-        if (done) break;
-        if (value) {
-          setVectorExplanation((prev) => prev + decoder.decode(value));
-        }
-      }
+      setVectorExplanation(result.explanation || "");
     } catch (error: unknown) {
       console.log("[IntelligentSearch] generate_llm_context failed:", error);
     } finally {
