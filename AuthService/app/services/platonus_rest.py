@@ -78,16 +78,16 @@ def login(
     try:
         data = r.json()
     except Exception:
-        raise PlatonusAuthError(f"Platonus login non-JSON response (HTTP {r.status_code})")
+        raise PlatonusAuthError(f"Authentication service returned an invalid response (HTTP {r.status_code})")
 
     if str(data.get("login_status", "")).lower() != "success":
-        msg = data.get("message") or "Platonus login failed"
+        msg = data.get("message") or "Account sign-in failed"
         raise PlatonusAuthError(str(msg))
 
     auth_token = str(data.get("auth_token") or "").strip()
     sid = str(data.get("sid") or "").strip()
     if not auth_token or not sid:
-        raise PlatonusAuthError("Platonus login missing auth_token/sid")
+        raise PlatonusAuthError("Authentication service did not return session data")
     return PlatonusSession(auth_token=auth_token, sid=sid)
 
 
@@ -98,7 +98,7 @@ def get_person_id(*, session: PlatonusSession, timeout_s: int = 20) -> str:
     data = r.json()
     pid = data.get("personID")
     if not pid:
-        raise PlatonusAuthError("Platonus personID missing")
+        raise PlatonusAuthError("Authentication service did not return a user identifier")
     return str(pid)
 
 

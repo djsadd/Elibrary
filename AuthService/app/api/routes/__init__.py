@@ -489,13 +489,13 @@ def platonus_login(req: PlatonusLoginRequest, request: Request, db: Session = De
     except PlatonusAuthError as e:
         register_login_failure(email=None, ip=ip)
         audit_event("auth.platonus_failed", request, success=False, reason="invalid", extra={"ip": ip, "error": str(e)})
-        raise HTTPException(status_code=401, detail=str(e) or "Platonus login failed")
+        raise HTTPException(status_code=401, detail=str(e) or "Account sign-in failed")
     except requests.RequestException as e:
         audit_event("auth.platonus_failed", request, success=False, reason="upstream_unavailable", extra={"ip": ip, "error": str(e)})
-        raise HTTPException(502, "Platonus service unavailable")
+        raise HTTPException(502, "Authentication service unavailable")
     except Exception as e:
         audit_event("auth.platonus_failed", request, success=False, reason="upstream_error", extra={"ip": ip, "error": str(e)})
-        raise HTTPException(502, "Platonus service error")
+        raise HTTPException(502, "Authentication service error")
 
     role_names = [
         str(r.get("name") or "").strip().lower()
@@ -526,13 +526,13 @@ def platonus_login(req: PlatonusLoginRequest, request: Request, db: Session = De
             info = platonus_rest.get_student_info(session=session, person_id=person_id, lang="ru")
     except requests.RequestException as e:
         audit_event("auth.platonus_failed", request, success=False, reason="upstream_unavailable", extra={"ip": ip, "error": str(e)})
-        raise HTTPException(502, "Platonus service unavailable")
+        raise HTTPException(502, "Authentication service unavailable")
     except Exception as e:
         audit_event("auth.platonus_failed", request, success=False, reason="upstream_error", extra={"ip": ip, "error": str(e)})
-        raise HTTPException(502, "Platonus service error")
+        raise HTTPException(502, "Authentication service error")
 
     if not info:
-        raise HTTPException(502, "Invalid response from Platonus")
+        raise HTTPException(502, "Invalid response from authentication service")
 
     desired_role = None
     if role in {"teacher", "librarian"}:
@@ -582,7 +582,7 @@ def platonus_login(req: PlatonusLoginRequest, request: Request, db: Session = De
     if missing_fields:
         raise HTTPException(
             status_code=400,
-            detail=f"Platonus auth missing fields: {', '.join(missing_fields)}",
+            detail=f"Account sign-in missing fields: {', '.join(missing_fields)}",
         )
 
     u_by_iin = db.query(User).filter_by(iin=iin).first()

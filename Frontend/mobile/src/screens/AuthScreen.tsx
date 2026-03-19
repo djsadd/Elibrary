@@ -37,7 +37,7 @@ export default function AuthScreen({ onAuthSuccess }: Props) {
   const [message, setMessage] = useState<MessageState>(null);
 
   const subtitle = useMemo(() => {
-    if (mode === "platonus") return "Sign in with your Platonus account.";
+    if (mode === "platonus") return "Sign in with your campus account.";
     return "Use your campus email to continue.";
   }, [mode]);
 
@@ -47,7 +47,7 @@ export default function AuthScreen({ onAuthSuccess }: Props) {
     try {
       if (mode === "platonus") {
         if (!platonusLogin || !platonusPassword) {
-          throw new Error("Enter Platonus login and password.");
+          throw new Error("Enter your login and password.");
         }
         const resp = await apiPost<any>("/api/auth/platonus", {
           login: platonusLogin,
@@ -55,7 +55,7 @@ export default function AuthScreen({ onAuthSuccess }: Props) {
         });
         onAuthSuccess(resp || {});
         const role = resp?.role ? ` (${resp.role})` : "";
-        setMessage({ type: "success", text: `Platonus login successful${role}.` });
+        setMessage({ type: "success", text: `Sign in successful${role}.` });
         return;
       }
 
@@ -104,7 +104,7 @@ export default function AuthScreen({ onAuthSuccess }: Props) {
               </View>
             </View>
 
-            <Text style={styles.title}>{mode === "platonus" ? "Platonus Login" : "Welcome Back"}</Text>
+            <Text style={styles.title}>{mode === "platonus" ? "Campus Account Login" : "Welcome Back"}</Text>
             <Text style={styles.subtitle}>{subtitle}</Text>
 
             <View style={styles.segment}>
@@ -129,7 +129,7 @@ export default function AuthScreen({ onAuthSuccess }: Props) {
                 style={[styles.segmentButton, mode === "platonus" && styles.segmentActive]}
               >
                 <Text style={[styles.segmentText, mode === "platonus" && styles.segmentTextActive]}>
-                  Platonus
+                  Campus ID
                 </Text>
               </TouchableOpacity>
             </View>
@@ -224,12 +224,12 @@ export default function AuthScreen({ onAuthSuccess }: Props) {
                     setMessage(null);
                   }}
                 >
-                  <Text style={styles.secondaryText}>Continue with Platonus</Text>
+                  <Text style={styles.secondaryText}>Continue with campus account</Text>
                 </TouchableOpacity>
               </>
             ) : (
               <>
-                <Text style={styles.label}>Platonus login</Text>
+                <Text style={styles.label}>Login</Text>
                 <TextInput
                   autoCapitalize="none"
                   placeholder="Student ID"
@@ -271,7 +271,7 @@ export default function AuthScreen({ onAuthSuccess }: Props) {
                     setMessage(null);
                   }}
                 >
-                  <Text style={styles.ghostText}>Back to campus login</Text>
+                  <Text style={styles.ghostText}>Back to email login</Text>
                 </TouchableOpacity>
               </>
             )}
