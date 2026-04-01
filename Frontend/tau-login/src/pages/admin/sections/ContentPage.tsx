@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
+
 import { api } from "@/shared/api/client";
 
 type PageBlock = {
@@ -52,6 +53,8 @@ type PageFormState = {
   status: "draft" | "published";
 };
 
+type MenuKind = "link" | "dropdown";
+
 type MenuFormState = {
   id?: number;
   title: string;
@@ -63,6 +66,7 @@ type MenuFormState = {
   external_url: string;
   sort_order: string;
   is_visible: boolean;
+  kind: MenuKind;
 };
 
 type BlockFormState = {
@@ -75,6 +79,8 @@ type BlockFormState = {
   link_url: string;
   sort_order: string;
 };
+
+type ContentTab = "pages" | "menu";
 
 const emptyPageForm = (): PageFormState => ({
   title: "",
@@ -94,6 +100,7 @@ const emptyMenuForm = (): MenuFormState => ({
   external_url: "",
   sort_order: "0",
   is_visible: true,
+  kind: "link",
 });
 
 const emptyBlockForm = (): BlockFormState => ({
@@ -106,27 +113,62 @@ const emptyBlockForm = (): BlockFormState => ({
   sort_order: "0",
 });
 
-function flattenMenuItems(items: MenuItem[], level = 0): Array<MenuItem & { level: number }> {
-  return items.flatMap((item) => [{ ...item, level }, ...flattenMenuItems(item.children || [], level + 1)]);
-}
-
 function toSlug(value: string): string {
   return value
     .toLowerCase()
     .trim()
-    .replace(/[^a-z0-9а-яёқңғүұһәі-\s]/gi, "")
+    .replace(/[^a-z0-9\s-_]/g, "")
     .replace(/\s+/g, "-")
     .replace(/-+/g, "-");
 }
 
+function flattenMenuItems(items: MenuItem[], level = 0): Array<MenuItem & { level: number }> {
+  return items.flatMap((item) => [{ ...item, level }, ...flattenMenuItems(item.children || [], level + 1)]);
+}
+
+function inferMenuKind(item: Pick<MenuItem, "children" | "page_id" | "external_url">): MenuKind {
+  if ((item.children?.length || 0) > 0) return "dropdown";
+  if (!item.page_id && !item.external_url) return "dropdown";
+  return "link";
+}
+
+function FilterChip({
+  active,
+  children,
+  onClick,
+}: {
+  active: boolean;
+  children: ReactNode;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={[
+        "rounded-full border px-3 py-1.5 text-xs font-medium transition",
+        active ? "border-slate-800 bg-slate-800 text-white" : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50",
+      ].join(" ")}
+    >
+      {children}
+    </button>
+  );
+}
+
 export default function ContentPage() {
+  const [tab, setTab] = useState<ContentTab>("pages");
   const [data, setData] = useState<ContentSummary>({ pages: [], menu_items: [] });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
   const [selectedPageId, setSelectedPageId] = useState<number | null>(null);
+  const [pageQuery, setPageQuery] = useState("");
+  const [pageStatusFilter, setPageStatusFilter] = useState<"all" | "draft" | "published">("all");
+
   const [pageForm, setPageForm] = useState<PageFormState>(emptyPageForm);
   const [menuForm, setMenuForm] = useState<MenuFormState>(emptyMenuForm);
   const [blockForm, setBlockForm] = useState<BlockFormState>(emptyBlockForm);
+
   const [savingPage, setSavingPage] = useState(false);
   const [savingMenu, setSavingMenu] = useState(false);
   const [savingBlock, setSavingBlock] = useState(false);
@@ -139,7 +181,7 @@ export default function ContentPage() {
       setData(result);
       setSelectedPageId((prev) => prev ?? result.pages[0]?.id ?? null);
     } catch (e: any) {
-      setError(e?.message || "Не удалось загрузить контент");
+      setError(e?.message || "Failed to load content");
     } finally {
       setLoading(false);
     }
@@ -153,10 +195,74 @@ export default function ContentPage() {
     () => data.pages.find((page) => page.id === selectedPageId) ?? null,
     [data.pages, selectedPageId],
   );
+
+  const filteredPages = useMemo(() => {
+    const query = pageQuery.trim().toLowerCase();
+    return data.pages.filter((page) => {
+      const byStatus = pageStatusFilter === "all" || page.status === pageStatusFilter;
+      const haystack = `${page.title} ${page.slug} ${page.menu_title || ""}`.toLowerCase();
+      const byQuery = !query || haystack.includes(query);
+      return byStatus && byQuery;
+    });
+  }, [data.pages, pageQuery, pageStatusFilter]);
+
   const menuOptions = useMemo(() => flattenMenuItems(data.menu_items), [data.menu_items]);
 
   const refreshAfterChange = async () => {
     await load();
+  };
+
+  const startCreatePage = () => {
+    setPageForm(emptyPageForm());
+    setBlockForm(emptyBlockForm());
+  };
+
+  const startEditPage = (page: Page) => {
+    setSelectedPageId(page.id);
+    setPageForm({
+      id: page.id,
+      title: page.title,
+      slug: page.slug,
+      menu_title: page.menu_title || "",
+      summary: page.summary || "",
+      status: page.status,
+    });
+  };
+
+  const startCreateMenuItem = (parent?: MenuItem & { level?: number }) => {
+    setMenuForm({
+      ...emptyMenuForm(),
+      parent_id: parent ? String(parent.id) : "",
+    });
+  };
+
+  const startEditMenuItem = (item: MenuItem) => {
+    setMenuForm({
+      id: item.id,
+      title: item.title,
+      slug: item.slug,
+      description: item.description || "",
+      image_url: item.image_url || "",
+      parent_id: item.parent_id ? String(item.parent_id) : "",
+      page_id: item.page_id ? String(item.page_id) : "",
+      external_url: item.external_url || "",
+      sort_order: String(item.sort_order || 0),
+      is_visible: item.is_visible,
+      kind: inferMenuKind(item),
+    });
+  };
+
+  const startEditBlock = (block: PageBlock) => {
+    setBlockForm({
+      id: block.id,
+      type: block.type,
+      title: block.title || "",
+      body: block.body || "",
+      image_url: block.image_url || "",
+      link_label: block.link_label || "",
+      link_url: block.link_url || "",
+      sort_order: String(block.sort_order || 0),
+    });
   };
 
   const onSubmitPage = async (e: React.FormEvent) => {
@@ -172,20 +278,14 @@ export default function ContentPage() {
         status: pageForm.status,
       };
       if (pageForm.id) {
-        await api(`/api/catalog/admin/content/pages/${pageForm.id}`, {
-          method: "PUT",
-          body: JSON.stringify(payload),
-        });
+        await api(`/api/catalog/admin/content/pages/${pageForm.id}`, { method: "PUT", body: JSON.stringify(payload) });
       } else {
-        await api(`/api/catalog/admin/content/pages`, {
-          method: "POST",
-          body: JSON.stringify(payload),
-        });
+        await api("/api/catalog/admin/content/pages", { method: "POST", body: JSON.stringify(payload) });
       }
       setPageForm(emptyPageForm());
       await refreshAfterChange();
     } catch (e: any) {
-      setError(e?.message || "Не удалось сохранить страницу");
+      setError(e?.message || "Failed to save page");
     } finally {
       setSavingPage(false);
     }
@@ -202,26 +302,20 @@ export default function ContentPage() {
         description: menuForm.description || null,
         image_url: menuForm.image_url || null,
         parent_id: menuForm.parent_id ? Number(menuForm.parent_id) : null,
-        page_id: menuForm.page_id ? Number(menuForm.page_id) : null,
-        external_url: menuForm.external_url || null,
+        page_id: menuForm.kind === "link" && menuForm.page_id ? Number(menuForm.page_id) : null,
+        external_url: menuForm.kind === "link" ? menuForm.external_url || null : null,
         sort_order: Number(menuForm.sort_order || "0"),
         is_visible: menuForm.is_visible,
       };
       if (menuForm.id) {
-        await api(`/api/catalog/admin/content/menu/${menuForm.id}`, {
-          method: "PUT",
-          body: JSON.stringify(payload),
-        });
+        await api(`/api/catalog/admin/content/menu/${menuForm.id}`, { method: "PUT", body: JSON.stringify(payload) });
       } else {
-        await api(`/api/catalog/admin/content/menu`, {
-          method: "POST",
-          body: JSON.stringify(payload),
-        });
+        await api("/api/catalog/admin/content/menu", { method: "POST", body: JSON.stringify(payload) });
       }
       setMenuForm(emptyMenuForm());
       await refreshAfterChange();
     } catch (e: any) {
-      setError(e?.message || "Не удалось сохранить пункт меню");
+      setError(e?.message || "Failed to save menu item");
     } finally {
       setSavingMenu(false);
     }
@@ -243,28 +337,22 @@ export default function ContentPage() {
         sort_order: Number(blockForm.sort_order || "0"),
       };
       if (blockForm.id) {
-        await api(`/api/catalog/admin/content/blocks/${blockForm.id}`, {
-          method: "PUT",
-          body: JSON.stringify(payload),
-        });
+        await api(`/api/catalog/admin/content/blocks/${blockForm.id}`, { method: "PUT", body: JSON.stringify(payload) });
       } else {
-        await api(`/api/catalog/admin/content/pages/${selectedPage.id}/blocks`, {
-          method: "POST",
-          body: JSON.stringify(payload),
-        });
+        await api(`/api/catalog/admin/content/pages/${selectedPage.id}/blocks`, { method: "POST", body: JSON.stringify(payload) });
       }
       setBlockForm(emptyBlockForm());
       await refreshAfterChange();
       setSelectedPageId(selectedPage.id);
     } catch (e: any) {
-      setError(e?.message || "Не удалось сохранить блок");
+      setError(e?.message || "Failed to save block");
     } finally {
       setSavingBlock(false);
     }
   };
 
   const deletePage = async (pageId: number) => {
-    if (!window.confirm("Удалить страницу и все ее блоки?")) return;
+    if (!window.confirm("Delete page and all its blocks?")) return;
     try {
       await api(`/api/catalog/admin/content/pages/${pageId}`, { method: "DELETE" });
       if (selectedPageId === pageId) {
@@ -273,28 +361,28 @@ export default function ContentPage() {
       }
       await refreshAfterChange();
     } catch (e: any) {
-      setError(e?.message || "Не удалось удалить страницу");
+      setError(e?.message || "Failed to delete page");
     }
   };
 
   const deleteMenuItem = async (itemId: number) => {
-    if (!window.confirm("Удалить пункт меню?")) return;
+    if (!window.confirm("Delete menu item?")) return;
     try {
       await api(`/api/catalog/admin/content/menu/${itemId}`, { method: "DELETE" });
       await refreshAfterChange();
     } catch (e: any) {
-      setError(e?.message || "Не удалось удалить пункт меню");
+      setError(e?.message || "Failed to delete menu item");
     }
   };
 
   const deleteBlock = async (blockId: number) => {
-    if (!window.confirm("Удалить блок?")) return;
+    if (!window.confirm("Delete block?")) return;
     try {
       await api(`/api/catalog/admin/content/blocks/${blockId}`, { method: "DELETE" });
       setBlockForm(emptyBlockForm());
       await refreshAfterChange();
     } catch (e: any) {
-      setError(e?.message || "Не удалось удалить блок");
+      setError(e?.message || "Failed to delete block");
     }
   };
 
@@ -302,9 +390,9 @@ export default function ContentPage() {
     <div className="space-y-6">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h2 className="text-lg font-semibold">Контент и меню</h2>
+          <h2 className="text-lg font-semibold">Content</h2>
           <p className="mt-1 text-sm text-slate-600">
-            Создавайте разделы, страницы и пункты публичного меню без правок в коде.
+            Separate workspace for pages and menu structure management.
           </p>
         </div>
         <button
@@ -312,36 +400,118 @@ export default function ContentPage() {
           onClick={() => void load()}
           className="rounded-md border px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
         >
-          Обновить
+          Refresh
         </button>
+      </div>
+
+      <div className="flex gap-2">
+        <FilterChip active={tab === "pages"} onClick={() => setTab("pages")}>
+          Pages
+        </FilterChip>
+        <FilterChip active={tab === "menu"} onClick={() => setTab("menu")}>
+          Menu
+        </FilterChip>
       </div>
 
       {error && <div className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
 
       {loading ? (
-        <div className="text-sm text-slate-500">Загрузка контента...</div>
-      ) : (
-        <div className="space-y-6">
-          <div className="grid gap-6 xl:grid-cols-2">
+        <div className="text-sm text-slate-500">Loading...</div>
+      ) : tab === "pages" ? (
+        <div className="grid gap-6 xl:grid-cols-[360px_minmax(0,1fr)]">
+          <section className="rounded-md border p-4">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <div className="font-medium text-slate-900">Pages</div>
+                <div className="text-xs text-slate-500">List, search and status filters</div>
+              </div>
+              <button
+                type="button"
+                onClick={startCreatePage}
+                className="rounded-md border px-3 py-2 text-xs text-slate-700 hover:bg-slate-50"
+              >
+                New page
+              </button>
+            </div>
+
+            <div className="mt-4 space-y-3">
+              <input
+                value={pageQuery}
+                onChange={(e) => setPageQuery(e.target.value)}
+                placeholder="Search by title or slug"
+                className="w-full rounded-md border px-3 py-2 text-sm"
+              />
+
+              <div className="flex flex-wrap gap-2">
+                <FilterChip active={pageStatusFilter === "all"} onClick={() => setPageStatusFilter("all")}>
+                  All
+                </FilterChip>
+                <FilterChip active={pageStatusFilter === "draft"} onClick={() => setPageStatusFilter("draft")}>
+                  Draft
+                </FilterChip>
+                <FilterChip active={pageStatusFilter === "published"} onClick={() => setPageStatusFilter("published")}>
+                  Published
+                </FilterChip>
+              </div>
+            </div>
+
+            <div className="mt-4 space-y-2">
+              {filteredPages.length === 0 ? (
+                <div className="text-sm text-slate-500">No pages found.</div>
+              ) : (
+                filteredPages.map((page) => (
+                  <div
+                    key={page.id}
+                    className={[
+                      "rounded-md border px-4 py-3",
+                      selectedPageId === page.id ? "border-slate-800 bg-slate-50" : "border-slate-200",
+                    ].join(" ")}
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <button
+                        type="button"
+                        onClick={() => setSelectedPageId(page.id)}
+                        className="min-w-0 text-left"
+                      >
+                        <div className="font-medium text-slate-900">{page.title}</div>
+                        <div className="mt-1 text-xs text-slate-500">
+                          /{page.slug} | {page.status} | {page.blocks.length} blocks
+                        </div>
+                      </button>
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => startEditPage(page)}
+                          className="rounded-md border px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50"
+                        >
+                          Edit
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => void deletePage(page.id)}
+                          className="rounded-md border border-red-200 px-3 py-1.5 text-xs text-red-700 hover:bg-red-50"
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </section>
+
+          <div className="space-y-6">
             <section className="rounded-md border p-4">
-              <div className="mb-4 flex items-center justify-between gap-3">
-                <div>
-                  <div className="font-medium text-slate-900">Страницы</div>
-                  <div className="text-xs text-slate-500">Заголовок, slug, статус и блоки контента</div>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setPageForm(emptyPageForm())}
-                  className="rounded-md border px-3 py-2 text-xs text-slate-700 hover:bg-slate-50"
-                >
-                  Новая страница
-                </button>
+              <div className="mb-4">
+                <div className="font-medium text-slate-900">{pageForm.id ? "Edit page" : "Create page"}</div>
+                <div className="text-xs text-slate-500">Page metadata and publication status</div>
               </div>
 
-              <form onSubmit={onSubmitPage} className="space-y-3 rounded-md bg-slate-50 p-4">
+              <form onSubmit={onSubmitPage} className="space-y-3">
                 <div className="grid gap-3 md:grid-cols-2">
                   <label className="text-sm">
-                    <div className="mb-1 text-slate-600">Заголовок</div>
+                    <div className="mb-1 text-slate-600">Title</div>
                     <input
                       value={pageForm.title}
                       onChange={(e) => {
@@ -362,9 +532,10 @@ export default function ContentPage() {
                     />
                   </label>
                 </div>
+
                 <div className="grid gap-3 md:grid-cols-2">
                   <label className="text-sm">
-                    <div className="mb-1 text-slate-600">Название в меню</div>
+                    <div className="mb-1 text-slate-600">Menu label</div>
                     <input
                       value={pageForm.menu_title}
                       onChange={(e) => setPageForm((prev) => ({ ...prev, menu_title: e.target.value }))}
@@ -372,164 +543,278 @@ export default function ContentPage() {
                     />
                   </label>
                   <label className="text-sm">
-                    <div className="mb-1 text-slate-600">Статус</div>
+                    <div className="mb-1 text-slate-600">Status</div>
                     <select
                       value={pageForm.status}
                       onChange={(e) => setPageForm((prev) => ({ ...prev, status: e.target.value as "draft" | "published" }))}
                       className="w-full rounded-md border px-3 py-2"
                     >
-                      <option value="draft">Черновик</option>
-                      <option value="published">Опубликована</option>
+                      <option value="draft">Draft</option>
+                      <option value="published">Published</option>
                     </select>
                   </label>
                 </div>
+
                 <label className="block text-sm">
-                  <div className="mb-1 text-slate-600">Краткое описание</div>
+                  <div className="mb-1 text-slate-600">Summary</div>
                   <textarea
                     value={pageForm.summary}
                     onChange={(e) => setPageForm((prev) => ({ ...prev, summary: e.target.value }))}
                     className="min-h-24 w-full rounded-md border px-3 py-2"
                   />
                 </label>
-                <div className="flex flex-wrap gap-2">
+
+                <div className="flex gap-2">
                   <button
                     type="submit"
                     disabled={savingPage}
                     className="rounded-md bg-slate-800 px-4 py-2 text-sm font-medium text-white disabled:opacity-60"
                   >
-                    {savingPage ? "Сохранение..." : pageForm.id ? "Сохранить страницу" : "Создать страницу"}
+                    {savingPage ? "Saving..." : pageForm.id ? "Save page" : "Create page"}
                   </button>
-                  {pageForm.id && (
-                    <button
-                      type="button"
-                      onClick={() => setPageForm(emptyPageForm())}
-                      className="rounded-md border px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
-                    >
-                      Сбросить
-                    </button>
-                  )}
+                  <button
+                    type="button"
+                    onClick={startCreatePage}
+                    className="rounded-md border px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
+                  >
+                    Reset
+                  </button>
                 </div>
               </form>
-
-              <div className="mt-4 space-y-2">
-                {data.pages.length === 0 ? (
-                  <div className="text-sm text-slate-500">Страницы еще не созданы.</div>
-                ) : (
-                  data.pages.map((page) => (
-                    <div
-                      key={page.id}
-                      className={[
-                        "rounded-md border px-4 py-3",
-                        selectedPageId === page.id ? "border-slate-800 bg-slate-50" : "border-slate-200",
-                      ].join(" ")}
-                    >
-                      <div className="flex items-start justify-between gap-3">
-                        <button
-                          type="button"
-                          onClick={() => setSelectedPageId(page.id)}
-                          className="min-w-0 text-left"
-                        >
-                          <div className="font-medium text-slate-900">{page.title}</div>
-                          <div className="mt-1 text-xs text-slate-500">/{page.slug} • {page.status}</div>
-                          <div className="mt-1 text-xs text-slate-500">{page.blocks.length} блок(ов)</div>
-                        </button>
-                        <div className="flex shrink-0 gap-2">
-                          <button
-                            type="button"
-                            onClick={() =>
-                              setPageForm({
-                                id: page.id,
-                                title: page.title,
-                                slug: page.slug,
-                                menu_title: page.menu_title || "",
-                                summary: page.summary || "",
-                                status: page.status,
-                              })
-                            }
-                            className="rounded-md border px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50"
-                          >
-                            Изменить
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => void deletePage(page.id)}
-                            className="rounded-md border border-red-200 px-3 py-1.5 text-xs text-red-700 hover:bg-red-50"
-                          >
-                            Удалить
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
             </section>
 
             <section className="rounded-md border p-4">
-              <div className="mb-4 flex items-center justify-between gap-3">
-                <div>
-                  <div className="font-medium text-slate-900">Меню разделов</div>
-                  <div className="text-xs text-slate-500">Пункт может вести на страницу, внешний URL или быть вложенным</div>
+              <div className="mb-4">
+                <div className="font-medium text-slate-900">Page blocks</div>
+                <div className="text-xs text-slate-500">
+                  {selectedPage ? `Selected page: ${selectedPage.title}` : "Select a page from the list first"}
                 </div>
-                <button
-                  type="button"
-                  onClick={() => setMenuForm(emptyMenuForm())}
-                  className="rounded-md border px-3 py-2 text-xs text-slate-700 hover:bg-slate-50"
-                >
-                  Новый пункт
-                </button>
               </div>
 
-              <form onSubmit={onSubmitMenu} className="space-y-3 rounded-md bg-slate-50 p-4">
-                <div className="grid gap-3 md:grid-cols-2">
-                  <label className="text-sm">
-                    <div className="mb-1 text-slate-600">Название</div>
-                    <input
-                      value={menuForm.title}
-                      onChange={(e) => {
-                        const title = e.target.value;
-                        setMenuForm((prev) => ({ ...prev, title, slug: prev.id ? prev.slug : toSlug(title) }));
-                      }}
-                      className="w-full rounded-md border px-3 py-2"
-                      required
-                    />
-                  </label>
-                  <label className="text-sm">
-                    <div className="mb-1 text-slate-600">Slug</div>
-                    <input
-                      value={menuForm.slug}
-                      onChange={(e) => setMenuForm((prev) => ({ ...prev, slug: toSlug(e.target.value) }))}
-                      className="w-full rounded-md border px-3 py-2"
-                      required
-                    />
-                  </label>
+              {!selectedPage ? (
+                <div className="text-sm text-slate-500">No page selected.</div>
+              ) : (
+                <div className="grid gap-6 xl:grid-cols-[360px_minmax(0,1fr)]">
+                  <form onSubmit={onSubmitBlock} className="space-y-3 rounded-md bg-slate-50 p-4">
+                    <label className="block text-sm">
+                      <div className="mb-1 text-slate-600">Block type</div>
+                      <select
+                        value={blockForm.type}
+                        onChange={(e) => setBlockForm((prev) => ({ ...prev, type: e.target.value as BlockFormState["type"] }))}
+                        className="w-full rounded-md border px-3 py-2"
+                      >
+                        <option value="text">Text</option>
+                        <option value="image">Image</option>
+                        <option value="hero">Hero</option>
+                        <option value="cta">CTA</option>
+                      </select>
+                    </label>
+                    <label className="block text-sm">
+                      <div className="mb-1 text-slate-600">Title</div>
+                      <input
+                        value={blockForm.title}
+                        onChange={(e) => setBlockForm((prev) => ({ ...prev, title: e.target.value }))}
+                        className="w-full rounded-md border px-3 py-2"
+                      />
+                    </label>
+                    <label className="block text-sm">
+                      <div className="mb-1 text-slate-600">Body</div>
+                      <textarea
+                        value={blockForm.body}
+                        onChange={(e) => setBlockForm((prev) => ({ ...prev, body: e.target.value }))}
+                        className="min-h-28 w-full rounded-md border px-3 py-2"
+                      />
+                    </label>
+                    <label className="block text-sm">
+                      <div className="mb-1 text-slate-600">Image URL</div>
+                      <input
+                        value={blockForm.image_url}
+                        onChange={(e) => setBlockForm((prev) => ({ ...prev, image_url: e.target.value }))}
+                        className="w-full rounded-md border px-3 py-2"
+                      />
+                    </label>
+                    <div className="grid gap-3 md:grid-cols-2">
+                      <label className="text-sm">
+                        <div className="mb-1 text-slate-600">Button label</div>
+                        <input
+                          value={blockForm.link_label}
+                          onChange={(e) => setBlockForm((prev) => ({ ...prev, link_label: e.target.value }))}
+                          className="w-full rounded-md border px-3 py-2"
+                        />
+                      </label>
+                      <label className="text-sm">
+                        <div className="mb-1 text-slate-600">Button URL</div>
+                        <input
+                          value={blockForm.link_url}
+                          onChange={(e) => setBlockForm((prev) => ({ ...prev, link_url: e.target.value }))}
+                          className="w-full rounded-md border px-3 py-2"
+                        />
+                      </label>
+                    </div>
+                    <label className="block text-sm">
+                      <div className="mb-1 text-slate-600">Sort order</div>
+                      <input
+                        type="number"
+                        value={blockForm.sort_order}
+                        onChange={(e) => setBlockForm((prev) => ({ ...prev, sort_order: e.target.value }))}
+                        className="w-full rounded-md border px-3 py-2"
+                      />
+                    </label>
+                    <div className="flex gap-2">
+                      <button
+                        type="submit"
+                        disabled={savingBlock}
+                        className="rounded-md bg-slate-800 px-4 py-2 text-sm font-medium text-white disabled:opacity-60"
+                      >
+                        {savingBlock ? "Saving..." : blockForm.id ? "Save block" : "Add block"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setBlockForm(emptyBlockForm())}
+                        className="rounded-md border px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
+                      >
+                        Reset
+                      </button>
+                    </div>
+                  </form>
+
+                  <div className="space-y-3">
+                    {selectedPage.blocks.length === 0 ? (
+                      <div className="text-sm text-slate-500">No blocks yet.</div>
+                    ) : (
+                      selectedPage.blocks
+                        .slice()
+                        .sort((a, b) => a.sort_order - b.sort_order || a.id - b.id)
+                        .map((block) => (
+                          <div key={block.id} className="rounded-md border px-4 py-4">
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="min-w-0">
+                                <div className="font-medium text-slate-900">
+                                  {block.title || "Untitled"} <span className="text-xs font-normal text-slate-500">[{block.type}]</span>
+                                </div>
+                                <div className="mt-1 text-xs text-slate-500">Sort: {block.sort_order}</div>
+                                {block.body && <div className="mt-2 whitespace-pre-wrap text-sm text-slate-700">{block.body}</div>}
+                                {block.image_url && (
+                                  <img
+                                    src={block.image_url}
+                                    alt={block.title || "block"}
+                                    className="mt-3 max-h-40 rounded-md border object-cover"
+                                  />
+                                )}
+                              </div>
+                              <div className="flex gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => startEditBlock(block)}
+                                  className="rounded-md border px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50"
+                                >
+                                  Edit
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => void deleteBlock(block.id)}
+                                  className="rounded-md border border-red-200 px-3 py-1.5 text-xs text-red-700 hover:bg-red-50"
+                                >
+                                  Delete
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        ))
+                    )}
+                  </div>
                 </div>
+              )}
+            </section>
+          </div>
+        </div>
+      ) : (
+        <div className="grid gap-6 xl:grid-cols-[420px_minmax(0,1fr)]">
+          <section className="rounded-md border p-4">
+            <div className="mb-4 flex items-center justify-between gap-3">
+              <div>
+                <div className="font-medium text-slate-900">{menuForm.id ? "Edit menu item" : "Create menu item"}</div>
+                <div className="text-xs text-slate-500">Choose a simple link or a dropdown parent</div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setMenuForm(emptyMenuForm())}
+                className="rounded-md border px-3 py-2 text-xs text-slate-700 hover:bg-slate-50"
+              >
+                New item
+              </button>
+            </div>
+
+            <form onSubmit={onSubmitMenu} className="space-y-3">
+              <div className="flex gap-2">
+                <FilterChip active={menuForm.kind === "link"} onClick={() => setMenuForm((prev) => ({ ...prev, kind: "link" }))}>
+                  Link item
+                </FilterChip>
+                <FilterChip active={menuForm.kind === "dropdown"} onClick={() => setMenuForm((prev) => ({ ...prev, kind: "dropdown", page_id: "", external_url: "" }))}>
+                  Dropdown
+                </FilterChip>
+              </div>
+              <div className="grid gap-3 md:grid-cols-2">
+                <label className="text-sm">
+                  <div className="mb-1 text-slate-600">Title</div>
+                  <input
+                    value={menuForm.title}
+                    onChange={(e) => {
+                      const title = e.target.value;
+                      setMenuForm((prev) => ({ ...prev, title, slug: prev.id ? prev.slug : toSlug(title) }));
+                    }}
+                    className="w-full rounded-md border px-3 py-2"
+                    required
+                  />
+                </label>
+                <label className="text-sm">
+                  <div className="mb-1 text-slate-600">Slug</div>
+                  <input
+                    value={menuForm.slug}
+                    onChange={(e) => setMenuForm((prev) => ({ ...prev, slug: toSlug(e.target.value) }))}
+                    className="w-full rounded-md border px-3 py-2"
+                    required
+                  />
+                </label>
+              </div>
+              <div className="grid gap-3 md:grid-cols-2">
+                <label className="text-sm">
+                  <div className="mb-1 text-slate-600">Parent item</div>
+                  <select
+                    value={menuForm.parent_id}
+                    onChange={(e) => setMenuForm((prev) => ({ ...prev, parent_id: e.target.value }))}
+                    className="w-full rounded-md border px-3 py-2"
+                  >
+                    <option value="">Top level</option>
+                    {menuOptions
+                      .filter((item) => item.id !== menuForm.id)
+                      .map((item) => (
+                        <option key={item.id} value={item.id}>
+                          {"- ".repeat(item.level)}{item.title}
+                        </option>
+                      ))}
+                  </select>
+                </label>
+                <label className="text-sm">
+                  <div className="mb-1 text-slate-600">Sort order</div>
+                  <input
+                    type="number"
+                    value={menuForm.sort_order}
+                    onChange={(e) => setMenuForm((prev) => ({ ...prev, sort_order: e.target.value }))}
+                    className="w-full rounded-md border px-3 py-2"
+                  />
+                </label>
+              </div>
+              {menuForm.kind === "link" && (
                 <div className="grid gap-3 md:grid-cols-2">
                   <label className="text-sm">
-                    <div className="mb-1 text-slate-600">Родительский пункт</div>
-                    <select
-                      value={menuForm.parent_id}
-                      onChange={(e) => setMenuForm((prev) => ({ ...prev, parent_id: e.target.value }))}
-                      className="w-full rounded-md border px-3 py-2"
-                    >
-                      <option value="">Без родителя</option>
-                      {menuOptions
-                        .filter((item) => item.id !== menuForm.id)
-                        .map((item) => (
-                          <option key={item.id} value={item.id}>
-                            {"- ".repeat(item.level)}{item.title}
-                          </option>
-                        ))}
-                    </select>
-                  </label>
-                  <label className="text-sm">
-                    <div className="mb-1 text-slate-600">Привязанная страница</div>
+                    <div className="mb-1 text-slate-600">Page target</div>
                     <select
                       value={menuForm.page_id}
                       onChange={(e) => setMenuForm((prev) => ({ ...prev, page_id: e.target.value }))}
                       className="w-full rounded-md border px-3 py-2"
                     >
-                      <option value="">Не выбрано</option>
+                      <option value="">No page selected</option>
                       {data.pages.map((page) => (
                         <option key={page.id} value={page.id}>
                           {page.title}
@@ -537,80 +822,75 @@ export default function ContentPage() {
                       ))}
                     </select>
                   </label>
-                </div>
-                <div className="grid gap-3 md:grid-cols-2">
                   <label className="text-sm">
-                    <div className="mb-1 text-slate-600">Внешняя ссылка</div>
+                    <div className="mb-1 text-slate-600">External URL</div>
                     <input
                       value={menuForm.external_url}
                       onChange={(e) => setMenuForm((prev) => ({ ...prev, external_url: e.target.value }))}
-                      className="w-full rounded-md border px-3 py-2"
                       placeholder="https://..."
-                    />
-                  </label>
-                  <label className="text-sm">
-                    <div className="mb-1 text-slate-600">Картинка URL</div>
-                    <input
-                      value={menuForm.image_url}
-                      onChange={(e) => setMenuForm((prev) => ({ ...prev, image_url: e.target.value }))}
                       className="w-full rounded-md border px-3 py-2"
                     />
                   </label>
                 </div>
-                <div className="grid gap-3 md:grid-cols-[1fr_auto]">
-                  <label className="text-sm">
-                    <div className="mb-1 text-slate-600">Описание</div>
-                    <textarea
-                      value={menuForm.description}
-                      onChange={(e) => setMenuForm((prev) => ({ ...prev, description: e.target.value }))}
-                      className="min-h-24 w-full rounded-md border px-3 py-2"
-                    />
-                  </label>
-                  <div className="space-y-3">
-                    <label className="block text-sm">
-                      <div className="mb-1 text-slate-600">Порядок</div>
-                      <input
-                        type="number"
-                        value={menuForm.sort_order}
-                        onChange={(e) => setMenuForm((prev) => ({ ...prev, sort_order: e.target.value }))}
-                        className="w-28 rounded-md border px-3 py-2"
-                      />
-                    </label>
-                    <label className="flex items-center gap-2 rounded-md border bg-white px-3 py-2 text-sm">
-                      <input
-                        type="checkbox"
-                        checked={menuForm.is_visible}
-                        onChange={(e) => setMenuForm((prev) => ({ ...prev, is_visible: e.target.checked }))}
-                      />
-                      Видимый
-                    </label>
-                  </div>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  <button
-                    type="submit"
-                    disabled={savingMenu}
-                    className="rounded-md bg-slate-800 px-4 py-2 text-sm font-medium text-white disabled:opacity-60"
-                  >
-                    {savingMenu ? "Сохранение..." : menuForm.id ? "Сохранить пункт" : "Создать пункт"}
-                  </button>
-                  {menuForm.id && (
-                    <button
-                      type="button"
-                      onClick={() => setMenuForm(emptyMenuForm())}
-                      className="rounded-md border px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
-                    >
-                      Сбросить
-                    </button>
-                  )}
-                </div>
-              </form>
+              )}
+              <div className="grid gap-3 md:grid-cols-2">
+                <label className="text-sm">
+                  <div className="mb-1 text-slate-600">Image URL</div>
+                  <input
+                    value={menuForm.image_url}
+                    onChange={(e) => setMenuForm((prev) => ({ ...prev, image_url: e.target.value }))}
+                    className="w-full rounded-md border px-3 py-2"
+                  />
+                </label>
+                <label className="flex items-center gap-2 rounded-md border px-3 py-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={menuForm.is_visible}
+                    onChange={(e) => setMenuForm((prev) => ({ ...prev, is_visible: e.target.checked }))}
+                  />
+                  Visible in public menu
+                </label>
+              </div>
+              <label className="block text-sm">
+                <div className="mb-1 text-slate-600">Description</div>
+                <textarea
+                  value={menuForm.description}
+                  onChange={(e) => setMenuForm((prev) => ({ ...prev, description: e.target.value }))}
+                  className="min-h-24 w-full rounded-md border px-3 py-2"
+                />
+              </label>
+              <div className="flex gap-2">
+                <button
+                  type="submit"
+                  disabled={savingMenu}
+                  className="rounded-md bg-slate-800 px-4 py-2 text-sm font-medium text-white disabled:opacity-60"
+                >
+                  {savingMenu ? "Saving..." : menuForm.id ? "Save item" : "Create item"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setMenuForm(emptyMenuForm())}
+                  className="rounded-md border px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
+                >
+                  Reset
+                </button>
+              </div>
+            </form>
+          </section>
 
-              <div className="mt-4 space-y-2">
-                {menuOptions.length === 0 ? (
-                  <div className="text-sm text-slate-500">Пункты меню еще не созданы.</div>
-                ) : (
-                  menuOptions.map((item) => (
+          <section className="rounded-md border p-4">
+            <div className="mb-4">
+              <div className="font-medium text-slate-900">Menu structure</div>
+              <div className="text-xs text-slate-500">Build top-level items, dropdowns and nested sub-items</div>
+            </div>
+
+            {menuOptions.length === 0 ? (
+              <div className="text-sm text-slate-500">No menu items yet.</div>
+            ) : (
+              <div className="space-y-2">
+                {menuOptions.map((item) => {
+                  const kind = inferMenuKind(item);
+                  return (
                     <div key={item.id} className="rounded-md border px-4 py-3">
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
@@ -618,204 +898,39 @@ export default function ContentPage() {
                             {"- ".repeat(item.level)}{item.title}
                           </div>
                           <div className="mt-1 text-xs text-slate-500">
-                            /{item.slug} {item.path ? `• ${item.path}` : ""} {item.is_visible ? "• visible" : "• hidden"}
+                            {kind === "dropdown" ? "dropdown" : "link"} | /{item.slug} | {item.is_visible ? "visible" : "hidden"}
+                          </div>
+                          <div className="mt-1 text-xs text-slate-500">
+                            {item.path || item.external_url || "No target"}
                           </div>
                         </div>
-                        <div className="flex shrink-0 gap-2">
+                        <div className="flex flex-wrap gap-2">
                           <button
                             type="button"
-                            onClick={() =>
-                              setMenuForm({
-                                id: item.id,
-                                title: item.title,
-                                slug: item.slug,
-                                description: item.description || "",
-                                image_url: item.image_url || "",
-                                parent_id: item.parent_id ? String(item.parent_id) : "",
-                                page_id: item.page_id ? String(item.page_id) : "",
-                                external_url: item.external_url || "",
-                                sort_order: String(item.sort_order || 0),
-                                is_visible: item.is_visible,
-                              })
-                            }
+                            onClick={() => startCreateMenuItem(item)}
                             className="rounded-md border px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50"
                           >
-                            Изменить
+                            Add child
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => startEditMenuItem(item)}
+                            className="rounded-md border px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50"
+                          >
+                            Edit
                           </button>
                           <button
                             type="button"
                             onClick={() => void deleteMenuItem(item.id)}
                             className="rounded-md border border-red-200 px-3 py-1.5 text-xs text-red-700 hover:bg-red-50"
                           >
-                            Удалить
+                            Delete
                           </button>
                         </div>
                       </div>
                     </div>
-                  ))
-                )}
-              </div>
-            </section>
-          </div>
-
-          <section className="rounded-md border p-4">
-            <div className="mb-4 flex items-center justify-between gap-3">
-              <div>
-                <div className="font-medium text-slate-900">Блоки страницы</div>
-                <div className="text-xs text-slate-500">
-                  {selectedPage ? `Редактируется: ${selectedPage.title}` : "Выберите страницу слева"}
-                </div>
-              </div>
-            </div>
-
-            {!selectedPage ? (
-              <div className="text-sm text-slate-500">Сначала выберите или создайте страницу.</div>
-            ) : (
-              <div className="grid gap-6 xl:grid-cols-[420px_1fr]">
-                <form onSubmit={onSubmitBlock} className="space-y-3 rounded-md bg-slate-50 p-4">
-                  <label className="block text-sm">
-                    <div className="mb-1 text-slate-600">Тип блока</div>
-                    <select
-                      value={blockForm.type}
-                      onChange={(e) => setBlockForm((prev) => ({ ...prev, type: e.target.value as BlockFormState["type"] }))}
-                      className="w-full rounded-md border px-3 py-2"
-                    >
-                      <option value="text">Text</option>
-                      <option value="image">Image</option>
-                      <option value="hero">Hero</option>
-                      <option value="cta">CTA</option>
-                    </select>
-                  </label>
-                  <label className="block text-sm">
-                    <div className="mb-1 text-slate-600">Заголовок</div>
-                    <input
-                      value={blockForm.title}
-                      onChange={(e) => setBlockForm((prev) => ({ ...prev, title: e.target.value }))}
-                      className="w-full rounded-md border px-3 py-2"
-                    />
-                  </label>
-                  <label className="block text-sm">
-                    <div className="mb-1 text-slate-600">Текст</div>
-                    <textarea
-                      value={blockForm.body}
-                      onChange={(e) => setBlockForm((prev) => ({ ...prev, body: e.target.value }))}
-                      className="min-h-28 w-full rounded-md border px-3 py-2"
-                    />
-                  </label>
-                  <label className="block text-sm">
-                    <div className="mb-1 text-slate-600">URL картинки</div>
-                    <input
-                      value={blockForm.image_url}
-                      onChange={(e) => setBlockForm((prev) => ({ ...prev, image_url: e.target.value }))}
-                      className="w-full rounded-md border px-3 py-2"
-                    />
-                  </label>
-                  <div className="grid gap-3 md:grid-cols-2">
-                    <label className="text-sm">
-                      <div className="mb-1 text-slate-600">Текст кнопки</div>
-                      <input
-                        value={blockForm.link_label}
-                        onChange={(e) => setBlockForm((prev) => ({ ...prev, link_label: e.target.value }))}
-                        className="w-full rounded-md border px-3 py-2"
-                      />
-                    </label>
-                    <label className="text-sm">
-                      <div className="mb-1 text-slate-600">Ссылка кнопки</div>
-                      <input
-                        value={blockForm.link_url}
-                        onChange={(e) => setBlockForm((prev) => ({ ...prev, link_url: e.target.value }))}
-                        className="w-full rounded-md border px-3 py-2"
-                      />
-                    </label>
-                  </div>
-                  <label className="block text-sm">
-                    <div className="mb-1 text-slate-600">Порядок</div>
-                    <input
-                      type="number"
-                      value={blockForm.sort_order}
-                      onChange={(e) => setBlockForm((prev) => ({ ...prev, sort_order: e.target.value }))}
-                      className="w-full rounded-md border px-3 py-2"
-                    />
-                  </label>
-                  <div className="flex flex-wrap gap-2">
-                    <button
-                      type="submit"
-                      disabled={savingBlock}
-                      className="rounded-md bg-slate-800 px-4 py-2 text-sm font-medium text-white disabled:opacity-60"
-                    >
-                      {savingBlock ? "Сохранение..." : blockForm.id ? "Сохранить блок" : "Добавить блок"}
-                    </button>
-                    {blockForm.id && (
-                      <button
-                        type="button"
-                        onClick={() => setBlockForm(emptyBlockForm())}
-                        className="rounded-md border px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
-                      >
-                        Сбросить
-                      </button>
-                    )}
-                  </div>
-                </form>
-
-                <div className="space-y-3">
-                  {selectedPage.blocks.length === 0 ? (
-                    <div className="text-sm text-slate-500">На странице пока нет блоков.</div>
-                  ) : (
-                    selectedPage.blocks
-                      .slice()
-                      .sort((a, b) => a.sort_order - b.sort_order || a.id - b.id)
-                      .map((block) => (
-                        <div key={block.id} className="rounded-md border px-4 py-4">
-                          <div className="flex items-start justify-between gap-3">
-                            <div className="min-w-0">
-                              <div className="font-medium text-slate-900">
-                                {block.title || "Без заголовка"} <span className="text-xs font-normal text-slate-500">[{block.type}]</span>
-                              </div>
-                              <div className="mt-1 text-xs text-slate-500">Порядок: {block.sort_order}</div>
-                              {block.body && <div className="mt-2 whitespace-pre-wrap text-sm text-slate-700">{block.body}</div>}
-                              {block.image_url && (
-                                <div className="mt-3">
-                                  <img src={block.image_url} alt={block.title || "block"} className="max-h-40 rounded-md border object-cover" />
-                                </div>
-                              )}
-                              {(block.link_label || block.link_url) && (
-                                <div className="mt-2 text-xs text-slate-500">
-                                  {block.link_label || "Кнопка"} {block.link_url ? `• ${block.link_url}` : ""}
-                                </div>
-                              )}
-                            </div>
-                            <div className="flex shrink-0 gap-2">
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  setBlockForm({
-                                    id: block.id,
-                                    type: block.type,
-                                    title: block.title || "",
-                                    body: block.body || "",
-                                    image_url: block.image_url || "",
-                                    link_label: block.link_label || "",
-                                    link_url: block.link_url || "",
-                                    sort_order: String(block.sort_order || 0),
-                                  })
-                                }
-                                className="rounded-md border px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50"
-                              >
-                                Изменить
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => void deleteBlock(block.id)}
-                                className="rounded-md border border-red-200 px-3 py-1.5 text-xs text-red-700 hover:bg-red-50"
-                              >
-                                Удалить
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-                      ))
-                  )}
-                </div>
+                  );
+                })}
               </div>
             )}
           </section>
