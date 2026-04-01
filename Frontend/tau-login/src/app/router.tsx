@@ -39,6 +39,7 @@ import IntegrationsPage from "../pages/admin/sections/IntegrationsPage";
 import ReportsPage from "../pages/admin/sections/ReportsPage";
 import RolesPage from "../pages/admin/sections/RolesPage";
 import ProtectionPage from "../pages/admin/sections/ProtectionPage";
+import ContentPage from "../pages/admin/sections/ContentPage";
 import NotFoundPage from "../pages/NotFoundPage";
 import AnalyticsLayout from "../pages/analytics/AnalyticsLayout";
 import AnalyticsOverviewPage from "../pages/analytics/sections/AnalyticsOverviewPage";
@@ -52,6 +53,7 @@ import PublicTeachersPage from "../pages/public/PublicTeachersPage";
 import PublicStudentsPage from "../pages/public/PublicStudentsPage";
 import PublicResourcesPage from "../pages/public/PublicResourcesPage";
 import PublicUsefulLinksPage from "../pages/public/PublicUsefulLinksPage";
+import PublicContentPage from "../pages/public/PublicContentPage";
 import CitationIndexPage from "../pages/public/teachers/CitationIndexPage";
 import GostPublicationsPage from "../pages/public/teachers/GostPublicationsPage";
 import AcquisitionRequestsPage from "../pages/public/teachers/AcquisitionRequestsPage";
@@ -103,6 +105,7 @@ const router = createBrowserRouter([
   { path: "/public/students/digital-copies", element: <WithTitle title="Цифровые копии - TAU"><DigitalCopiesPage /></WithTitle> },
   { path: "/public/students/reading-room", element: <WithTitle title="Читальный зал - TAU"><ReadingRoomPage /></WithTitle> },
   { path: "/public/resources", element: <WithTitle title="Resources - TAU"><PublicResourcesPage /></WithTitle> },
+  { path: "/public/page/:slug", element: <WithTitle title="Page - TAU"><PublicContentPage /></WithTitle> },
   { path: "/public/links/:category", element: <WithTitle title="Useful Links - TAU"><PublicUsefulLinksPage /></WithTitle> },
   { path: "/public/links", element: <WithTitle title="Useful Links - TAU"><PublicUsefulLinksPage /></WithTitle> },
   { path: "/public/about", element: <WithTitle title="About - TAU"><AboutPage /></WithTitle> },
@@ -169,6 +172,7 @@ const router = createBrowserRouter([
             { path: "files", element: <WithTitle title="Admin Files - TAU"><FilesPage /></WithTitle> },
             { path: "roles", element: <WithTitle title="Admin Roles - TAU"><RolesPage /></WithTitle> },
             { path: "reports", element: <WithTitle title="Admin Reports - TAU"><ReportsPage /></WithTitle> },
+            { path: "content", element: <WithTitle title="Admin Content - TAU"><ContentPage /></WithTitle> },
             { path: "integrations", element: <WithTitle title="Admin Integrations - TAU"><IntegrationsPage /></WithTitle> },
             { path: "settings", element: <WithTitle title="Admin Settings - TAU"><SettingsPage /></WithTitle> },
             { path: "protection", element: <WithTitle title="Admin Protection - TAU"><ProtectionPage /></WithTitle> },

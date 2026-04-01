@@ -9,6 +9,13 @@ import logoWhiteUrl from "@/assets/images/LogoWhite.png";
 
 const PUBLIC_A11Y_STORAGE_KEY = "public_a11y_mode";
 
+type ContentMenuItem = {
+  id: number;
+  title: string;
+  path?: string | null;
+  children: ContentMenuItem[];
+};
+
 function readA11yModeFromStorage(): boolean {
   if (typeof window === "undefined") return false;
   try {
@@ -33,6 +40,7 @@ export function PublicHeader() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [a11yMode, setA11yMode] = useState(readA11yModeFromStorage);
   const [hasToken, setHasToken] = useState(readHasTokenFromStorage);
+  const [contentMenu, setContentMenu] = useState<ContentMenuItem[]>([]);
 
   const openMobileMenu = () => {
     setMobileMenuMounted(true);
@@ -82,6 +90,20 @@ export function PublicHeader() {
       window.removeEventListener("storage", update);
       window.removeEventListener("auth:changed", update as EventListener);
     };
+  }, []);
+
+  useEffect(() => {
+    const loadMenu = async () => {
+      try {
+        const response = await fetch("/api/catalog/public/content/menu");
+        if (!response.ok) return;
+        const data = await response.json();
+        setContentMenu(Array.isArray(data) ? data : []);
+      } catch {
+        setContentMenu([]);
+      }
+    };
+    void loadMenu();
   }, []);
 
   const teachersItems = [
@@ -135,6 +157,9 @@ export function PublicHeader() {
   const ctaClassName = a11yMode ? registerButtonClassName : loginButtonClassName;
   const isPublicHome = location.pathname === "/public";
   const activeNavClassName = a11yMode ? "bg-slate-100 text-slate-900" : "bg-white/15 text-white";
+  const hasDynamicMenu = contentMenu.length > 0;
+
+  const isExternal = (href?: string | null) => Boolean(href && /^https?:\/\//i.test(href));
 
   return (
     <>
@@ -165,25 +190,59 @@ export function PublicHeader() {
             <Link to="/public" className={[navLinkClassName, isPublicHome ? activeNavClassName : ""].join(" ")}>
               {t("publicHome.nav.home")}
             </Link>
-            <NavDropdown
-              label={t("publicHome.nav.teachers")}
-              items={teachersItems}
-              variant={a11yMode ? "default" : "inverse"}
-            />
-            <NavDropdown
-              label={t("publicHome.nav.students")}
-              items={studentsItems}
-              variant={a11yMode ? "default" : "inverse"}
-            />
-            <div>
-              <UsefulLinksDropdown variant="header" basePath="/public/links" tone={tone} />
-            </div>
-            <Link to="/public/about" className={navLinkClassName}>
-              {t("publicHome.nav.about")}
-            </Link>
-            <Link to="/public/resources" className={navLinkClassName}>
-              {t("publicHome.nav.resources")}
-            </Link>
+            {hasDynamicMenu ? (
+              contentMenu.map((item) =>
+                item.children?.length ? (
+                  <NavDropdown
+                    key={item.id}
+                    label={item.title}
+                    items={item.children.map((child) => ({
+                      label: child.title,
+                      to: !isExternal(child.path) ? child.path || "#" : undefined,
+                      href: child.path || undefined,
+                      external: isExternal(child.path),
+                    }))}
+                    variant={a11yMode ? "default" : "inverse"}
+                  />
+                ) : isExternal(item.path) ? (
+                  <a
+                    key={item.id}
+                    href={item.path || "#"}
+                    target="_blank"
+                    rel="noreferrer"
+                    className={navLinkClassName}
+                  >
+                    {item.title}
+                  </a>
+                ) : (
+                  <Link key={item.id} to={item.path || "#"} className={navLinkClassName}>
+                    {item.title}
+                  </Link>
+                ),
+              )
+            ) : (
+              <>
+                <NavDropdown
+                  label={t("publicHome.nav.teachers")}
+                  items={teachersItems}
+                  variant={a11yMode ? "default" : "inverse"}
+                />
+                <NavDropdown
+                  label={t("publicHome.nav.students")}
+                  items={studentsItems}
+                  variant={a11yMode ? "default" : "inverse"}
+                />
+                <div>
+                  <UsefulLinksDropdown variant="header" basePath="/public/links" tone={tone} />
+                </div>
+                <Link to="/public/about" className={navLinkClassName}>
+                  {t("publicHome.nav.about")}
+                </Link>
+                <Link to="/public/resources" className={navLinkClassName}>
+                  {t("publicHome.nav.resources")}
+                </Link>
+              </>
+            )}
           </nav>
 
           <div className="flex items-center justify-end gap-3">
@@ -252,37 +311,94 @@ export function PublicHeader() {
                   {t("publicHome.nav.home")}
                 </Link>
 
-                <div className="pt-2">
-                  <div className="px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500">{t("publicHome.nav.teachers")}</div>
-                  <div className="space-y-1">
-                    {teachersItems.map((item) => (
-                      <Link key={item.to} to={item.to} onClick={closeMobileMenu} className="block rounded-xl px-3 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-50">
-                        {item.label}
-                      </Link>
-                    ))}
-                  </div>
-                </div>
+                {hasDynamicMenu ? (
+                  contentMenu.map((item) => (
+                    <div key={item.id} className="pt-2">
+                      {item.children?.length ? (
+                        <>
+                          <div className="px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500">{item.title}</div>
+                          <div className="space-y-1">
+                            {item.children.map((child) =>
+                              isExternal(child.path) ? (
+                                <a
+                                  key={child.id}
+                                  href={child.path || "#"}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  onClick={closeMobileMenu}
+                                  className="block rounded-xl px-3 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-50"
+                                >
+                                  {child.title}
+                                </a>
+                              ) : (
+                                <Link
+                                  key={child.id}
+                                  to={child.path || "#"}
+                                  onClick={closeMobileMenu}
+                                  className="block rounded-xl px-3 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-50"
+                                >
+                                  {child.title}
+                                </Link>
+                              ),
+                            )}
+                          </div>
+                        </>
+                      ) : isExternal(item.path) ? (
+                        <a
+                          href={item.path || "#"}
+                          target="_blank"
+                          rel="noreferrer"
+                          onClick={closeMobileMenu}
+                          className="block rounded-xl px-3 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-50"
+                        >
+                          {item.title}
+                        </a>
+                      ) : (
+                        <Link
+                          to={item.path || "#"}
+                          onClick={closeMobileMenu}
+                          className="block rounded-xl px-3 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-50"
+                        >
+                          {item.title}
+                        </Link>
+                      )}
+                    </div>
+                  ))
+                ) : (
+                  <>
+                    <div className="pt-2">
+                      <div className="px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500">{t("publicHome.nav.teachers")}</div>
+                      <div className="space-y-1">
+                        {teachersItems.map((item) => (
+                          <Link key={item.to} to={item.to} onClick={closeMobileMenu} className="block rounded-xl px-3 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-50">
+                            {item.label}
+                          </Link>
+                        ))}
+                      </div>
+                    </div>
 
-                <div className="pt-2">
-                  <div className="px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500">{t("publicHome.nav.students")}</div>
-                  <div className="space-y-1">
-                    {studentsItems.map((item) => (
-                      <Link key={item.to} to={item.to} onClick={closeMobileMenu} className="block rounded-xl px-3 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-50">
-                        {item.label}
-                      </Link>
-                    ))}
-                  </div>
-                </div>
+                    <div className="pt-2">
+                      <div className="px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500">{t("publicHome.nav.students")}</div>
+                      <div className="space-y-1">
+                        {studentsItems.map((item) => (
+                          <Link key={item.to} to={item.to} onClick={closeMobileMenu} className="block rounded-xl px-3 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-50">
+                            {item.label}
+                          </Link>
+                        ))}
+                      </div>
+                    </div>
 
-                <Link to="/public/links" onClick={closeMobileMenu} className="block rounded-xl px-3 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-50">
-                  {t("publicHome.nav.links")}
-                </Link>
-                <Link to="/public/about" onClick={closeMobileMenu} className="block rounded-xl px-3 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-50">
-                  {t("publicHome.nav.about")}
-                </Link>
-                <Link to="/public/resources" onClick={closeMobileMenu} className="block rounded-xl px-3 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-50">
-                  {t("publicHome.nav.resources")}
-                </Link>
+                    <Link to="/public/links" onClick={closeMobileMenu} className="block rounded-xl px-3 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-50">
+                      {t("publicHome.nav.links")}
+                    </Link>
+                    <Link to="/public/about" onClick={closeMobileMenu} className="block rounded-xl px-3 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-50">
+                      {t("publicHome.nav.about")}
+                    </Link>
+                    <Link to="/public/resources" onClick={closeMobileMenu} className="block rounded-xl px-3 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-50">
+                      {t("publicHome.nav.resources")}
+                    </Link>
+                  </>
+                )}
               </nav>
             </div>
           </div>

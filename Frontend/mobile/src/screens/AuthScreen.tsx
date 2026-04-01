@@ -17,13 +17,143 @@ import { TokenPair } from "../lib/storage";
 
 type LoginMode = "default" | "platonus";
 type Step = "login" | "verify";
+type Language = "ru" | "kz" | "en";
 type MessageState = { type: "success" | "error"; text: string } | null;
+type TwoFAChallenge = {
+  requires_2fa?: boolean;
+  challenge_id?: string;
+  expires_in?: number;
+};
+
+const translations = {
+  ru: {
+    languages: { ru: "RU", kz: "KZ", en: "EN" },
+    titleDefault: "С возвращением",
+    titlePlatonus: "Вход в аккаунт кампуса",
+    subtitleDefault: "Войдите через корпоративную почту.",
+    subtitlePlatonus: "Войдите через учетную запись кампуса.",
+    campus: "Почта",
+    campusId: "Campus ID",
+    email: "Email",
+    emailPlaceholder: "username@campus.edu",
+    password: "Пароль",
+    passwordPlaceholder: "Ваш пароль",
+    show: "Показать",
+    hide: "Скрыть",
+    remember: "Запомнить меня",
+    login: "Логин",
+    loginPlaceholder: "Student ID",
+    verificationTitle: "Код подтверждения",
+    verificationPlaceholder: "Введите код из письма",
+    verificationHelper: "Мы отправили 6-значный код на вашу почту.",
+    verificationHint: "После ввода логина и пароля подтвердите вход кодом из email.",
+    signIn: "Войти",
+    verify: "Подтвердить",
+    or: "или",
+    continueWithCampus: "Продолжить через аккаунт кампуса",
+    backToEmail: "Вернуться ко входу по email",
+    back: "Назад",
+    resendCode: "Отправить код еще раз",
+    newHere: "Впервые здесь?",
+    createAccount: "Создать аккаунт",
+    continueAsGuest: "Продолжить как гость",
+    errorEnterLoginPassword: "Введите логин и пароль.",
+    errorEnterEmail: "Введите корпоративную почту.",
+    errorEnterPassword: "Введите пароль.",
+    errorEnterCode: "Введите код подтверждения.",
+    loginSuccess: "Вход выполнен успешно.",
+    codeVerified: "Код подтвержден, вход выполнен.",
+    codeSent: "Код подтверждения отправлен на вашу почту.",
+    codeResent: "Новый код отправлен на вашу почту."
+  },
+  kz: {
+    languages: { ru: "RU", kz: "KZ", en: "EN" },
+    titleDefault: "Қош келдініз",
+    titlePlatonus: "Campus аккаунтына кіру",
+    subtitleDefault: "Корпоративтік пошта арқылы кіріңіз.",
+    subtitlePlatonus: "Campus тіркелгісі арқылы кіріңіз.",
+    campus: "Пошта",
+    campusId: "Campus ID",
+    email: "Email",
+    emailPlaceholder: "username@campus.edu",
+    password: "Құпиясөз",
+    passwordPlaceholder: "Құпиясөзіңіз",
+    show: "Көрсету",
+    hide: "Жасыру",
+    remember: "Мені есте сақтау",
+    login: "Логин",
+    loginPlaceholder: "Student ID",
+    verificationTitle: "Растау коды",
+    verificationPlaceholder: "Email-дегі кодты енгізіңіз",
+    verificationHelper: "Біз email-ге 6 таңбалы код жібердік.",
+    verificationHint: "Логин мен құпиясөзді енгізгеннен кейін email кодымен кіруді растаңыз.",
+    signIn: "Кіру",
+    verify: "Растау",
+    or: "немесе",
+    continueWithCampus: "Campus аккаунты арқылы жалғастыру",
+    backToEmail: "Email арқылы кіруге оралу",
+    back: "Артқа",
+    resendCode: "Кодты қайта жіберу",
+    newHere: "Алғаш рет пе?",
+    createAccount: "Аккаунт ашу",
+    continueAsGuest: "Қонақ ретінде жалғастыру",
+    errorEnterLoginPassword: "Логин мен құпиясөзді енгізіңіз.",
+    errorEnterEmail: "Корпоративтік email енгізіңіз.",
+    errorEnterPassword: "Құпиясөзді енгізіңіз.",
+    errorEnterCode: "Растау кодын енгізіңіз.",
+    loginSuccess: "Кіру сәтті аяқталды.",
+    codeVerified: "Код расталды, кіру сәтті аяқталды.",
+    codeSent: "Растау коды email-ге жіберілді.",
+    codeResent: "Жаңа код email-ге қайта жіберілді."
+  },
+  en: {
+    languages: { ru: "RU", kz: "KZ", en: "EN" },
+    titleDefault: "Welcome Back",
+    titlePlatonus: "Campus Account Login",
+    subtitleDefault: "Use your campus email to continue.",
+    subtitlePlatonus: "Sign in with your campus account.",
+    campus: "Campus",
+    campusId: "Campus ID",
+    email: "Email",
+    emailPlaceholder: "username@campus.edu",
+    password: "Password",
+    passwordPlaceholder: "Your password",
+    show: "Show",
+    hide: "Hide",
+    remember: "Remember me",
+    login: "Login",
+    loginPlaceholder: "Student ID",
+    verificationTitle: "Verification code",
+    verificationPlaceholder: "Enter the code from email",
+    verificationHelper: "We sent a 6-digit code to your email.",
+    verificationHint: "After entering your login and password, confirm sign-in with the email code.",
+    signIn: "Sign in",
+    verify: "Verify",
+    or: "or",
+    continueWithCampus: "Continue with campus account",
+    backToEmail: "Back to email login",
+    back: "Back",
+    resendCode: "Resend code",
+    newHere: "New here?",
+    createAccount: "Create an account",
+    continueAsGuest: "Continue as guest",
+    errorEnterLoginPassword: "Enter your login and password.",
+    errorEnterEmail: "Enter your campus email.",
+    errorEnterPassword: "Enter your password.",
+    errorEnterCode: "Enter the verification code.",
+    loginSuccess: "Signed in successfully.",
+    codeVerified: "Code verified successfully.",
+    codeSent: "Verification code sent to your email.",
+    codeResent: "A new code was sent to your email."
+  }
+} as const;
 
 type Props = {
   onAuthSuccess: (tokens: TokenPair) => void;
 };
 
 export default function AuthScreen({ onAuthSuccess }: Props) {
+  const [language, setLanguage] = useState<Language>("ru");
   const [mode, setMode] = useState<LoginMode>("default");
   const [step, setStep] = useState<Step>("login");
   const [showPassword, setShowPassword] = useState(false);
@@ -31,51 +161,117 @@ export default function AuthScreen({ onAuthSuccess }: Props) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [verificationCode, setVerificationCode] = useState("");
+  const [challengeId, setChallengeId] = useState<string | null>(null);
   const [platonusLogin, setPlatonusLogin] = useState("");
   const [platonusPassword, setPlatonusPassword] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [message, setMessage] = useState<MessageState>(null);
 
+  const copy = useMemo(() => translations[language], [language]);
   const subtitle = useMemo(() => {
-    if (mode === "platonus") return "Sign in with your campus account.";
-    return "Use your campus email to continue.";
-  }, [mode]);
+    if (mode === "platonus") return copy.subtitlePlatonus;
+    return copy.subtitleDefault;
+  }, [copy, mode]);
+
+  const resetToLoginStep = () => {
+    setStep("login");
+    setChallengeId(null);
+    setVerificationCode("");
+  };
+
+  const startTwoFactorFlow = (resp: TwoFAChallenge) => {
+    if (!resp?.challenge_id) {
+      throw new Error("Challenge ID was not returned.");
+    }
+    setChallengeId(resp.challenge_id);
+    setStep("verify");
+    setVerificationCode("");
+    setMessage({ type: "success", text: copy.codeSent });
+  };
+
+  const handleResendCode = async () => {
+    if (!challengeId) {
+      setMessage({ type: "error", text: copy.errorEnterCode });
+      return;
+    }
+
+    setMessage(null);
+    setIsSubmitting(true);
+    try {
+      await apiPost("/api/auth/2fa/resend", { challenge_id: challengeId });
+      setMessage({ type: "success", text: copy.codeResent });
+    } catch (err) {
+      const text = err instanceof Error ? err.message : "Request failed.";
+      setMessage({ type: "error", text });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   const handleAuth = async () => {
     setMessage(null);
     setIsSubmitting(true);
     try {
       if (mode === "platonus") {
-        if (!platonusLogin || !platonusPassword) {
-          throw new Error("Enter your login and password.");
+        if (step === "login") {
+          if (!platonusLogin || !platonusPassword) {
+            throw new Error(copy.errorEnterLoginPassword);
+          }
+          const resp = await apiPost<any>("/api/auth/platonus", {
+            login: platonusLogin,
+            password: platonusPassword
+          });
+          if (resp?.requires_2fa) {
+            startTwoFactorFlow(resp);
+            return;
+          }
+          onAuthSuccess(resp || {});
+          setMessage({ type: "success", text: copy.loginSuccess });
+          return;
         }
-        const resp = await apiPost<any>("/api/auth/platonus", {
-          login: platonusLogin,
-          password: platonusPassword
+
+        if (!verificationCode) {
+          throw new Error(copy.errorEnterCode);
+        }
+        if (!challengeId) {
+          throw new Error("Challenge ID is missing.");
+        }
+        const resp = await apiPost<any>("/api/auth/2fa/verify", {
+          challenge_id: challengeId,
+          code: verificationCode
         });
         onAuthSuccess(resp || {});
-        const role = resp?.role ? ` (${resp.role})` : "";
-        setMessage({ type: "success", text: `Sign in successful${role}.` });
+        setMessage({ type: "success", text: copy.codeVerified });
         return;
       }
 
       if (!email) {
-        throw new Error("Enter your campus email.");
+        throw new Error(copy.errorEnterEmail);
       }
       if (step === "login") {
         if (!password) {
-          throw new Error("Enter your password.");
+          throw new Error(copy.errorEnterPassword);
         }
         const resp = await apiPost<any>("/api/auth/login", { email, password });
+        if (resp?.requires_2fa) {
+          startTwoFactorFlow(resp);
+          return;
+        }
         onAuthSuccess(resp || {});
-        setMessage({ type: "success", text: "Signed in successfully." });
+        setMessage({ type: "success", text: copy.loginSuccess });
       } else {
         if (!verificationCode) {
-          throw new Error("Enter the verification code.");
+          throw new Error(copy.errorEnterCode);
         }
-        const resp = await apiPost<any>("/api/auth/verify", { email, code: verificationCode });
+        if (!challengeId) {
+          throw new Error("Challenge ID is missing.");
+        }
+        const resp = await apiPost<any>("/api/auth/2fa/verify", {
+          challenge_id: challengeId,
+          code: verificationCode
+        });
         onAuthSuccess(resp || {});
-        setMessage({ type: "success", text: "Code verified successfully." });
+        setMessage({ type: "success", text: copy.codeVerified });
       }
     } catch (err) {
       const text = err instanceof Error ? err.message : "Request failed.";
@@ -99,49 +295,59 @@ export default function AuthScreen({ onAuthSuccess }: Props) {
         >
           <View style={styles.card}>
             <View style={styles.headerRow}>
-              <View style={styles.languagePill}>
-                <Text style={styles.languageText}>EN</Text>
+              <View style={styles.languageGroup}>
+                {(Object.keys(copy.languages) as Language[]).map((lang) => (
+                  <TouchableOpacity
+                    key={lang}
+                    onPress={() => setLanguage(lang)}
+                    style={[styles.languagePill, language === lang && styles.languagePillActive]}
+                  >
+                    <Text style={[styles.languageText, language === lang && styles.languageTextActive]}>
+                      {copy.languages[lang]}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
               </View>
             </View>
 
-            <Text style={styles.title}>{mode === "platonus" ? "Campus Account Login" : "Welcome Back"}</Text>
+            <Text style={styles.title}>{mode === "platonus" ? copy.titlePlatonus : copy.titleDefault}</Text>
             <Text style={styles.subtitle}>{subtitle}</Text>
 
             <View style={styles.segment}>
               <TouchableOpacity
                 onPress={() => {
                   setMode("default");
-                  setStep("login");
+                  resetToLoginStep();
                   setMessage(null);
                 }}
                 style={[styles.segmentButton, mode === "default" && styles.segmentActive]}
               >
                 <Text style={[styles.segmentText, mode === "default" && styles.segmentTextActive]}>
-                  Campus
+                  {copy.campus}
                 </Text>
               </TouchableOpacity>
               <TouchableOpacity
                 onPress={() => {
                   setMode("platonus");
-                  setStep("login");
+                  resetToLoginStep();
                   setMessage(null);
                 }}
                 style={[styles.segmentButton, mode === "platonus" && styles.segmentActive]}
               >
                 <Text style={[styles.segmentText, mode === "platonus" && styles.segmentTextActive]}>
-                  Campus ID
+                  {copy.campusId}
                 </Text>
               </TouchableOpacity>
             </View>
 
             {mode === "default" ? (
               <>
-                <Text style={styles.label}>Email</Text>
+                <Text style={styles.label}>{copy.email}</Text>
                 <TextInput
                   autoCapitalize="none"
                   autoComplete="email"
                   keyboardType="email-address"
-                  placeholder="username@campus.edu"
+                  placeholder={copy.emailPlaceholder}
                   placeholderTextColor="#a1a1aa"
                   style={styles.input}
                   value={email}
@@ -150,12 +356,12 @@ export default function AuthScreen({ onAuthSuccess }: Props) {
 
                 {step === "login" ? (
                   <>
-                    <Text style={styles.label}>Password</Text>
+                    <Text style={styles.label}>{copy.password}</Text>
                     <View style={styles.inputRow}>
                       <TextInput
                         autoCapitalize="none"
                         autoComplete="password"
-                        placeholder="Your password"
+                        placeholder={copy.passwordPlaceholder}
                         placeholderTextColor="#a1a1aa"
                         secureTextEntry={!showPassword}
                         style={[styles.input, styles.inputFlex]}
@@ -163,7 +369,7 @@ export default function AuthScreen({ onAuthSuccess }: Props) {
                         onChangeText={setPassword}
                       />
                       <TouchableOpacity onPress={() => setShowPassword((prev) => !prev)} style={styles.eyeButton}>
-                        <Text style={styles.eyeText}>{showPassword ? "Hide" : "Show"}</Text>
+                        <Text style={styles.eyeText}>{showPassword ? copy.hide : copy.show}</Text>
                       </TouchableOpacity>
                     </View>
 
@@ -175,25 +381,23 @@ export default function AuthScreen({ onAuthSuccess }: Props) {
                           thumbColor={Platform.OS === "android" ? "#f2f2f5" : undefined}
                           trackColor={{ false: "#d4d4d8", true: "#7b0f2b" }}
                         />
-                        <Text style={styles.switchLabel}>Remember me</Text>
+                        <Text style={styles.switchLabel}>{copy.remember}</Text>
                       </View>
-                      <TouchableOpacity onPress={() => setStep("verify")}>
-                        <Text style={styles.link}>Use code</Text>
-                      </TouchableOpacity>
                     </View>
+                    <Text style={styles.helperLogin}>{copy.verificationHint}</Text>
                   </>
                 ) : (
                   <>
-                    <Text style={styles.label}>Verification code</Text>
+                    <Text style={styles.label}>{copy.verificationTitle}</Text>
                     <TextInput
                       keyboardType="number-pad"
-                      placeholder="Enter the code"
+                      placeholder={copy.verificationPlaceholder}
                       placeholderTextColor="#a1a1aa"
                       style={styles.input}
                       value={verificationCode}
                       onChangeText={setVerificationCode}
                     />
-                    <Text style={styles.helper}>Check your email for the 6-digit code.</Text>
+                    <Text style={styles.helper}>{copy.verificationHelper}</Text>
                   </>
                 )}
 
@@ -207,48 +411,89 @@ export default function AuthScreen({ onAuthSuccess }: Props) {
                   onPress={handleAuth}
                   disabled={isSubmitting}
                 >
-                  <Text style={styles.primaryText}>{step === "login" ? "Sign in" : "Verify"}</Text>
+                  <Text style={styles.primaryText}>{step === "login" ? copy.signIn : copy.verify}</Text>
                 </TouchableOpacity>
 
-                <View style={styles.dividerRow}>
-                  <View style={styles.dividerLine} />
-                  <Text style={styles.dividerText}>or</Text>
-                  <View style={styles.dividerLine} />
-                </View>
+                {step === "login" ? (
+                  <>
+                    <View style={styles.dividerRow}>
+                      <View style={styles.dividerLine} />
+                      <Text style={styles.dividerText}>{copy.or}</Text>
+                      <View style={styles.dividerLine} />
+                    </View>
 
-                <TouchableOpacity
-                  style={styles.secondaryButton}
-                  onPress={() => {
-                    setMode("platonus");
-                    setStep("login");
-                    setMessage(null);
-                  }}
-                >
-                  <Text style={styles.secondaryText}>Continue with campus account</Text>
-                </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.secondaryButton}
+                      onPress={() => {
+                        setMode("platonus");
+                        resetToLoginStep();
+                        setMessage(null);
+                      }}
+                    >
+                      <Text style={styles.secondaryText}>{copy.continueWithCampus}</Text>
+                    </TouchableOpacity>
+                  </>
+                ) : (
+                  <View style={styles.actionRow}>
+                    <TouchableOpacity
+                      style={styles.ghostButtonHalf}
+                      onPress={() => {
+                        resetToLoginStep();
+                        setMessage(null);
+                      }}
+                    >
+                      <Text style={styles.ghostText}>{copy.back}</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.secondaryButtonHalf}
+                      onPress={handleResendCode}
+                      disabled={isSubmitting}
+                    >
+                      <Text style={styles.secondaryText}>{copy.resendCode}</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
               </>
             ) : (
               <>
-                <Text style={styles.label}>Login</Text>
-                <TextInput
-                  autoCapitalize="none"
-                  placeholder="Student ID"
-                  placeholderTextColor="#a1a1aa"
-                  style={styles.input}
-                  value={platonusLogin}
-                  onChangeText={setPlatonusLogin}
-                />
+                <Text style={styles.label}>{step === "login" ? copy.login : copy.verificationTitle}</Text>
+                {step === "login" ? (
+                  <TextInput
+                    autoCapitalize="none"
+                    placeholder={copy.loginPlaceholder}
+                    placeholderTextColor="#a1a1aa"
+                    style={styles.input}
+                    value={platonusLogin}
+                    onChangeText={setPlatonusLogin}
+                  />
+                ) : (
+                  <TextInput
+                    keyboardType="number-pad"
+                    placeholder={copy.verificationPlaceholder}
+                    placeholderTextColor="#a1a1aa"
+                    style={styles.input}
+                    value={verificationCode}
+                    onChangeText={setVerificationCode}
+                  />
+                )}
 
-                <Text style={styles.label}>Password</Text>
-                <TextInput
-                  autoCapitalize="none"
-                  placeholder="Your password"
-                  placeholderTextColor="#a1a1aa"
-                  secureTextEntry
-                  style={styles.input}
-                  value={platonusPassword}
-                  onChangeText={setPlatonusPassword}
-                />
+                {step === "login" ? (
+                  <>
+                    <Text style={styles.label}>{copy.password}</Text>
+                    <TextInput
+                      autoCapitalize="none"
+                      placeholder={copy.passwordPlaceholder}
+                      placeholderTextColor="#a1a1aa"
+                      secureTextEntry
+                      style={styles.input}
+                      value={platonusPassword}
+                      onChangeText={setPlatonusPassword}
+                    />
+                    <Text style={styles.helperLogin}>{copy.verificationHint}</Text>
+                  </>
+                ) : (
+                  <Text style={styles.helper}>{copy.verificationHelper}</Text>
+                )}
 
                 {message && (
                   <Text style={[styles.message, message.type === "error" ? styles.messageError : styles.messageSuccess]}>
@@ -260,30 +505,51 @@ export default function AuthScreen({ onAuthSuccess }: Props) {
                   onPress={handleAuth}
                   disabled={isSubmitting}
                 >
-                  <Text style={styles.primaryText}>Sign in</Text>
+                  <Text style={styles.primaryText}>{step === "login" ? copy.signIn : copy.verify}</Text>
                 </TouchableOpacity>
 
-                <TouchableOpacity
-                  style={styles.ghostButton}
-                  onPress={() => {
-                    setMode("default");
-                    setStep("login");
-                    setMessage(null);
-                  }}
-                >
-                  <Text style={styles.ghostText}>Back to email login</Text>
-                </TouchableOpacity>
+                {step === "login" ? (
+                  <TouchableOpacity
+                    style={styles.ghostButton}
+                    onPress={() => {
+                      setMode("default");
+                      resetToLoginStep();
+                      setMessage(null);
+                    }}
+                  >
+                    <Text style={styles.ghostText}>{copy.backToEmail}</Text>
+                  </TouchableOpacity>
+                ) : (
+                  <View style={styles.actionRow}>
+                    <TouchableOpacity
+                      style={styles.ghostButtonHalf}
+                      onPress={() => {
+                        resetToLoginStep();
+                        setMessage(null);
+                      }}
+                    >
+                      <Text style={styles.ghostText}>{copy.back}</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.secondaryButtonHalf}
+                      onPress={handleResendCode}
+                      disabled={isSubmitting}
+                    >
+                      <Text style={styles.secondaryText}>{copy.resendCode}</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
               </>
             )}
 
             <View style={styles.footerRow}>
-              <Text style={styles.footerText}>New here?</Text>
+              <Text style={styles.footerText}>{copy.newHere}</Text>
               <TouchableOpacity>
-                <Text style={styles.link}>Create an account</Text>
+                <Text style={styles.link}>{copy.createAccount}</Text>
               </TouchableOpacity>
             </View>
             <TouchableOpacity style={styles.guestRow}>
-              <Text style={styles.guestText}>Continue as guest</Text>
+              <Text style={styles.guestText}>{copy.continueAsGuest}</Text>
             </TouchableOpacity>
           </View>
         </ScrollView>
@@ -342,16 +608,26 @@ const styles = StyleSheet.create({
     alignItems: "flex-end",
     marginBottom: 12
   },
+  languageGroup: {
+    flexDirection: "row",
+    gap: 8
+  },
   languagePill: {
     backgroundColor: "#f4e7ec",
     borderRadius: 12,
     paddingHorizontal: 10,
     paddingVertical: 4
   },
+  languagePillActive: {
+    backgroundColor: "#7b0f2b"
+  },
   languageText: {
     fontFamily: "Manrope_600SemiBold",
     fontSize: 12,
     color: "#7b0f2b"
+  },
+  languageTextActive: {
+    color: "#ffffff"
   },
   title: {
     fontFamily: "Manrope_700Bold",
@@ -456,6 +732,12 @@ const styles = StyleSheet.create({
     marginTop: -8,
     marginBottom: 16
   },
+  helperLogin: {
+    fontFamily: "Manrope_400Regular",
+    fontSize: 12,
+    color: "#6b7280",
+    marginBottom: 16
+  },
   message: {
     fontFamily: "Manrope_400Regular",
     fontSize: 12,
@@ -511,6 +793,19 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#7b0f2b"
   },
+  secondaryButtonHalf: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: "#7b0f2b",
+    borderRadius: 16,
+    paddingVertical: 12,
+    alignItems: "center"
+  },
+  actionRow: {
+    flexDirection: "row",
+    gap: 10,
+    marginBottom: 18
+  },
   ghostButton: {
     borderWidth: 1,
     borderColor: "#e5e7eb",
@@ -523,6 +818,14 @@ const styles = StyleSheet.create({
     fontFamily: "Manrope_600SemiBold",
     fontSize: 13,
     color: "#6b7280"
+  },
+  ghostButtonHalf: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: "#e5e7eb",
+    borderRadius: 16,
+    paddingVertical: 12,
+    alignItems: "center"
   },
   footerRow: {
     flexDirection: "row",

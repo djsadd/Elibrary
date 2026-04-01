@@ -15,6 +15,7 @@ const nav = [
   { to: "/admin/users", label: () => t('admin.nav.users') },
   { to: "/admin/roles", label: () => t('admin.nav.roles') },
   { to: "/admin/reports", label: () => t('admin.nav.reports') },
+  { to: "/admin/content", label: () => "Контент" },
   { to: "/admin/integrations", label: () => t('admin.nav.integrations') },
   { to: "/admin/settings", label: () => t('admin.nav.settings') },
   { to: "/admin/protection", label: () => t('admin.nav.protection') },

@@ -3,7 +3,9 @@ import { Link } from "react-router-dom";
 
 export interface NavDropdownItem {
   label: string;
-  to: string;
+  to?: string;
+  href?: string;
+  external?: boolean;
 }
 
 interface NavDropdownProps {
@@ -38,14 +40,27 @@ export function NavDropdown({ label, items, variant = "default" }: NavDropdownPr
         <div className="absolute top-full left-0 mt-2 bg-white border border-[color:var(--public-border)] rounded-xl shadow-xl z-50">
           <div className="p-2 min-w-64">
             {items.map((item) => (
-              <Link
-                key={item.to}
-                to={item.to}
-                onClick={() => setIsOpen(false)}
-                className="block w-full text-left px-4 py-3 text-sm text-slate-700 hover:bg-slate-100 hover:text-[color:var(--public-accent)] rounded-lg transition-colors"
-              >
-                {item.label}
-              </Link>
+              item.external || (item.href && /^https?:\/\//i.test(item.href)) ? (
+                <a
+                  key={item.href || item.label}
+                  href={item.href}
+                  target="_blank"
+                  rel="noreferrer"
+                  onClick={() => setIsOpen(false)}
+                  className="block w-full text-left px-4 py-3 text-sm text-slate-700 hover:bg-slate-100 hover:text-[color:var(--public-accent)] rounded-lg transition-colors"
+                >
+                  {item.label}
+                </a>
+              ) : (
+                <Link
+                  key={item.to || item.href || item.label}
+                  to={item.to || item.href || "#"}
+                  onClick={() => setIsOpen(false)}
+                  className="block w-full text-left px-4 py-3 text-sm text-slate-700 hover:bg-slate-100 hover:text-[color:var(--public-accent)] rounded-lg transition-colors"
+                >
+                  {item.label}
+                </Link>
+              )
             ))}
           </div>
         </div>
