@@ -168,6 +168,8 @@ export default function ContentPage() {
   const [pageForm, setPageForm] = useState<PageFormState>(emptyPageForm);
   const [menuForm, setMenuForm] = useState<MenuFormState>(emptyMenuForm);
   const [blockForm, setBlockForm] = useState<BlockFormState>(emptyBlockForm);
+  const [showPageForm, setShowPageForm] = useState(false);
+  const [showMenuForm, setShowMenuForm] = useState(false);
 
   const [savingPage, setSavingPage] = useState(false);
   const [savingMenu, setSavingMenu] = useState(false);
@@ -215,10 +217,12 @@ export default function ContentPage() {
   const startCreatePage = () => {
     setPageForm(emptyPageForm());
     setBlockForm(emptyBlockForm());
+    setShowPageForm(true);
   };
 
   const startEditPage = (page: Page) => {
     setSelectedPageId(page.id);
+    setShowPageForm(true);
     setPageForm({
       id: page.id,
       title: page.title,
@@ -230,6 +234,7 @@ export default function ContentPage() {
   };
 
   const startCreateMenuItem = (parent?: MenuItem & { level?: number }) => {
+    setShowMenuForm(true);
     setMenuForm({
       ...emptyMenuForm(),
       parent_id: parent ? String(parent.id) : "",
@@ -237,6 +242,7 @@ export default function ContentPage() {
   };
 
   const startEditMenuItem = (item: MenuItem) => {
+    setShowMenuForm(true);
     setMenuForm({
       id: item.id,
       title: item.title,
@@ -283,6 +289,7 @@ export default function ContentPage() {
         await api("/api/catalog/admin/content/pages", { method: "POST", body: JSON.stringify(payload) });
       }
       setPageForm(emptyPageForm());
+      setShowPageForm(false);
       await refreshAfterChange();
     } catch (e: any) {
       setError(e?.message || "Failed to save page");
@@ -313,6 +320,7 @@ export default function ContentPage() {
         await api("/api/catalog/admin/content/menu", { method: "POST", body: JSON.stringify(payload) });
       }
       setMenuForm(emptyMenuForm());
+      setShowMenuForm(false);
       await refreshAfterChange();
     } catch (e: any) {
       setError(e?.message || "Failed to save menu item");
@@ -422,8 +430,8 @@ export default function ContentPage() {
           <section className="rounded-md border p-4">
             <div className="flex items-center justify-between gap-3">
               <div>
-                <div className="font-medium text-slate-900">Pages</div>
-                <div className="text-xs text-slate-500">List, search and status filters</div>
+                <div className="font-medium text-slate-900">Pages list</div>
+                <div className="text-xs text-slate-500">Search, filter and open pages for editing</div>
               </div>
               <button
                 type="button"
@@ -503,11 +511,23 @@ export default function ContentPage() {
 
           <div className="space-y-6">
             <section className="rounded-md border p-4">
-              <div className="mb-4">
-                <div className="font-medium text-slate-900">{pageForm.id ? "Edit page" : "Create page"}</div>
-                <div className="text-xs text-slate-500">Page metadata and publication status</div>
+              <div className="mb-4 flex items-center justify-between gap-3">
+                <div>
+                  <div className="font-medium text-slate-900">Page form</div>
+                  <div className="text-xs text-slate-500">
+                    {pageForm.id ? "Edit selected page" : "Create a new page"}
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowPageForm((v) => !v)}
+                  className="rounded-md border px-3 py-2 text-xs text-slate-700 hover:bg-slate-50"
+                >
+                  {showPageForm ? "Hide form" : "Open form"}
+                </button>
               </div>
 
+              {showPageForm ? (
               <form onSubmit={onSubmitPage} className="space-y-3">
                 <div className="grid gap-3 md:grid-cols-2">
                   <label className="text-sm">
@@ -574,13 +594,19 @@ export default function ContentPage() {
                   </button>
                   <button
                     type="button"
-                    onClick={startCreatePage}
+                    onClick={() => {
+                      setPageForm(emptyPageForm());
+                      setShowPageForm(false);
+                    }}
                     className="rounded-md border px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
                   >
-                    Reset
+                    Cancel
                   </button>
                 </div>
               </form>
+              ) : (
+                <div className="text-sm text-slate-500">Form is collapsed. Use "Open form" or "New page".</div>
+              )}
             </section>
 
             <section className="rounded-md border p-4">
@@ -733,18 +759,30 @@ export default function ContentPage() {
           <section className="rounded-md border p-4">
             <div className="mb-4 flex items-center justify-between gap-3">
               <div>
-                <div className="font-medium text-slate-900">{menuForm.id ? "Edit menu item" : "Create menu item"}</div>
-                <div className="text-xs text-slate-500">Choose a simple link or a dropdown parent</div>
+                <div className="font-medium text-slate-900">Menu form</div>
+                <div className="text-xs text-slate-500">
+                  {menuForm.id ? "Edit selected menu item" : "Create a new menu item"}
+                </div>
               </div>
-              <button
-                type="button"
-                onClick={() => setMenuForm(emptyMenuForm())}
-                className="rounded-md border px-3 py-2 text-xs text-slate-700 hover:bg-slate-50"
-              >
-                New item
-              </button>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => startCreateMenuItem()}
+                  className="rounded-md border px-3 py-2 text-xs text-slate-700 hover:bg-slate-50"
+                >
+                  New item
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowMenuForm((v) => !v)}
+                  className="rounded-md border px-3 py-2 text-xs text-slate-700 hover:bg-slate-50"
+                >
+                  {showMenuForm ? "Hide form" : "Open form"}
+                </button>
+              </div>
             </div>
 
+            {showMenuForm ? (
             <form onSubmit={onSubmitMenu} className="space-y-3">
               <div className="flex gap-2">
                 <FilterChip active={menuForm.kind === "link"} onClick={() => setMenuForm((prev) => ({ ...prev, kind: "link" }))}>
@@ -869,18 +907,24 @@ export default function ContentPage() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => setMenuForm(emptyMenuForm())}
+                  onClick={() => {
+                    setMenuForm(emptyMenuForm());
+                    setShowMenuForm(false);
+                  }}
                   className="rounded-md border px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
                 >
-                  Reset
+                  Cancel
                 </button>
               </div>
             </form>
+            ) : (
+              <div className="text-sm text-slate-500">Form is collapsed. Use "Open form" or "New item".</div>
+            )}
           </section>
 
           <section className="rounded-md border p-4">
             <div className="mb-4">
-              <div className="font-medium text-slate-900">Menu structure</div>
+              <div className="font-medium text-slate-900">Menu list</div>
               <div className="text-xs text-slate-500">Build top-level items, dropdowns and nested sub-items</div>
             </div>
 
