@@ -3,7 +3,7 @@ import { Link, useLocation } from "react-router-dom";
 import LanguageSwitcher from "@/components/common/LanguageSwitcher";
 import { NavDropdown } from "@/components/common/NavDropdown";
 import { UsefulLinksDropdown } from "@/components/common/UsefulLinksDropdown";
-import { t } from "@/shared/i18n";
+import { getLang, t } from "@/shared/i18n";
 import logoUrl from "@/assets/images/Logo.svg";
 import logoWhiteUrl from "@/assets/images/LogoWhite.png";
 
@@ -12,9 +12,20 @@ const PUBLIC_A11Y_STORAGE_KEY = "public_a11y_mode";
 type ContentMenuItem = {
   id: number;
   title: string;
+  title_ru?: string | null;
+  title_kk?: string | null;
+  title_en?: string | null;
   path?: string | null;
   children: ContentMenuItem[];
 };
+
+function resolveMenuTitle(item: Pick<ContentMenuItem, "title" | "title_ru" | "title_kk" | "title_en">): string {
+  const lang = getLang();
+  if (lang === "ru" && item.title_ru?.trim()) return item.title_ru;
+  if (lang === "kk" && item.title_kk?.trim()) return item.title_kk;
+  if (lang === "en" && item.title_en?.trim()) return item.title_en;
+  return item.title?.trim() || item.title_ru?.trim() || item.title_kk?.trim() || item.title_en?.trim() || "";
+}
 
 function readA11yModeFromStorage(): boolean {
   if (typeof window === "undefined") return false;
@@ -195,9 +206,9 @@ export function PublicHeader() {
                 item.children?.length ? (
                   <NavDropdown
                     key={item.id}
-                    label={item.title}
+                    label={resolveMenuTitle(item)}
                     items={item.children.map((child) => ({
-                      label: child.title,
+                      label: resolveMenuTitle(child),
                       to: !isExternal(child.path) ? child.path || "#" : undefined,
                       href: child.path || undefined,
                       external: isExternal(child.path),
@@ -212,11 +223,11 @@ export function PublicHeader() {
                     rel="noreferrer"
                     className={navLinkClassName}
                   >
-                    {item.title}
+                    {resolveMenuTitle(item)}
                   </a>
                 ) : (
                   <Link key={item.id} to={item.path || "#"} className={navLinkClassName}>
-                    {item.title}
+                    {resolveMenuTitle(item)}
                   </Link>
                 ),
               )
@@ -316,7 +327,7 @@ export function PublicHeader() {
                     <div key={item.id} className="pt-2">
                       {item.children?.length ? (
                         <>
-                          <div className="px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500">{item.title}</div>
+                          <div className="px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500">{resolveMenuTitle(item)}</div>
                           <div className="space-y-1">
                             {item.children.map((child) =>
                               isExternal(child.path) ? (
@@ -328,7 +339,7 @@ export function PublicHeader() {
                                   onClick={closeMobileMenu}
                                   className="block rounded-xl px-3 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-50"
                                 >
-                                  {child.title}
+                                  {resolveMenuTitle(child)}
                                 </a>
                               ) : (
                                 <Link
@@ -337,7 +348,7 @@ export function PublicHeader() {
                                   onClick={closeMobileMenu}
                                   className="block rounded-xl px-3 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-50"
                                 >
-                                  {child.title}
+                                  {resolveMenuTitle(child)}
                                 </Link>
                               ),
                             )}
@@ -351,7 +362,7 @@ export function PublicHeader() {
                           onClick={closeMobileMenu}
                           className="block rounded-xl px-3 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-50"
                         >
-                          {item.title}
+                          {resolveMenuTitle(item)}
                         </a>
                       ) : (
                         <Link
@@ -359,7 +370,7 @@ export function PublicHeader() {
                           onClick={closeMobileMenu}
                           className="block rounded-xl px-3 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-50"
                         >
-                          {item.title}
+                          {resolveMenuTitle(item)}
                         </Link>
                       )}
                     </div>

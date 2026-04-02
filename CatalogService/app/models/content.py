@@ -48,6 +48,9 @@ class MenuItem(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     title: Mapped[str] = mapped_column(String(255), nullable=False)
+    title_ru: Mapped[str | None] = mapped_column(String(255))
+    title_kk: Mapped[str | None] = mapped_column(String(255))
+    title_en: Mapped[str | None] = mapped_column(String(255))
     slug: Mapped[str] = mapped_column(String(255), nullable=False, unique=True, index=True)
     description: Mapped[str | None] = mapped_column(Text)
     image_url: Mapped[str | None] = mapped_column(String(2048))

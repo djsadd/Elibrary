@@ -67,6 +67,9 @@ def _serialize_tree(items: list[MenuItem], parent_id: int | None = None, include
         MenuItemTree(
             id=item.id,
             title=item.title,
+            title_ru=item.title_ru,
+            title_kk=item.title_kk,
+            title_en=item.title_en,
             slug=item.slug,
             description=item.description,
             image_url=item.image_url,

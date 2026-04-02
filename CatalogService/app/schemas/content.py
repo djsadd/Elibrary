@@ -93,6 +93,9 @@ class ContentPageOut(ContentPageBase):
 
 class MenuItemBase(BaseModel):
     title: str
+    title_ru: Optional[str] = None
+    title_kk: Optional[str] = None
+    title_en: Optional[str] = None
     slug: str
     description: Optional[str] = None
     image_url: Optional[str] = None
@@ -116,6 +119,9 @@ class MenuItemCreate(MenuItemBase):
 
 class MenuItemUpdate(BaseModel):
     title: Optional[str] = None
+    title_ru: Optional[str] = None
+    title_kk: Optional[str] = None
+    title_en: Optional[str] = None
     slug: Optional[str] = None
     description: Optional[str] = None
     image_url: Optional[str] = None

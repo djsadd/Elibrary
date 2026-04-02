@@ -2193,6 +2193,9 @@ dict.en.admin.menu = {
   options: { topLevel: 'Top level', noPage: 'No page selected' },
   fields: {
     title: 'Title',
+    titleRu: 'Title (RU)',
+    titleKk: 'Title (KK)',
+    titleEn: 'Title (EN)',
     slug: 'Slug',
     parent: 'Parent item',
     sortOrder: 'Sort order',
@@ -2233,6 +2236,9 @@ dict.ru.admin.menu = {
   options: { topLevel: 'Верхний уровень', noPage: 'Страница не выбрана' },
   fields: {
     title: 'Название',
+    titleRu: 'Название (RU)',
+    titleKk: 'Название (KK)',
+    titleEn: 'Название (EN)',
     slug: 'Slug',
     parent: 'Родительский пункт',
     sortOrder: 'Порядок сортировки',
@@ -2273,6 +2279,9 @@ dict.kk.admin.menu = {
   options: { topLevel: 'Жоғарғы деңгей', noPage: 'Бет таңдалмаған' },
   fields: {
     title: 'Атауы',
+    titleRu: 'Атауы (RU)',
+    titleKk: 'Атауы (KK)',
+    titleEn: 'Атауы (EN)',
     slug: 'Slug',
     parent: 'Ата-аналық тармақ',
     sortOrder: 'Сұрыптау реті',

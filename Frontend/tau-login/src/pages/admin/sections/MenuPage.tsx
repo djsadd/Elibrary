@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 
 import { api } from "@/shared/api/client";
-import { t } from "@/shared/i18n";
+import { getLang, t } from "@/shared/i18n";
 
 type Page = {
   id: number;
@@ -11,6 +11,9 @@ type Page = {
 type MenuItem = {
   id: number;
   title: string;
+  title_ru?: string | null;
+  title_kk?: string | null;
+  title_en?: string | null;
   slug: string;
   description?: string | null;
   image_url?: string | null;
@@ -33,6 +36,9 @@ type MenuKind = "link" | "dropdown";
 type MenuFormState = {
   id?: number;
   title: string;
+  title_ru: string;
+  title_kk: string;
+  title_en: string;
   slug: string;
   description: string;
   image_url: string;
@@ -46,6 +52,9 @@ type MenuFormState = {
 
 const emptyMenuForm = (): MenuFormState => ({
   title: "",
+  title_ru: "",
+  title_kk: "",
+  title_en: "",
   slug: "",
   description: "",
   image_url: "",
@@ -74,6 +83,14 @@ function inferMenuKind(item: Pick<MenuItem, "children" | "page_id" | "external_u
   if ((item.children?.length || 0) > 0) return "dropdown";
   if (!item.page_id && !item.external_url) return "dropdown";
   return "link";
+}
+
+function resolveMenuTitle(item: Pick<MenuItem, "title" | "title_ru" | "title_kk" | "title_en">): string {
+  const lang = getLang();
+  if (lang === "ru" && item.title_ru?.trim()) return item.title_ru;
+  if (lang === "kk" && item.title_kk?.trim()) return item.title_kk;
+  if (lang === "en" && item.title_en?.trim()) return item.title_en;
+  return item.title?.trim() || item.title_ru?.trim() || item.title_kk?.trim() || item.title_en?.trim() || "";
 }
 
 function Pill({
@@ -138,6 +155,9 @@ export default function MenuPage() {
     setForm({
       id: item.id,
       title: item.title,
+      title_ru: item.title_ru || "",
+      title_kk: item.title_kk || "",
+      title_en: item.title_en || "",
       slug: item.slug,
       description: item.description || "",
       image_url: item.image_url || "",
@@ -158,6 +178,9 @@ export default function MenuPage() {
     try {
       const payload = {
         title: form.title,
+        title_ru: form.title_ru || null,
+        title_kk: form.title_kk || null,
+        title_en: form.title_en || null,
         slug: form.slug,
         description: form.description || null,
         image_url: form.image_url || null,
@@ -262,6 +285,30 @@ export default function MenuPage() {
                   />
                 </label>
                 <label className="text-sm">
+                  <div className="mb-1 text-slate-600">{t("admin.menu.fields.titleRu")}</div>
+                  <input
+                    value={form.title_ru}
+                    onChange={(e) => setForm((prev) => ({ ...prev, title_ru: e.target.value }))}
+                    className="w-full rounded-md border px-3 py-2"
+                  />
+                </label>
+                <label className="text-sm">
+                  <div className="mb-1 text-slate-600">{t("admin.menu.fields.titleKk")}</div>
+                  <input
+                    value={form.title_kk}
+                    onChange={(e) => setForm((prev) => ({ ...prev, title_kk: e.target.value }))}
+                    className="w-full rounded-md border px-3 py-2"
+                  />
+                </label>
+                <label className="text-sm">
+                  <div className="mb-1 text-slate-600">{t("admin.menu.fields.titleEn")}</div>
+                  <input
+                    value={form.title_en}
+                    onChange={(e) => setForm((prev) => ({ ...prev, title_en: e.target.value }))}
+                    className="w-full rounded-md border px-3 py-2"
+                  />
+                </label>
+                <label className="text-sm">
                   <div className="mb-1 text-slate-600">{t("admin.menu.fields.slug")}</div>
                   <input
                     value={form.slug}
@@ -285,7 +332,7 @@ export default function MenuPage() {
                       .filter((item) => item.id !== form.id)
                       .map((item) => (
                         <option key={item.id} value={item.id}>
-                          {"- ".repeat(item.level)}{item.title}
+                          {"- ".repeat(item.level)}{resolveMenuTitle(item)}
                         </option>
                       ))}
                   </select>
@@ -402,7 +449,7 @@ export default function MenuPage() {
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
                         <div className="font-medium text-slate-900">
-                          {"- ".repeat(item.level)}{item.title}
+                          {"- ".repeat(item.level)}{resolveMenuTitle(item)}
                         </div>
                         <div className="mt-1 text-xs text-slate-500">
                           {kind === "dropdown" ? t("admin.menu.kinds.dropdown") : t("admin.menu.kinds.link")} | /{item.slug} | {item.is_visible ? t("admin.menu.states.visible") : t("admin.menu.states.hidden")}
