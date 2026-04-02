@@ -2182,3 +2182,123 @@ dict.kk.publicHome = {
     quickTitle: 'Жедел сілтемелер',
   },
 };
+
+dict.en.admin.nav.menu = 'Menu';
+dict.en.admin.menu = {
+  description: 'Menu list and separate menu creation form.',
+  refresh: 'Refresh',
+  confirmDelete: 'Delete menu item?',
+  kinds: { link: 'Link', dropdown: 'Dropdown' },
+  states: { visible: 'visible', hidden: 'hidden', noTarget: 'No target' },
+  options: { topLevel: 'Top level', noPage: 'No page selected' },
+  fields: {
+    title: 'Title',
+    slug: 'Slug',
+    parent: 'Parent item',
+    sortOrder: 'Sort order',
+    pageTarget: 'Page target',
+    externalUrl: 'External URL',
+    imageUrl: 'Image URL',
+    visible: 'Visible in public menu',
+    description: 'Description',
+  },
+  actions: {
+    createMenu: 'Create menu',
+    saveMenu: 'Save menu',
+    openForm: 'Open form',
+    hideForm: 'Hide form',
+    saving: 'Saving...',
+    addChild: 'Add child',
+  },
+  form: {
+    title: 'Menu form',
+    editing: 'Edit selected menu item',
+    creating: 'Create a new menu item',
+    collapsed: 'Form is collapsed. Use "Create menu" or "Open form".',
+  },
+  list: {
+    title: 'Menu list',
+    description: 'List of menu items with nested structure and actions.',
+    empty: 'No menu items yet.',
+  },
+};
+
+dict.ru.admin.nav.menu = 'Меню';
+dict.ru.admin.menu = {
+  description: 'Список меню и отдельная форма создания меню.',
+  refresh: 'Обновить',
+  confirmDelete: 'Удалить пункт меню?',
+  kinds: { link: 'Ссылка', dropdown: 'Выпадающее меню' },
+  states: { visible: 'видимый', hidden: 'скрытый', noTarget: 'Нет цели' },
+  options: { topLevel: 'Верхний уровень', noPage: 'Страница не выбрана' },
+  fields: {
+    title: 'Название',
+    slug: 'Slug',
+    parent: 'Родительский пункт',
+    sortOrder: 'Порядок сортировки',
+    pageTarget: 'Страница',
+    externalUrl: 'Внешний URL',
+    imageUrl: 'URL изображения',
+    visible: 'Показывать в публичном меню',
+    description: 'Описание',
+  },
+  actions: {
+    createMenu: 'Создать меню',
+    saveMenu: 'Сохранить меню',
+    openForm: 'Открыть форму',
+    hideForm: 'Скрыть форму',
+    saving: 'Сохранение...',
+    addChild: 'Добавить подпункт',
+  },
+  form: {
+    title: 'Форма меню',
+    editing: 'Редактирование выбранного пункта меню',
+    creating: 'Создание нового пункта меню',
+    collapsed: 'Форма скрыта. Используйте "Создать меню" или "Открыть форму".',
+  },
+  list: {
+    title: 'Список меню',
+    description: 'Список пунктов меню со структурой и действиями.',
+    empty: 'Пункты меню еще не созданы.',
+  },
+};
+
+dict.kk.admin.nav.menu = 'Мәзір';
+dict.kk.admin.menu = {
+  description: 'Мәзір тізімі және мәзір құрудың бөлек формасы.',
+  refresh: 'Жаңарту',
+  confirmDelete: 'Мәзір тармағын жою керек пе?',
+  kinds: { link: 'Сілтеме', dropdown: 'Ашылмалы мәзір' },
+  states: { visible: 'көрінеді', hidden: 'жасырын', noTarget: 'Мақсат жоқ' },
+  options: { topLevel: 'Жоғарғы деңгей', noPage: 'Бет таңдалмаған' },
+  fields: {
+    title: 'Атауы',
+    slug: 'Slug',
+    parent: 'Ата-аналық тармақ',
+    sortOrder: 'Сұрыптау реті',
+    pageTarget: 'Бет',
+    externalUrl: 'Сыртқы URL',
+    imageUrl: 'Сурет URL',
+    visible: 'Жария мәзірде көрсету',
+    description: 'Сипаттама',
+  },
+  actions: {
+    createMenu: 'Мәзір құру',
+    saveMenu: 'Мәзірді сақтау',
+    openForm: 'Форманы ашу',
+    hideForm: 'Форманы жасыру',
+    saving: 'Сақталуда...',
+    addChild: 'Ішкі тармақ қосу',
+  },
+  form: {
+    title: 'Мәзір формасы',
+    editing: 'Таңдалған мәзір тармағын өңдеу',
+    creating: 'Жаңа мәзір тармағын құру',
+    collapsed: 'Форма жасырылған. "Мәзір құру" немесе "Форманы ашу" батырмасын пайдаланыңыз.',
+  },
+  list: {
+    title: 'Мәзір тізімі',
+    description: 'Құрылымы мен әрекеттері бар мәзір тармақтарының тізімі.',
+    empty: 'Мәзір тармақтары әлі жасалмаған.',
+  },
+};

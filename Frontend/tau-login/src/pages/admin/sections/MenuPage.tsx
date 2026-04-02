@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 
 import { api } from "@/shared/api/client";
+import { t } from "@/shared/i18n";
 
 type Page = {
   id: number;
@@ -182,7 +183,7 @@ export default function MenuPage() {
   };
 
   const removeItem = async (id: number) => {
-    if (!window.confirm("Delete menu item?")) return;
+    if (!window.confirm(t("admin.menu.confirmDelete"))) return;
     try {
       await api(`/api/catalog/admin/content/menu/${id}`, { method: "DELETE" });
       await load();
@@ -195,15 +196,15 @@ export default function MenuPage() {
     <div className="space-y-6">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h2 className="text-lg font-semibold">Menu</h2>
-          <p className="mt-1 text-sm text-slate-600">Menu list and separate menu creation form.</p>
+          <h2 className="text-lg font-semibold">{t("admin.nav.menu")}</h2>
+          <p className="mt-1 text-sm text-slate-600">{t("admin.menu.description")}</p>
         </div>
         <button
           type="button"
           onClick={() => void load()}
           className="rounded-md border px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
         >
-          Refresh
+          {t("admin.menu.refresh")}
         </button>
       </div>
 
@@ -213,9 +214,9 @@ export default function MenuPage() {
         <section className="rounded-md border p-4">
           <div className="mb-4 flex items-center justify-between gap-3">
             <div>
-              <div className="font-medium text-slate-900">Menu form</div>
+              <div className="font-medium text-slate-900">{t("admin.menu.form.title")}</div>
               <div className="text-xs text-slate-500">
-                {form.id ? "Edit selected menu item" : "Create a new menu item"}
+                {form.id ? t("admin.menu.form.editing") : t("admin.menu.form.creating")}
               </div>
             </div>
             <div className="flex gap-2">
@@ -224,32 +225,32 @@ export default function MenuPage() {
                 onClick={() => openCreateForm()}
                 className="rounded-md border px-3 py-2 text-xs text-slate-700 hover:bg-slate-50"
               >
-                Create menu
-              </button>
+                  {t("admin.menu.actions.createMenu")}
+                </button>
               <button
                 type="button"
                 onClick={() => setShowForm((v) => !v)}
                 className="rounded-md border px-3 py-2 text-xs text-slate-700 hover:bg-slate-50"
               >
-                {showForm ? "Hide form" : "Open form"}
-              </button>
+                  {showForm ? t("admin.menu.actions.hideForm") : t("admin.menu.actions.openForm")}
+                </button>
+              </div>
             </div>
-          </div>
 
           {showForm ? (
             <form onSubmit={onSubmit} className="space-y-3">
               <div className="flex gap-2">
                 <Pill active={form.kind === "link"} onClick={() => setForm((prev) => ({ ...prev, kind: "link" }))}>
-                  Link item
+                  {t("admin.menu.kinds.link")}
                 </Pill>
                 <Pill active={form.kind === "dropdown"} onClick={() => setForm((prev) => ({ ...prev, kind: "dropdown", page_id: "", external_url: "" }))}>
-                  Dropdown
+                  {t("admin.menu.kinds.dropdown")}
                 </Pill>
               </div>
 
               <div className="grid gap-3 md:grid-cols-2">
                 <label className="text-sm">
-                  <div className="mb-1 text-slate-600">Title</div>
+                  <div className="mb-1 text-slate-600">{t("admin.menu.fields.title")}</div>
                   <input
                     value={form.title}
                     onChange={(e) => {
@@ -261,7 +262,7 @@ export default function MenuPage() {
                   />
                 </label>
                 <label className="text-sm">
-                  <div className="mb-1 text-slate-600">Slug</div>
+                  <div className="mb-1 text-slate-600">{t("admin.menu.fields.slug")}</div>
                   <input
                     value={form.slug}
                     onChange={(e) => setForm((prev) => ({ ...prev, slug: toSlug(e.target.value) }))}
@@ -273,13 +274,13 @@ export default function MenuPage() {
 
               <div className="grid gap-3 md:grid-cols-2">
                 <label className="text-sm">
-                  <div className="mb-1 text-slate-600">Parent item</div>
+                  <div className="mb-1 text-slate-600">{t("admin.menu.fields.parent")}</div>
                   <select
                     value={form.parent_id}
                     onChange={(e) => setForm((prev) => ({ ...prev, parent_id: e.target.value }))}
                     className="w-full rounded-md border px-3 py-2"
                   >
-                    <option value="">Top level</option>
+                    <option value="">{t("admin.menu.options.topLevel")}</option>
                     {menuItems
                       .filter((item) => item.id !== form.id)
                       .map((item) => (
@@ -290,7 +291,7 @@ export default function MenuPage() {
                   </select>
                 </label>
                 <label className="text-sm">
-                  <div className="mb-1 text-slate-600">Sort order</div>
+                  <div className="mb-1 text-slate-600">{t("admin.menu.fields.sortOrder")}</div>
                   <input
                     type="number"
                     value={form.sort_order}
@@ -303,13 +304,13 @@ export default function MenuPage() {
               {form.kind === "link" && (
                 <div className="grid gap-3 md:grid-cols-2">
                   <label className="text-sm">
-                    <div className="mb-1 text-slate-600">Page target</div>
+                    <div className="mb-1 text-slate-600">{t("admin.menu.fields.pageTarget")}</div>
                     <select
                       value={form.page_id}
                       onChange={(e) => setForm((prev) => ({ ...prev, page_id: e.target.value }))}
                       className="w-full rounded-md border px-3 py-2"
                     >
-                      <option value="">No page selected</option>
+                      <option value="">{t("admin.menu.options.noPage")}</option>
                       {data.pages.map((page) => (
                         <option key={page.id} value={page.id}>
                           {page.title}
@@ -318,7 +319,7 @@ export default function MenuPage() {
                     </select>
                   </label>
                   <label className="text-sm">
-                    <div className="mb-1 text-slate-600">External URL</div>
+                    <div className="mb-1 text-slate-600">{t("admin.menu.fields.externalUrl")}</div>
                     <input
                       value={form.external_url}
                       onChange={(e) => setForm((prev) => ({ ...prev, external_url: e.target.value }))}
@@ -331,7 +332,7 @@ export default function MenuPage() {
 
               <div className="grid gap-3 md:grid-cols-2">
                 <label className="text-sm">
-                  <div className="mb-1 text-slate-600">Image URL</div>
+                  <div className="mb-1 text-slate-600">{t("admin.menu.fields.imageUrl")}</div>
                   <input
                     value={form.image_url}
                     onChange={(e) => setForm((prev) => ({ ...prev, image_url: e.target.value }))}
@@ -344,12 +345,12 @@ export default function MenuPage() {
                     checked={form.is_visible}
                     onChange={(e) => setForm((prev) => ({ ...prev, is_visible: e.target.checked }))}
                   />
-                  Visible in public menu
+                  {t("admin.menu.fields.visible")}
                 </label>
               </div>
 
               <label className="block text-sm">
-                <div className="mb-1 text-slate-600">Description</div>
+                <div className="mb-1 text-slate-600">{t("admin.menu.fields.description")}</div>
                 <textarea
                   value={form.description}
                   onChange={(e) => setForm((prev) => ({ ...prev, description: e.target.value }))}
@@ -363,7 +364,7 @@ export default function MenuPage() {
                   disabled={saving}
                   className="rounded-md bg-slate-800 px-4 py-2 text-sm font-medium text-white disabled:opacity-60"
                 >
-                  {saving ? "Saving..." : form.id ? "Save menu" : "Create menu"}
+                  {saving ? t("admin.menu.actions.saving") : form.id ? t("admin.menu.actions.saveMenu") : t("admin.menu.actions.createMenu")}
                 </button>
                 <button
                   type="button"
@@ -373,25 +374,25 @@ export default function MenuPage() {
                   }}
                   className="rounded-md border px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
                 >
-                  Cancel
+                  {t("admin.common.cancel")}
                 </button>
               </div>
             </form>
           ) : (
-            <div className="text-sm text-slate-500">Form is collapsed. Use "Create menu" or "Open form".</div>
+            <div className="text-sm text-slate-500">{t("admin.menu.form.collapsed")}</div>
           )}
         </section>
 
         <section className="rounded-md border p-4">
           <div className="mb-4">
-            <div className="font-medium text-slate-900">Menu list</div>
-            <div className="text-xs text-slate-500">List of menu items with nested structure and actions.</div>
+            <div className="font-medium text-slate-900">{t("admin.menu.list.title")}</div>
+            <div className="text-xs text-slate-500">{t("admin.menu.list.description")}</div>
           </div>
 
           {loading ? (
-            <div className="text-sm text-slate-500">Loading...</div>
+            <div className="text-sm text-slate-500">{t("admin.common.loading")}</div>
           ) : menuItems.length === 0 ? (
-            <div className="text-sm text-slate-500">No menu items yet.</div>
+            <div className="text-sm text-slate-500">{t("admin.menu.list.empty")}</div>
           ) : (
             <div className="space-y-2">
               {menuItems.map((item) => {
@@ -404,9 +405,9 @@ export default function MenuPage() {
                           {"- ".repeat(item.level)}{item.title}
                         </div>
                         <div className="mt-1 text-xs text-slate-500">
-                          {kind === "dropdown" ? "dropdown" : "link"} | /{item.slug} | {item.is_visible ? "visible" : "hidden"}
+                          {kind === "dropdown" ? t("admin.menu.kinds.dropdown") : t("admin.menu.kinds.link")} | /{item.slug} | {item.is_visible ? t("admin.menu.states.visible") : t("admin.menu.states.hidden")}
                         </div>
-                        <div className="mt-1 text-xs text-slate-500">{item.path || item.external_url || "No target"}</div>
+                        <div className="mt-1 text-xs text-slate-500">{item.path || item.external_url || t("admin.menu.states.noTarget")}</div>
                       </div>
                       <div className="flex flex-wrap gap-2">
                         <button
@@ -414,21 +415,21 @@ export default function MenuPage() {
                           onClick={() => openCreateForm(item)}
                           className="rounded-md border px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50"
                         >
-                          Add child
+                          {t("admin.menu.actions.addChild")}
                         </button>
                         <button
                           type="button"
                           onClick={() => openEditForm(item)}
                           className="rounded-md border px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50"
                         >
-                          Edit
+                          {t("admin.common.edit")}
                         </button>
                         <button
                           type="button"
                           onClick={() => void removeItem(item.id)}
                           className="rounded-md border border-red-200 px-3 py-1.5 text-xs text-red-700 hover:bg-red-50"
                         >
-                          Delete
+                          {t("admin.common.delete")}
                         </button>
                       </div>
                     </div>
