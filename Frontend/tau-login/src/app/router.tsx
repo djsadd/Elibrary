@@ -39,7 +39,7 @@ import IntegrationsPage from "../pages/admin/sections/IntegrationsPage";
 import ReportsPage from "../pages/admin/sections/ReportsPage";
 import RolesPage from "../pages/admin/sections/RolesPage";
 import ProtectionPage from "../pages/admin/sections/ProtectionPage";
-import ContentPage from "../pages/admin/sections/ContentPage";
+import MenuPage from "../pages/admin/sections/MenuPage";
 import NotFoundPage from "../pages/NotFoundPage";
 import AnalyticsLayout from "../pages/analytics/AnalyticsLayout";
 import AnalyticsOverviewPage from "../pages/analytics/sections/AnalyticsOverviewPage";
@@ -172,7 +172,7 @@ const router = createBrowserRouter([
             { path: "files", element: <WithTitle title="Admin Files - TAU"><FilesPage /></WithTitle> },
             { path: "roles", element: <WithTitle title="Admin Roles - TAU"><RolesPage /></WithTitle> },
             { path: "reports", element: <WithTitle title="Admin Reports - TAU"><ReportsPage /></WithTitle> },
-            { path: "content", element: <WithTitle title="Admin Content - TAU"><ContentPage /></WithTitle> },
+            { path: "menu", element: <WithTitle title="Admin Menu - TAU"><MenuPage /></WithTitle> },
             { path: "integrations", element: <WithTitle title="Admin Integrations - TAU"><IntegrationsPage /></WithTitle> },
             { path: "settings", element: <WithTitle title="Admin Settings - TAU"><SettingsPage /></WithTitle> },
             { path: "protection", element: <WithTitle title="Admin Protection - TAU"><ProtectionPage /></WithTitle> },
