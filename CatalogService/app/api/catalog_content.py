@@ -111,7 +111,8 @@ def create_content_page(payload: ContentPageCreate, db: Session = Depends(get_db
     if existing:
         raise HTTPException(status_code=409, detail="Page slug already exists")
     data = payload.dict()
-    data["content_html"] = sanitize_html(data.get("content_html"))
+    for field in ("content_html", "content_html_ru", "content_html_kk", "content_html_en"):
+        data[field] = sanitize_html(data.get(field))
     page = ContentPage(**data)
     db.add(page)
     db.commit()
@@ -133,6 +134,9 @@ def update_content_page(page_id: int, payload: ContentPageUpdate, db: Session = 
             raise HTTPException(status_code=409, detail="Page slug already exists")
     if "content_html" in data:
         data["content_html"] = sanitize_html(data.get("content_html"))
+    for field in ("content_html_ru", "content_html_kk", "content_html_en"):
+        if field in data:
+            data[field] = sanitize_html(data.get(field))
     for key, value in data.items():
         setattr(page, key, value)
     db.add(page)

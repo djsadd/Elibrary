@@ -58,9 +58,59 @@ def ensure_content_page_html_column() -> None:
         connection.execute(text("ALTER TABLE content_pages ADD COLUMN content_html TEXT"))
 
 
+def ensure_content_page_i18n_columns() -> None:
+    inspector = inspect(engine)
+    if "content_pages" not in inspector.get_table_names():
+        return
+
+    existing_columns = {column["name"] for column in inspector.get_columns("content_pages")}
+    expected_columns = {
+        "title_ru": "VARCHAR(255)",
+        "title_kk": "VARCHAR(255)",
+        "title_en": "VARCHAR(255)",
+        "menu_title_ru": "VARCHAR(255)",
+        "menu_title_kk": "VARCHAR(255)",
+        "menu_title_en": "VARCHAR(255)",
+        "summary_ru": "TEXT",
+        "summary_kk": "TEXT",
+        "summary_en": "TEXT",
+        "content_html_ru": "TEXT",
+        "content_html_kk": "TEXT",
+        "content_html_en": "TEXT",
+    }
+    missing_columns = {name: kind for name, kind in expected_columns.items() if name not in existing_columns}
+    if not missing_columns:
+        return
+
+    with engine.begin() as connection:
+        for column_name, column_type in missing_columns.items():
+            connection.execute(text(f"ALTER TABLE content_pages ADD COLUMN {column_name} {column_type}"))
+
+        connection.execute(
+            text(
+                """
+                UPDATE content_pages
+                SET title_ru = COALESCE(title_ru, title),
+                    title_kk = COALESCE(title_kk, title),
+                    title_en = COALESCE(title_en, title),
+                    menu_title_ru = COALESCE(menu_title_ru, menu_title, title),
+                    menu_title_kk = COALESCE(menu_title_kk, menu_title, title),
+                    menu_title_en = COALESCE(menu_title_en, menu_title, title),
+                    summary_ru = COALESCE(summary_ru, summary),
+                    summary_kk = COALESCE(summary_kk, summary),
+                    summary_en = COALESCE(summary_en, summary),
+                    content_html_ru = COALESCE(content_html_ru, content_html),
+                    content_html_kk = COALESCE(content_html_kk, content_html),
+                    content_html_en = COALESCE(content_html_en, content_html)
+                """
+            )
+        )
+
+
 Base.metadata.create_all(bind=engine)
 ensure_menu_item_i18n_columns()
 ensure_content_page_html_column()
+ensure_content_page_i18n_columns()
 
 setup_logging()
 

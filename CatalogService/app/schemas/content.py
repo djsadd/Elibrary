@@ -48,10 +48,22 @@ class PageBlockOut(PageBlockBase):
 
 class ContentPageBase(BaseModel):
     title: str
+    title_ru: Optional[str] = None
+    title_kk: Optional[str] = None
+    title_en: Optional[str] = None
     slug: str
     menu_title: Optional[str] = None
+    menu_title_ru: Optional[str] = None
+    menu_title_kk: Optional[str] = None
+    menu_title_en: Optional[str] = None
     summary: Optional[str] = None
+    summary_ru: Optional[str] = None
+    summary_kk: Optional[str] = None
+    summary_en: Optional[str] = None
     content_html: Optional[str] = None
+    content_html_ru: Optional[str] = None
+    content_html_kk: Optional[str] = None
+    content_html_en: Optional[str] = None
     status: str = "draft"
 
     @validator("slug")
@@ -76,10 +88,22 @@ class ContentPageCreate(ContentPageBase):
 
 class ContentPageUpdate(BaseModel):
     title: Optional[str] = None
+    title_ru: Optional[str] = None
+    title_kk: Optional[str] = None
+    title_en: Optional[str] = None
     slug: Optional[str] = None
     menu_title: Optional[str] = None
+    menu_title_ru: Optional[str] = None
+    menu_title_kk: Optional[str] = None
+    menu_title_en: Optional[str] = None
     summary: Optional[str] = None
+    summary_ru: Optional[str] = None
+    summary_kk: Optional[str] = None
+    summary_en: Optional[str] = None
     content_html: Optional[str] = None
+    content_html_ru: Optional[str] = None
+    content_html_kk: Optional[str] = None
+    content_html_en: Optional[str] = None
     status: Optional[str] = None
 
 

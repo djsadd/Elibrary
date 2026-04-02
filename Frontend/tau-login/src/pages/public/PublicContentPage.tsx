@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 
 import { PublicPageLayout } from "@/components/layout/PublicPageLayout";
-import { t } from "@/shared/i18n";
+import { getLang, t } from "@/shared/i18n";
 
 type PageBlock = {
   id: number;
@@ -17,11 +17,31 @@ type PageBlock = {
 type ContentPageResponse = {
   id: number;
   title: string;
+  title_ru?: string | null;
+  title_kk?: string | null;
+  title_en?: string | null;
   slug: string;
   summary?: string | null;
+  summary_ru?: string | null;
+  summary_kk?: string | null;
+  summary_en?: string | null;
   content_html?: string | null;
+  content_html_ru?: string | null;
+  content_html_kk?: string | null;
+  content_html_en?: string | null;
   blocks: PageBlock[];
 };
+
+function pickLocalizedValue(
+  page: ContentPageResponse,
+  field: "title" | "summary" | "content_html",
+): string | null | undefined {
+  const lang = getLang();
+  if (lang === "ru") return (page as any)[`${field}_ru`] || page[field];
+  if (lang === "kk") return (page as any)[`${field}_kk`] || page[field];
+  if (lang === "en") return (page as any)[`${field}_en`] || page[field];
+  return page[field];
+}
 
 function ActionLink({ href, label }: { href?: string | null; label: string }) {
   if (!href) return null;
@@ -62,7 +82,8 @@ export default function PublicContentPage() {
         if (!response.ok) throw new Error("Page not found");
         const data = await response.json();
         setPage(data);
-        document.title = `${data.title} - ${t("publicHome.brand")}`;
+        const localizedTitle = pickLocalizedValue(data, "title") || data.title;
+        document.title = `${localizedTitle} - ${t("publicHome.brand")}`;
       } catch (e: any) {
         setError(e?.message || "Failed to load page");
       } finally {
@@ -81,15 +102,20 @@ export default function PublicContentPage() {
           {t("publicHome.common.error")}: {error || "Page not found"}
         </div>
       ) : (
+        (() => {
+          const localizedTitle = pickLocalizedValue(page, "title") || page.title;
+          const localizedSummary = pickLocalizedValue(page, "summary");
+          const localizedContentHtml = pickLocalizedValue(page, "content_html");
+          return (
         <>
           <section className="rounded-2xl border bg-gradient-to-br from-white to-slate-50 p-6 shadow-sm">
-            <h1 className="text-3xl font-semibold text-slate-900">{page.title}</h1>
-            {page.summary && <p className="mt-2 text-sm leading-7 text-slate-700">{page.summary}</p>}
+            <h1 className="text-3xl font-semibold text-slate-900">{localizedTitle}</h1>
+            {localizedSummary && <p className="mt-2 text-sm leading-7 text-slate-700">{localizedSummary}</p>}
           </section>
 
-          {page.content_html ? (
+          {localizedContentHtml ? (
             <section className="rounded-2xl border bg-white p-6 shadow-sm">
-              <div className="public-rich-text" dangerouslySetInnerHTML={{ __html: page.content_html }} />
+              <div className="public-rich-text" dangerouslySetInnerHTML={{ __html: localizedContentHtml }} />
             </section>
           ) : page.blocks.map((block) => {
             if (block.type === "image") {
@@ -147,6 +173,8 @@ export default function PublicContentPage() {
             );
           })}
         </>
+          );
+        })()
       )}
     </PublicPageLayout>
   );
