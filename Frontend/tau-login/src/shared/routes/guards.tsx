@@ -26,6 +26,11 @@ function isAdminOrLibrarian(token: string | null): boolean {
   return roles.some((r) => /^(admin|librarian)$/i.test(String(r)));
 }
 
+function isAdminOnly(token: string | null): boolean {
+  const roles = rolesFromToken(token);
+  return roles.some((r) => /^admin$/i.test(String(r)));
+}
+
 export function ProtectedRoute({ children }: { children: React.ReactNode }) {
   // Try to read token from context first; if context is not available for some reason,
   // fall back to reading from storage directly. This makes the guard robust in dev.
@@ -66,6 +71,13 @@ export function AdminRouteSync({ children }: { children: React.ReactNode }) {
   const token = readTokenFromStorage();
   if (!token) return <Navigate to="/login" replace />;
   if (!isAdminOrLibrarian(token)) return <Navigate to="/" replace />;
+  return <>{children}</>;
+}
+
+export function AdminOnlyRouteSync({ children }: { children: React.ReactNode }) {
+  const token = readTokenFromStorage();
+  if (!token) return <Navigate to="/login" replace />;
+  if (!isAdminOnly(token)) return <Navigate to="/admin" replace />;
   return <>{children}</>;
 }
 

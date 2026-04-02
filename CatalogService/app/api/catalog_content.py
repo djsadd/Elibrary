@@ -92,7 +92,7 @@ def _serialize_tree(items: list[MenuItem], parent_id: int | None = None, include
 @router.get(
     "/admin/content",
     response_model=ContentSummary,
-    dependencies=[Depends(require_roles("admin", "librarian"))],
+    dependencies=[Depends(require_roles("admin"))],
 )
 def get_content_admin_summary(db: Session = Depends(get_db)):
     pages = db.query(ContentPage).options(selectinload(ContentPage.blocks)).order_by(ContentPage.updated_at.desc()).all()
@@ -104,7 +104,7 @@ def get_content_admin_summary(db: Session = Depends(get_db)):
     "/admin/content/pages",
     response_model=ContentPageOut,
     status_code=status.HTTP_201_CREATED,
-    dependencies=[Depends(require_roles("admin", "librarian"))],
+    dependencies=[Depends(require_roles("admin"))],
 )
 def create_content_page(payload: ContentPageCreate, db: Session = Depends(get_db)):
     existing = _page_by_slug(db, payload.slug)
@@ -123,7 +123,7 @@ def create_content_page(payload: ContentPageCreate, db: Session = Depends(get_db
 @router.put(
     "/admin/content/pages/{page_id}",
     response_model=ContentPageOut,
-    dependencies=[Depends(require_roles("admin", "librarian"))],
+    dependencies=[Depends(require_roles("admin"))],
 )
 def update_content_page(page_id: int, payload: ContentPageUpdate, db: Session = Depends(get_db)):
     page = _get_page_or_404(db, page_id)
@@ -148,7 +148,7 @@ def update_content_page(page_id: int, payload: ContentPageUpdate, db: Session = 
 @router.delete(
     "/admin/content/pages/{page_id}",
     status_code=status.HTTP_204_NO_CONTENT,
-    dependencies=[Depends(require_roles("admin", "librarian"))],
+    dependencies=[Depends(require_roles("admin"))],
 )
 def delete_content_page(page_id: int, db: Session = Depends(get_db)):
     page = _get_page_or_404(db, page_id)
@@ -161,7 +161,7 @@ def delete_content_page(page_id: int, db: Session = Depends(get_db)):
     "/admin/content/pages/{page_id}/blocks",
     response_model=PageBlockOut,
     status_code=status.HTTP_201_CREATED,
-    dependencies=[Depends(require_roles("admin", "librarian"))],
+    dependencies=[Depends(require_roles("admin"))],
 )
 def create_page_block(page_id: int, payload: PageBlockCreate, db: Session = Depends(get_db)):
     _get_page_or_404(db, page_id)
@@ -175,7 +175,7 @@ def create_page_block(page_id: int, payload: PageBlockCreate, db: Session = Depe
 @router.put(
     "/admin/content/blocks/{block_id}",
     response_model=PageBlockOut,
-    dependencies=[Depends(require_roles("admin", "librarian"))],
+    dependencies=[Depends(require_roles("admin"))],
 )
 def update_page_block(block_id: int, payload: PageBlockUpdate, db: Session = Depends(get_db)):
     block = _get_block_or_404(db, block_id)
@@ -190,7 +190,7 @@ def update_page_block(block_id: int, payload: PageBlockUpdate, db: Session = Dep
 @router.delete(
     "/admin/content/blocks/{block_id}",
     status_code=status.HTTP_204_NO_CONTENT,
-    dependencies=[Depends(require_roles("admin", "librarian"))],
+    dependencies=[Depends(require_roles("admin"))],
 )
 def delete_page_block(block_id: int, db: Session = Depends(get_db)):
     block = _get_block_or_404(db, block_id)
@@ -203,7 +203,7 @@ def delete_page_block(block_id: int, db: Session = Depends(get_db)):
     "/admin/content/menu",
     response_model=MenuItemOut,
     status_code=status.HTTP_201_CREATED,
-    dependencies=[Depends(require_roles("admin", "librarian"))],
+    dependencies=[Depends(require_roles("admin"))],
 )
 def create_menu_item(payload: MenuItemCreate, db: Session = Depends(get_db)):
     existing = db.query(MenuItem).filter(MenuItem.slug == payload.slug).first()
@@ -219,7 +219,7 @@ def create_menu_item(payload: MenuItemCreate, db: Session = Depends(get_db)):
 @router.put(
     "/admin/content/menu/{item_id}",
     response_model=MenuItemOut,
-    dependencies=[Depends(require_roles("admin", "librarian"))],
+    dependencies=[Depends(require_roles("admin"))],
 )
 def update_menu_item(item_id: int, payload: MenuItemUpdate, db: Session = Depends(get_db)):
     item = _get_menu_item_or_404(db, item_id)
@@ -241,7 +241,7 @@ def update_menu_item(item_id: int, payload: MenuItemUpdate, db: Session = Depend
 @router.delete(
     "/admin/content/menu/{item_id}",
     status_code=status.HTTP_204_NO_CONTENT,
-    dependencies=[Depends(require_roles("admin", "librarian"))],
+    dependencies=[Depends(require_roles("admin"))],
 )
 def delete_menu_item(item_id: int, db: Session = Depends(get_db)):
     item = _get_menu_item_or_404(db, item_id)

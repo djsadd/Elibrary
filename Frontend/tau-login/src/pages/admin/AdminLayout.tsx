@@ -2,11 +2,12 @@ import { NavLink, Outlet, useLocation } from "react-router-dom";
 
 import DashboardHeader from "../../components/layout/DashboardHeader";
 import { t } from "@/shared/i18n";
+import { useAuth } from "@/shared/auth/AuthContext";
 
 const nav = [
   { to: "/admin", label: () => t("admin.nav.overview"), end: true },
   { to: "/admin/articles/quick", label: () => "Quick Article" },
-  { to: "/admin/pages", label: () => t("admin.nav.pages") },
+  { to: "/admin/content", label: () => t("admin.nav.content"), adminOnly: true },
   { to: "/admin/books", label: () => t("admin.nav.books") },
   { to: "/admin/books/new", label: () => t("admin.nav.addBook") },
   { to: "/admin/playlists", label: () => t("admin.nav.playlists") },
@@ -17,7 +18,6 @@ const nav = [
   { to: "/admin/users", label: () => t("admin.nav.users") },
   { to: "/admin/roles", label: () => t("admin.nav.roles") },
   { to: "/admin/reports", label: () => t("admin.nav.reports") },
-  { to: "/admin/menu", label: () => t("admin.nav.menu") },
   { to: "/admin/integrations", label: () => t("admin.nav.integrations") },
   { to: "/admin/settings", label: () => t("admin.nav.settings") },
   { to: "/admin/protection", label: () => t("admin.nav.protection") },
@@ -25,6 +25,24 @@ const nav = [
 
 export default function AdminLayout() {
   const location = useLocation();
+  const { token } = useAuth();
+
+  const roles = (() => {
+    if (!token) return [];
+    try {
+      const parts = token.split(".");
+      if (parts.length < 2) return [];
+      const payload = JSON.parse(atob(parts[1].replace(/-/g, "+").replace(/_/g, "/")));
+      const value = payload?.roles;
+      if (Array.isArray(value)) return value.map((item: unknown) => String(item));
+      if (typeof value === "string") return [value];
+      return [];
+    } catch {
+      return [];
+    }
+  })();
+  const isAdmin = roles.some((role) => /^admin$/i.test(String(role)));
+  const visibleNav = nav.filter((item) => !("adminOnly" in item) || isAdmin);
 
   return (
     <div className="space-y-4">
@@ -33,7 +51,7 @@ export default function AdminLayout() {
         <aside className="md:col-span-3 lg:col-span-2">
           <nav className="divide-y rounded-md border bg-white p-2">
             <div className="grid grid-cols-2 gap-2 md:block md:gap-0">
-              {nav.map((item) => (
+              {visibleNav.map((item) => (
                 <NavLink
                   key={item.to}
                   to={item.to}

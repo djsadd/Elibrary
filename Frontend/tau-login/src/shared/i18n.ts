@@ -19,6 +19,7 @@ const dict: Record<Lang, Record<string, any>> = {
         settings: 'Settings',
         integrations: 'Integrations',
         protection: 'Protection',
+        content: 'Content',
       },
       common: {
         catalogSearchPlaceholder: 'Search catalog',
@@ -302,6 +303,7 @@ const dict: Record<Lang, Record<string, any>> = {
         settings: 'Настройки',
         integrations: 'Интеграции',
         protection: 'Защита',
+        content: 'Контент',
       },
       common: {
         catalogSearchPlaceholder: 'Поиск по каталогу',
@@ -2315,6 +2317,7 @@ dict.kk.admin.menu = {
 dict.en.admin.nav.pages = 'Pages';
 dict.ru.admin.nav.pages = 'Страницы';
 dict.kk.admin.nav.pages = 'Беттер';
+dict.kk.admin.nav.content = 'Контент';
 
 dict.en.admin.pages = {
   heading: 'Pages',

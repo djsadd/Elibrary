@@ -8,7 +8,7 @@ import AppLayout from "@/components/layout/AppLayout";
 
 import DashboardPage from "../pages/dashboard/DashboardPage";
 import ProfilePage from "../pages/profile/ProfilePage";
-import { ProtectedRouteSync, PublicRouteSync, AdminRouteSync } from "@/shared/routes/guards";
+import { ProtectedRouteSync, PublicRouteSync, AdminRouteSync, AdminOnlyRouteSync } from "@/shared/routes/guards";
 import CatalogListPage from "../pages/catalog/CatalogListPage";
 import CatalogDetailPage from "../pages/catalog/CatalogDetailPage";
 import BookNotesPage from "../pages/notes/BookNotesPage";
@@ -39,8 +39,7 @@ import IntegrationsPage from "../pages/admin/sections/IntegrationsPage";
 import ReportsPage from "../pages/admin/sections/ReportsPage";
 import RolesPage from "../pages/admin/sections/RolesPage";
 import ProtectionPage from "../pages/admin/sections/ProtectionPage";
-import MenuPage from "../pages/admin/sections/MenuPage";
-import PagesPage from "../pages/admin/sections/PagesPage";
+import ContentPage from "../pages/admin/sections/ContentPage";
 import NotFoundPage from "../pages/NotFoundPage";
 import AnalyticsLayout from "../pages/analytics/AnalyticsLayout";
 import AnalyticsOverviewPage from "../pages/analytics/sections/AnalyticsOverviewPage";
@@ -159,7 +158,15 @@ const router = createBrowserRouter([
             { path: "books", element: <WithTitle title="Admin Books - TAU"><BooksListPage /></WithTitle> },
             { path: "books/new", element: <WithTitle title="Add Book - TAU"><CreateBookPage /></WithTitle> },
             { path: "articles/quick", element: <WithTitle title="Quick Article - TAU"><QuickArticlePage /></WithTitle> },
-            { path: "pages", element: <WithTitle title="Admin Pages - TAU"><PagesPage /></WithTitle> },
+            {
+              path: "content",
+              element: (
+                <AdminOnlyRouteSync>
+                  <WithTitle title="Admin Content - TAU"><ContentPage /></WithTitle>
+                </AdminOnlyRouteSync>
+              ),
+            },
+            { path: "pages", element: <Navigate to="/admin/content" replace /> },
             { path: "books/:id", element: <WithTitle title="Book Details - TAU"><AdminBookDetailPage /></WithTitle> },
             { path: "books/:id/edit", element: <WithTitle title="Edit Book - TAU"><EditBookPage /></WithTitle> },
             { path: "playlists", element: <WithTitle title="Admin Playlists - TAU"><PlaylistsListPage /></WithTitle> },
@@ -174,7 +181,7 @@ const router = createBrowserRouter([
             { path: "files", element: <WithTitle title="Admin Files - TAU"><FilesPage /></WithTitle> },
             { path: "roles", element: <WithTitle title="Admin Roles - TAU"><RolesPage /></WithTitle> },
             { path: "reports", element: <WithTitle title="Admin Reports - TAU"><ReportsPage /></WithTitle> },
-            { path: "menu", element: <WithTitle title="Admin Menu - TAU"><MenuPage /></WithTitle> },
+            { path: "menu", element: <Navigate to="/admin/content" replace /> },
             { path: "integrations", element: <WithTitle title="Admin Integrations - TAU"><IntegrationsPage /></WithTitle> },
             { path: "settings", element: <WithTitle title="Admin Settings - TAU"><SettingsPage /></WithTitle> },
             { path: "protection", element: <WithTitle title="Admin Protection - TAU"><ProtectionPage /></WithTitle> },
