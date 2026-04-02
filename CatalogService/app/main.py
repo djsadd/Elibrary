@@ -45,8 +45,22 @@ def ensure_menu_item_i18n_columns() -> None:
         )
 
 
+def ensure_content_page_html_column() -> None:
+    inspector = inspect(engine)
+    if "content_pages" not in inspector.get_table_names():
+        return
+
+    existing_columns = {column["name"] for column in inspector.get_columns("content_pages")}
+    if "content_html" in existing_columns:
+        return
+
+    with engine.begin() as connection:
+        connection.execute(text("ALTER TABLE content_pages ADD COLUMN content_html TEXT"))
+
+
 Base.metadata.create_all(bind=engine)
 ensure_menu_item_i18n_columns()
+ensure_content_page_html_column()
 
 setup_logging()
 

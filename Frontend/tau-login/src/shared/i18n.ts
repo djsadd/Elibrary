@@ -2311,3 +2311,88 @@ dict.kk.admin.menu = {
     empty: 'Мәзір тармақтары әлі жасалмаған.',
   },
 };
+
+dict.en.admin.nav.pages = 'Pages';
+dict.ru.admin.nav.pages = 'Страницы';
+dict.kk.admin.nav.pages = 'Беттер';
+
+dict.en.admin.pages = {
+  heading: 'Pages',
+  description: 'Create public pages with a large rich text editor for text, links, images and tables.',
+  refresh: 'Refresh',
+  create: 'Create page',
+  save: 'Save page',
+  saving: 'Saving...',
+  preview: 'Preview',
+  confirmDelete: 'Delete this page?',
+  listTitle: 'Pages list',
+  empty: 'No pages yet.',
+  editPage: 'Edit page',
+  newPage: 'New page',
+  editorHint: 'Use the toolbar for formatting, links, images and tables.',
+  safeHtmlHint: 'HTML is sanitized on save.',
+  draft: 'Draft',
+  published: 'Published',
+  fields: {
+    title: 'Title',
+    slug: 'Slug',
+    menuTitle: 'Menu title',
+    summary: 'Summary',
+    status: 'Status',
+    content: 'Page content',
+  },
+};
+
+dict.ru.admin.pages = {
+  heading: 'Страницы',
+  description: 'Создание публичных страниц с большим редактором: текст, ссылки, изображения, таблицы и другое оформление.',
+  refresh: 'Обновить',
+  create: 'Создать страницу',
+  save: 'Сохранить страницу',
+  saving: 'Сохранение...',
+  preview: 'Предпросмотр',
+  confirmDelete: 'Удалить эту страницу?',
+  listTitle: 'Список страниц',
+  empty: 'Страницы еще не созданы.',
+  editPage: 'Редактирование страницы',
+  newPage: 'Новая страница',
+  editorHint: 'Используйте тулбар для форматирования, ссылок, изображений и таблиц.',
+  safeHtmlHint: 'HTML очищается на сохранении.',
+  draft: 'Черновик',
+  published: 'Опубликована',
+  fields: {
+    title: 'Название',
+    slug: 'Slug',
+    menuTitle: 'Название в меню',
+    summary: 'Краткое описание',
+    status: 'Статус',
+    content: 'Содержимое страницы',
+  },
+};
+
+dict.kk.admin.pages = {
+  heading: 'Беттер',
+  description: 'Үлкен редакторы бар жария беттерді жасау: мәтін, сілтемелер, суреттер, кестелер және басқа пішімдеу.',
+  refresh: 'Жаңарту',
+  create: 'Бет жасау',
+  save: 'Бетті сақтау',
+  saving: 'Сақталуда...',
+  preview: 'Алдын ала қарау',
+  confirmDelete: 'Осы бетті жою керек пе?',
+  listTitle: 'Беттер тізімі',
+  empty: 'Беттер әлі жасалмаған.',
+  editPage: 'Бетті өңдеу',
+  newPage: 'Жаңа бет',
+  editorHint: 'Пішімдеу, сілтемелер, суреттер және кестелер үшін құралдар тақтасын пайдаланыңыз.',
+  safeHtmlHint: 'HTML сақтау кезінде тазартылады.',
+  draft: 'Черновик',
+  published: 'Жарияланған',
+  fields: {
+    title: 'Атауы',
+    slug: 'Slug',
+    menuTitle: 'Мәзір атауы',
+    summary: 'Қысқаша сипаттама',
+    status: 'Күйі',
+    content: 'Бет мазмұны',
+  },
+};

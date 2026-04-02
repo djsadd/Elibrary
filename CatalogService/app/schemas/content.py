@@ -51,6 +51,7 @@ class ContentPageBase(BaseModel):
     slug: str
     menu_title: Optional[str] = None
     summary: Optional[str] = None
+    content_html: Optional[str] = None
     status: str = "draft"
 
     @validator("slug")
@@ -78,6 +79,7 @@ class ContentPageUpdate(BaseModel):
     slug: Optional[str] = None
     menu_title: Optional[str] = None
     summary: Optional[str] = None
+    content_html: Optional[str] = None
     status: Optional[str] = None
 
 

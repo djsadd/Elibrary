@@ -57,3 +57,124 @@ html.public-theme.public-a11y .public-main .border-l,
 html.public-theme.public-a11y .public-main .border-r {
   border-color: var(--public-border) !important;
 }
+
+.rich-text-editor:focus {
+  border-color: #0f172a;
+  box-shadow: 0 0 0 3px rgba(15, 23, 42, 0.08);
+}
+
+.rich-text-editor h1,
+.rich-text-editor h2,
+.rich-text-editor h3,
+.rich-text-editor h4,
+.rich-text-editor h5,
+.rich-text-editor h6,
+.public-rich-text h1,
+.public-rich-text h2,
+.public-rich-text h3,
+.public-rich-text h4,
+.public-rich-text h5,
+.public-rich-text h6 {
+  margin: 1.25rem 0 0.75rem;
+  color: #0f172a;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.rich-text-editor h1,
+.public-rich-text h1 {
+  font-size: 2rem;
+}
+
+.rich-text-editor h2,
+.public-rich-text h2 {
+  font-size: 1.625rem;
+}
+
+.rich-text-editor h3,
+.public-rich-text h3 {
+  font-size: 1.25rem;
+}
+
+.rich-text-editor p,
+.rich-text-editor ul,
+.rich-text-editor ol,
+.rich-text-editor blockquote,
+.rich-text-editor pre,
+.public-rich-text p,
+.public-rich-text ul,
+.public-rich-text ol,
+.public-rich-text blockquote,
+.public-rich-text pre {
+  margin: 0.9rem 0;
+  color: #334155;
+  line-height: 1.8;
+}
+
+.rich-text-editor ul,
+.public-rich-text ul {
+  list-style: disc;
+  padding-left: 1.5rem;
+}
+
+.rich-text-editor ol,
+.public-rich-text ol {
+  list-style: decimal;
+  padding-left: 1.5rem;
+}
+
+.rich-text-editor a,
+.public-rich-text a {
+  color: var(--public-accent);
+  text-decoration: underline;
+}
+
+.rich-text-editor img,
+.public-rich-text img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin: 1rem 0;
+  border-radius: 1rem;
+  border: 1px solid var(--public-border);
+}
+
+.rich-text-editor table,
+.public-rich-text table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1.25rem 0;
+  overflow: hidden;
+}
+
+.rich-text-editor th,
+.rich-text-editor td,
+.public-rich-text th,
+.public-rich-text td {
+  border: 1px solid var(--public-border);
+  padding: 0.75rem 0.9rem;
+  text-align: left;
+}
+
+.rich-text-editor th,
+.public-rich-text th {
+  background: var(--public-surface-muted);
+  color: #0f172a;
+  font-weight: 700;
+}
+
+.rich-text-editor blockquote,
+.public-rich-text blockquote {
+  border-left: 4px solid var(--public-accent);
+  padding-left: 1rem;
+  color: #475569;
+}
+
+.rich-text-editor pre,
+.public-rich-text pre {
+  overflow-x: auto;
+  border-radius: 1rem;
+  background: #0f172a;
+  padding: 1rem;
+  color: #e2e8f0;
+}

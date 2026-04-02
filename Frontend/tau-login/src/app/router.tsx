@@ -40,6 +40,7 @@ import ReportsPage from "../pages/admin/sections/ReportsPage";
 import RolesPage from "../pages/admin/sections/RolesPage";
 import ProtectionPage from "../pages/admin/sections/ProtectionPage";
 import MenuPage from "../pages/admin/sections/MenuPage";
+import PagesPage from "../pages/admin/sections/PagesPage";
 import NotFoundPage from "../pages/NotFoundPage";
 import AnalyticsLayout from "../pages/analytics/AnalyticsLayout";
 import AnalyticsOverviewPage from "../pages/analytics/sections/AnalyticsOverviewPage";
@@ -158,6 +159,7 @@ const router = createBrowserRouter([
             { path: "books", element: <WithTitle title="Admin Books - TAU"><BooksListPage /></WithTitle> },
             { path: "books/new", element: <WithTitle title="Add Book - TAU"><CreateBookPage /></WithTitle> },
             { path: "articles/quick", element: <WithTitle title="Quick Article - TAU"><QuickArticlePage /></WithTitle> },
+            { path: "pages", element: <WithTitle title="Admin Pages - TAU"><PagesPage /></WithTitle> },
             { path: "books/:id", element: <WithTitle title="Book Details - TAU"><AdminBookDetailPage /></WithTitle> },
             { path: "books/:id/edit", element: <WithTitle title="Edit Book - TAU"><EditBookPage /></WithTitle> },
             { path: "playlists", element: <WithTitle title="Admin Playlists - TAU"><PlaylistsListPage /></WithTitle> },

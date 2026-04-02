@@ -12,6 +12,7 @@ class ContentPage(Base):
     slug: Mapped[str] = mapped_column(String(255), nullable=False, unique=True, index=True)
     menu_title: Mapped[str | None] = mapped_column(String(255))
     summary: Mapped[str | None] = mapped_column(Text)
+    content_html: Mapped[str | None] = mapped_column(Text)
     status: Mapped[str] = mapped_column(String(32), default="draft", index=True)
     created_at: Mapped[str] = mapped_column(DateTime, server_default=func.now())
     updated_at: Mapped[str] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())

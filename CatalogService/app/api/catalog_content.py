@@ -16,6 +16,7 @@ from app.schemas.content import (
     PageBlockOut,
     PageBlockUpdate,
 )
+from app.utils.html_sanitizer import sanitize_html
 from app.utils.authz import require_roles
 
 router = APIRouter()
@@ -109,7 +110,9 @@ def create_content_page(payload: ContentPageCreate, db: Session = Depends(get_db
     existing = _page_by_slug(db, payload.slug)
     if existing:
         raise HTTPException(status_code=409, detail="Page slug already exists")
-    page = ContentPage(**payload.dict())
+    data = payload.dict()
+    data["content_html"] = sanitize_html(data.get("content_html"))
+    page = ContentPage(**data)
     db.add(page)
     db.commit()
     db.refresh(page)
@@ -128,6 +131,8 @@ def update_content_page(page_id: int, payload: ContentPageUpdate, db: Session = 
         conflict = _page_by_slug(db, data["slug"])
         if conflict and conflict.id != page_id:
             raise HTTPException(status_code=409, detail="Page slug already exists")
+    if "content_html" in data:
+        data["content_html"] = sanitize_html(data.get("content_html"))
     for key, value in data.items():
         setattr(page, key, value)
     db.add(page)

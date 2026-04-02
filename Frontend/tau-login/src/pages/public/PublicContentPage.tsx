@@ -19,6 +19,7 @@ type ContentPageResponse = {
   title: string;
   slug: string;
   summary?: string | null;
+  content_html?: string | null;
   blocks: PageBlock[];
 };
 
@@ -86,7 +87,11 @@ export default function PublicContentPage() {
             {page.summary && <p className="mt-2 text-sm leading-7 text-slate-700">{page.summary}</p>}
           </section>
 
-          {page.blocks.map((block) => {
+          {page.content_html ? (
+            <section className="rounded-2xl border bg-white p-6 shadow-sm">
+              <div className="public-rich-text" dangerouslySetInnerHTML={{ __html: page.content_html }} />
+            </section>
+          ) : page.blocks.map((block) => {
             if (block.type === "image") {
               return (
                 <section key={block.id} className="rounded-2xl border bg-white p-6 shadow-sm">
