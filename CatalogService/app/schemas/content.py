@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import List, Optional
 
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, ConfigDict, Field, validator
 
 
 class PageBlockBase(BaseModel):
@@ -37,13 +37,12 @@ class PageBlockUpdate(BaseModel):
 
 
 class PageBlockOut(PageBlockBase):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     page_id: int
     created_at: datetime
     updated_at: datetime
-
-    class Config:
-        orm_mode = True
 
 
 class ContentPageBase(BaseModel):
@@ -108,13 +107,12 @@ class ContentPageUpdate(BaseModel):
 
 
 class ContentPageOut(ContentPageBase):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     created_at: datetime
     updated_at: datetime
     blocks: List[PageBlockOut] = []
-
-    class Config:
-        orm_mode = True
 
 
 class MenuItemBase(BaseModel):
@@ -159,12 +157,11 @@ class MenuItemUpdate(BaseModel):
 
 
 class MenuItemOut(MenuItemBase):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     created_at: datetime
     updated_at: datetime
-
-    class Config:
-        orm_mode = True
 
 
 class MenuItemTree(MenuItemOut):

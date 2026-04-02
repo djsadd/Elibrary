@@ -40,6 +40,18 @@ type ContentPage = {
 
 type ContentSummary = {
   pages: ContentPage[];
+  menu_items: MenuItem[];
+};
+
+type MenuItem = {
+  id: number;
+  title: string;
+  title_ru?: string | null;
+  title_kk?: string | null;
+  title_en?: string | null;
+  parent_id?: number | null;
+  page_id?: number | null;
+  children: MenuItem[];
 };
 
 type PageFormState = {
@@ -49,10 +61,6 @@ type PageFormState = {
   title_kk: string;
   title_en: string;
   slug: string;
-  menu_title: string;
-  menu_title_ru: string;
-  menu_title_kk: string;
-  menu_title_en: string;
   summary: string;
   summary_ru: string;
   summary_kk: string;
@@ -62,6 +70,7 @@ type PageFormState = {
   content_html_kk: string;
   content_html_en: string;
   status: "draft" | "published";
+  menu_item_id: string;
 };
 
 const emptyForm = (): PageFormState => ({
@@ -70,10 +79,6 @@ const emptyForm = (): PageFormState => ({
   title_kk: "",
   title_en: "",
   slug: "",
-  menu_title: "",
-  menu_title_ru: "",
-  menu_title_kk: "",
-  menu_title_en: "",
   summary: "",
   summary_ru: "",
   summary_kk: "",
@@ -83,6 +88,7 @@ const emptyForm = (): PageFormState => ({
   content_html_kk: "<h2>Жаңа бет</h2><p>Мәтін, суреттер, сілтемелер, кестелер және басқа безендіру элементтерін қосыңыз.</p>",
   content_html_en: "<h2>New page</h2><p>Add text, images, links, tables and other layout elements.</p>",
   status: "draft",
+  menu_item_id: "",
 });
 
 function toSlug(value: string): string {
@@ -110,8 +116,50 @@ function blocksToHtml(blocks: PageBlock[]): string {
     .join("");
 }
 
+function flattenMenuItems(items: MenuItem[], level = 0): Array<MenuItem & { level: number }> {
+  return items.flatMap((item) => [{ ...item, level }, ...flattenMenuItems(item.children || [], level + 1)]);
+}
+
+function resolveMenuTitle(item: Pick<MenuItem, "title" | "title_ru" | "title_kk" | "title_en">): string {
+  return item.title_ru || item.title_kk || item.title_en || item.title || "";
+}
+
+function findMenuItemByPageId(items: MenuItem[], pageId: number): MenuItem | null {
+  for (const item of items) {
+    if (item.page_id === pageId) return item;
+    const nested = findMenuItemByPageId(item.children || [], pageId);
+    if (nested) return nested;
+  }
+  return null;
+}
+
+async function syncMenuBinding(pageId: number, menuItemId: string, menuItems: MenuItem[]): Promise<void> {
+  const flat = flattenMenuItems(menuItems);
+  const currentlyLinked = flat.find((item) => item.page_id === pageId);
+
+  if (currentlyLinked && String(currentlyLinked.id) !== menuItemId) {
+    await api(`/api/catalog/admin/content/menu/${currentlyLinked.id}`, {
+      method: "PUT",
+      body: JSON.stringify({ page_id: null }),
+    });
+  }
+
+  if (!menuItemId) return;
+
+  const target = flat.find((item) => String(item.id) === menuItemId);
+  if (!target) return;
+
+  if (target.page_id === pageId) return;
+
+  await api(`/api/catalog/admin/content/menu/${target.id}`, {
+    method: "PUT",
+    body: JSON.stringify({ page_id: pageId }),
+  });
+}
+
 export default function PagesPage() {
   const [pages, setPages] = useState<ContentPage[]>([]);
+  const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
   const [selectedPageId, setSelectedPageId] = useState<number | null>(null);
   const [form, setForm] = useState<PageFormState>(emptyForm);
   const [loading, setLoading] = useState(true);
@@ -124,8 +172,10 @@ export default function PagesPage() {
     try {
       const result = await api<ContentSummary>("/api/catalog/admin/content");
       setPages(result.pages);
+      setMenuItems(result.menu_items);
       const selectedPage = result.pages.find((page) => page.id === selectedPageId) || result.pages[0] || null;
       if (selectedPage) {
+        const linkedMenuItem = findMenuItemByPageId(result.menu_items, selectedPage.id);
         setSelectedPageId(selectedPage.id);
         setForm({
           id: selectedPage.id,
@@ -134,10 +184,6 @@ export default function PagesPage() {
           title_kk: selectedPage.title_kk || selectedPage.title || "",
           title_en: selectedPage.title_en || selectedPage.title || "",
           slug: selectedPage.slug,
-          menu_title: selectedPage.menu_title || "",
-          menu_title_ru: selectedPage.menu_title_ru || selectedPage.menu_title || selectedPage.title_ru || selectedPage.title || "",
-          menu_title_kk: selectedPage.menu_title_kk || selectedPage.menu_title || selectedPage.title_kk || selectedPage.title || "",
-          menu_title_en: selectedPage.menu_title_en || selectedPage.menu_title || selectedPage.title_en || selectedPage.title || "",
           summary: selectedPage.summary || "",
           summary_ru: selectedPage.summary_ru || selectedPage.summary || "",
           summary_kk: selectedPage.summary_kk || selectedPage.summary || "",
@@ -147,6 +193,7 @@ export default function PagesPage() {
           content_html_kk: selectedPage.content_html_kk || selectedPage.content_html || blocksToHtml(selectedPage.blocks) || "",
           content_html_en: selectedPage.content_html_en || selectedPage.content_html || blocksToHtml(selectedPage.blocks) || "",
           status: selectedPage.status,
+          menu_item_id: linkedMenuItem ? String(linkedMenuItem.id) : "",
         });
       }
     } catch (e: any) {
@@ -166,6 +213,7 @@ export default function PagesPage() {
   );
 
   const selectPage = (page: ContentPage) => {
+    const linkedMenuItem = findMenuItemByPageId(menuItems, page.id);
     setSelectedPageId(page.id);
     setForm({
       id: page.id,
@@ -174,10 +222,6 @@ export default function PagesPage() {
       title_kk: page.title_kk || page.title || "",
       title_en: page.title_en || page.title || "",
       slug: page.slug,
-      menu_title: page.menu_title || "",
-      menu_title_ru: page.menu_title_ru || page.menu_title || page.title_ru || page.title || "",
-      menu_title_kk: page.menu_title_kk || page.menu_title || page.title_kk || page.title || "",
-      menu_title_en: page.menu_title_en || page.menu_title || page.title_en || page.title || "",
       summary: page.summary || "",
       summary_ru: page.summary_ru || page.summary || "",
       summary_kk: page.summary_kk || page.summary || "",
@@ -187,6 +231,7 @@ export default function PagesPage() {
       content_html_kk: page.content_html_kk || page.content_html || blocksToHtml(page.blocks) || "",
       content_html_en: page.content_html_en || page.content_html || blocksToHtml(page.blocks) || "",
       status: page.status,
+      menu_item_id: linkedMenuItem ? String(linkedMenuItem.id) : "",
     });
   };
 
@@ -206,10 +251,6 @@ export default function PagesPage() {
         title_kk: form.title_kk || null,
         title_en: form.title_en || null,
         slug: form.slug,
-        menu_title: form.menu_title || null,
-        menu_title_ru: form.menu_title_ru || null,
-        menu_title_kk: form.menu_title_kk || null,
-        menu_title_en: form.menu_title_en || null,
         summary: form.summary || null,
         summary_ru: form.summary_ru || null,
         summary_kk: form.summary_kk || null,
@@ -220,17 +261,17 @@ export default function PagesPage() {
         content_html_en: form.content_html_en || null,
         status: form.status,
       };
-      if (form.id) {
-        await api(`/api/catalog/admin/content/pages/${form.id}`, {
-          method: "PUT",
-          body: JSON.stringify(payload),
-        });
-      } else {
-        await api("/api/catalog/admin/content/pages", {
-          method: "POST",
-          body: JSON.stringify(payload),
-        });
-      }
+      const savedPage = form.id
+        ? await api<ContentPage>(`/api/catalog/admin/content/pages/${form.id}`, {
+            method: "PUT",
+            body: JSON.stringify(payload),
+          })
+        : await api<ContentPage>("/api/catalog/admin/content/pages", {
+            method: "POST",
+            body: JSON.stringify(payload),
+          });
+
+      await syncMenuBinding(savedPage.id, form.menu_item_id, menuItems);
       await load();
     } catch (e: any) {
       setError(e?.message || "Failed to save page");
@@ -356,7 +397,7 @@ export default function PagesPage() {
                   value={form.title}
                   onChange={(e) => {
                     const title = e.target.value;
-                    setForm((prev) => ({ ...prev, title, slug: prev.id ? prev.slug : toSlug(title) }));
+                    setForm((prev) => ({ ...prev, title, slug: toSlug(title) }));
                   }}
                   className="w-full rounded-md border px-3 py-2"
                   required
@@ -390,17 +431,8 @@ export default function PagesPage() {
                 <div className="mb-1 text-slate-600">{t("admin.pages.fields.slug")}</div>
                 <input
                   value={form.slug}
-                  onChange={(e) => setForm((prev) => ({ ...prev, slug: toSlug(e.target.value) }))}
-                  className="w-full rounded-md border px-3 py-2"
-                  required
-                />
-              </label>
-              <label className="text-sm">
-                <div className="mb-1 text-slate-600">{t("admin.pages.fields.menuTitle")}</div>
-                <input
-                  value={form.menu_title}
-                  onChange={(e) => setForm((prev) => ({ ...prev, menu_title: e.target.value }))}
-                  className="w-full rounded-md border px-3 py-2"
+                  readOnly
+                  className="w-full rounded-md border bg-slate-50 px-3 py-2 text-slate-600"
                 />
               </label>
               <label className="text-sm">
@@ -414,40 +446,20 @@ export default function PagesPage() {
                   <option value="published">{t("admin.pages.published")}</option>
                 </select>
               </label>
-            </div>
-
-            <div className="grid gap-4 lg:grid-cols-2">
               <label className="text-sm">
-                <div className="mb-1 text-slate-600">{t("admin.pages.fields.menuTitle")}</div>
-                <input
-                  value={form.menu_title}
-                  onChange={(e) => setForm((prev) => ({ ...prev, menu_title: e.target.value }))}
+                <div className="mb-1 text-slate-600">{t("admin.pages.fields.menuItem")}</div>
+                <select
+                  value={form.menu_item_id}
+                  onChange={(e) => setForm((prev) => ({ ...prev, menu_item_id: e.target.value }))}
                   className="w-full rounded-md border px-3 py-2"
-                />
-              </label>
-              <label className="text-sm">
-                <div className="mb-1 text-slate-600">{t("admin.pages.fields.menuTitleRu")}</div>
-                <input
-                  value={form.menu_title_ru}
-                  onChange={(e) => setForm((prev) => ({ ...prev, menu_title_ru: e.target.value }))}
-                  className="w-full rounded-md border px-3 py-2"
-                />
-              </label>
-              <label className="text-sm">
-                <div className="mb-1 text-slate-600">{t("admin.pages.fields.menuTitleKk")}</div>
-                <input
-                  value={form.menu_title_kk}
-                  onChange={(e) => setForm((prev) => ({ ...prev, menu_title_kk: e.target.value }))}
-                  className="w-full rounded-md border px-3 py-2"
-                />
-              </label>
-              <label className="text-sm">
-                <div className="mb-1 text-slate-600">{t("admin.pages.fields.menuTitleEn")}</div>
-                <input
-                  value={form.menu_title_en}
-                  onChange={(e) => setForm((prev) => ({ ...prev, menu_title_en: e.target.value }))}
-                  className="w-full rounded-md border px-3 py-2"
-                />
+                >
+                  <option value="">{t("admin.pages.options.noMenuItem")}</option>
+                  {flattenMenuItems(menuItems).map((item) => (
+                    <option key={item.id} value={item.id}>
+                      {"- ".repeat(item.level)}{resolveMenuTitle(item)}
+                    </option>
+                  ))}
+                </select>
               </label>
             </div>
 
