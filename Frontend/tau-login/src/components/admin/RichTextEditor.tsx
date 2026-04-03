@@ -13,9 +13,7 @@ import "tinymce/plugins/charmap";
 import "tinymce/plugins/code";
 import "tinymce/plugins/codesample";
 import "tinymce/plugins/directionality";
-import "tinymce/plugins/emoticons";
 import "tinymce/plugins/fullscreen";
-import "tinymce/plugins/help";
 import "tinymce/plugins/image";
 import "tinymce/plugins/insertdatetime";
 import "tinymce/plugins/link";
@@ -89,9 +87,7 @@ export default function RichTextEditor({
         "code",
         "codesample",
         "directionality",
-        "emoticons",
         "fullscreen",
-        "help",
         "image",
         "insertdatetime",
         "link",
@@ -106,6 +102,8 @@ export default function RichTextEditor({
         "visualchars",
         "wordcount",
       ],
+      skin: false,
+      content_css: false,
       toolbar:
         "undo redo | blocks fontfamily fontsize | bold italic underline strikethrough forecolor backcolor | " +
         "alignleft aligncenter alignright alignjustify | bullist numlist outdent indent | " +
@@ -174,6 +172,7 @@ export default function RichTextEditor({
     <div className="space-y-3">
       <div className={`rich-text-editor rich-text-editor-tinymce w-full rounded-2xl border bg-white ${minHeightClassName}`}>
         <Editor
+          licenseKey="gpl"
           value={value}
           onEditorChange={(content) => {
             setUploadError(null);
