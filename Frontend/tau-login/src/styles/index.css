@@ -58,9 +58,17 @@ html.public-theme.public-a11y .public-main .border-r {
   border-color: var(--public-border) !important;
 }
 
-.rich-text-editor:focus {
+.rich-text-editor:focus-within {
   border-color: #0f172a;
   box-shadow: 0 0 0 3px rgba(15, 23, 42, 0.08);
+}
+
+.rich-text-editor .ProseMirror {
+  min-height: inherit;
+}
+
+.rich-text-editor .ProseMirror img {
+  cursor: default;
 }
 
 .rich-text-editor h1,
