@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 
 import { PublicPageLayout } from "@/components/layout/PublicPageLayout";
@@ -69,6 +69,7 @@ function ActionLink({ href, label }: { href?: string | null; label: string }) {
 
 export default function PublicContentPage() {
   const { slug = "" } = useParams<{ slug: string }>();
+  const richTextRef = useRef<HTMLDivElement | null>(null);
   const [page, setPage] = useState<ContentPageResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -93,6 +94,79 @@ export default function PublicContentPage() {
     void load();
   }, [slug]);
 
+  useEffect(() => {
+    const root = richTextRef.current;
+    if (!root) return;
+
+    const sliders = Array.from(root.querySelectorAll<HTMLElement>(".page-slider"));
+
+    sliders.forEach((slider) => {
+      if (slider.dataset.enhanced === "true") return;
+      const images = Array.from(slider.querySelectorAll<HTMLImageElement>("img"));
+      if (images.length <= 1) return;
+
+      slider.dataset.enhanced = "true";
+      slider.classList.add("page-slider-ready");
+
+      const controls = document.createElement("div");
+      controls.className = "page-slider-controls";
+
+      const prevButton = document.createElement("button");
+      prevButton.type = "button";
+      prevButton.className = "page-slider-button";
+      prevButton.setAttribute("aria-label", "Previous slide");
+      prevButton.textContent = "‹";
+
+      const nextButton = document.createElement("button");
+      nextButton.type = "button";
+      nextButton.className = "page-slider-button";
+      nextButton.setAttribute("aria-label", "Next slide");
+      nextButton.textContent = "›";
+
+      const dots = document.createElement("div");
+      dots.className = "page-slider-dots";
+
+      let activeIndex = 0;
+
+      const applyState = () => {
+        images.forEach((image, index) => {
+          image.classList.toggle("is-active", index === activeIndex);
+        });
+        Array.from(dots.children).forEach((dot, index) => {
+          dot.classList.toggle("is-active", index === activeIndex);
+        });
+      };
+
+      images.forEach((_, index) => {
+        const dot = document.createElement("button");
+        dot.type = "button";
+        dot.className = "page-slider-dot";
+        dot.setAttribute("aria-label", `Go to slide ${index + 1}`);
+        dot.addEventListener("click", () => {
+          activeIndex = index;
+          applyState();
+        });
+        dots.appendChild(dot);
+      });
+
+      prevButton.addEventListener("click", () => {
+        activeIndex = (activeIndex - 1 + images.length) % images.length;
+        applyState();
+      });
+
+      nextButton.addEventListener("click", () => {
+        activeIndex = (activeIndex + 1) % images.length;
+        applyState();
+      });
+
+      controls.appendChild(prevButton);
+      controls.appendChild(nextButton);
+      slider.appendChild(controls);
+      slider.appendChild(dots);
+      applyState();
+    });
+  }, [page]);
+
   return (
     <PublicPageLayout>
       {loading ? (
@@ -115,7 +189,7 @@ export default function PublicContentPage() {
 
           {localizedContentHtml ? (
             <section className="rounded-2xl border bg-white p-6 shadow-sm">
-              <div className="public-rich-text" dangerouslySetInnerHTML={{ __html: localizedContentHtml }} />
+              <div ref={richTextRef} className="public-rich-text" dangerouslySetInnerHTML={{ __html: localizedContentHtml }} />
             </section>
           ) : page.blocks.map((block) => {
             if (block.type === "image") {

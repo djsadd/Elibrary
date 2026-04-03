@@ -107,7 +107,7 @@ export default function RichTextEditor({
       toolbar:
         "undo redo | blocks fontfamily fontsize | bold italic underline strikethrough forecolor backcolor | " +
         "alignleft aligncenter alignright alignjustify | bullist numlist outdent indent | " +
-        "link image media table blockquote codesample | removeformat code preview fullscreen",
+        "link image photoslider media table blockquote codesample | removeformat code preview fullscreen",
       block_formats: "Paragraph=p; Heading 1=h1; Heading 2=h2; Heading 3=h3; Heading 4=h4; Heading 5=h5; Heading 6=h6",
       font_family_formats:
         "Arial=arial,helvetica,sans-serif;" +
@@ -160,6 +160,26 @@ export default function RichTextEditor({
         }
       },
       setup: (editor: any) => {
+        editor.ui.registry.addButton("photoslider", {
+          text: "Slider",
+          tooltip: "Insert photo slider",
+          onAction: () => {
+            const raw = window.prompt(
+              "Enter image URLs separated by commas",
+              "https://example.com/photo-1.jpg, https://example.com/photo-2.jpg",
+            );
+            if (!raw) return;
+            const urls = raw
+              .split(/[\n,]+/)
+              .map((item) => item.trim())
+              .filter(Boolean);
+            if (!urls.length) return;
+            const slides = urls
+              .map((url, index) => `<img src="${url}" alt="Slide ${index + 1}" class="page-slider-image">`)
+              .join("");
+            editor.insertContent(`<div class="page-slider">${slides}</div><p></p>`);
+          },
+        });
         editor.on("PastePostProcess", () => {
           setUploadError(null);
         });

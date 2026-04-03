@@ -92,12 +92,53 @@ const emptyForm = (): PageFormState => ({
 });
 
 function toSlug(value: string): string {
-  return value
+  const transliterated = value
+    .split("")
+    .map((char) => {
+      const map: Record<string, string> = {
+        а: "a", ә: "a", б: "b", в: "v", г: "g", ғ: "g", д: "d", е: "e", ё: "e", ж: "zh",
+        з: "z", и: "i", й: "i", к: "k", қ: "k", л: "l", м: "m", н: "n", ң: "n", о: "o",
+        ө: "o", п: "p", р: "r", с: "s", т: "t", у: "u", ұ: "u", ү: "u", ф: "f", х: "h",
+        һ: "h", ц: "ts", ч: "ch", ш: "sh", щ: "shch", ъ: "", ы: "y", і: "i", ь: "", э: "e",
+        ю: "yu", я: "ya",
+        А: "a", Ә: "a", Б: "b", В: "v", Г: "g", Ғ: "g", Д: "d", Е: "e", Ё: "e", Ж: "zh",
+        З: "z", И: "i", Й: "i", К: "k", Қ: "k", Л: "l", М: "m", Н: "n", Ң: "n", О: "o",
+        Ө: "o", П: "p", Р: "r", С: "s", Т: "t", У: "u", Ұ: "u", Ү: "u", Ф: "f", Х: "h",
+        Һ: "h", Ц: "ts", Ч: "ch", Ш: "sh", Щ: "shch", Ъ: "", Ы: "y", І: "i", Ь: "", Э: "e",
+        Ю: "yu", Я: "ya",
+      };
+      return map[char] ?? char;
+    })
+    .join("");
+
+  const slug = transliterated
     .toLowerCase()
     .trim()
     .replace(/[^a-z0-9\s-_]/g, "")
     .replace(/\s+/g, "-")
-    .replace(/-+/g, "-");
+    .replace(/-+/g, "-")
+    .replace(/^-+|-+$/g, "");
+
+  return slug || "page";
+}
+
+function ensureUniqueSlug(value: string, pages: ContentPage[], currentPageId?: number): string {
+  const baseSlug = toSlug(value);
+  const usedSlugs = new Set(
+    pages
+      .filter((page) => page.id !== currentPageId)
+      .map((page) => page.slug.toLowerCase()),
+  );
+
+  if (!usedSlugs.has(baseSlug)) return baseSlug;
+
+  let index = 2;
+  let candidate = `${baseSlug}-${index}`;
+  while (usedSlugs.has(candidate)) {
+    index += 1;
+    candidate = `${baseSlug}-${index}`;
+  }
+  return candidate;
 }
 
 function blocksToHtml(blocks: PageBlock[]): string {
@@ -397,7 +438,7 @@ export default function PagesPage() {
                   value={form.title}
                   onChange={(e) => {
                     const title = e.target.value;
-                    setForm((prev) => ({ ...prev, title, slug: toSlug(title) }));
+                    setForm((prev) => ({ ...prev, title, slug: ensureUniqueSlug(title, pages, prev.id) }));
                   }}
                   className="w-full rounded-md border px-3 py-2"
                   required

@@ -207,3 +207,71 @@ html.public-theme.public-a11y .public-main .border-r {
   padding: 1rem;
   color: #e2e8f0;
 }
+
+.public-rich-text .page-slider {
+  position: relative;
+  overflow: hidden;
+  border-radius: 1rem;
+  background: linear-gradient(180deg, #fff8fa 0%, #fff 100%);
+  border: 1px solid var(--public-border);
+  padding: 0;
+}
+
+.public-rich-text .page-slider img {
+  display: none;
+  width: 100%;
+  max-height: 560px;
+  object-fit: cover;
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+}
+
+.public-rich-text .page-slider img.is-active {
+  display: block;
+}
+
+.public-rich-text .page-slider-controls {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 0.75rem;
+  pointer-events: none;
+}
+
+.public-rich-text .page-slider-button {
+  pointer-events: auto;
+  width: 2.5rem;
+  height: 2.5rem;
+  border: 0;
+  border-radius: 9999px;
+  background: rgba(15, 23, 42, 0.7);
+  color: white;
+  font-size: 1.5rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.public-rich-text .page-slider-dots {
+  position: absolute;
+  left: 50%;
+  bottom: 0.9rem;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 0.45rem;
+}
+
+.public-rich-text .page-slider-dot {
+  width: 0.7rem;
+  height: 0.7rem;
+  border-radius: 9999px;
+  border: 0;
+  background: rgba(255, 255, 255, 0.6);
+  cursor: pointer;
+}
+
+.public-rich-text .page-slider-dot.is-active {
+  background: white;
+}

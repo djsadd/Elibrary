@@ -40,9 +40,12 @@ VOID_TAGS = {"br", "hr", "img"}
 
 ALLOWED_ATTRS = {
     "a": {"href", "title", "target", "rel"},
-    "img": {"src", "alt", "title"},
+    "img": {"src", "alt", "title", "class"},
     "th": {"colspan", "rowspan"},
     "td": {"colspan", "rowspan"},
+    "div": {"class"},
+    "p": {"class"},
+    "span": {"class"},
 }
 
 STYLE_ATTR_TAGS = {
