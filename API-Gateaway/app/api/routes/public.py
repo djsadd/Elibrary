@@ -28,6 +28,11 @@ async def catalog_proxy(path: str, request: Request, _=Depends(auth_optional)):
     return await forward(request, settings.CATALOG_SERVICE_URL, path_suffix=f"catalog/{path}")
 
 
+@router.get("/files/upload/{path:path}")
+async def files_upload_proxy(path: str, request: Request, _=Depends(auth_optional)):
+    return await forward(request, settings.FILE_SERVICE_URL, path_suffix=f"files/upload/{path}")
+
+
 @router.post("/public/track")
 async def public_track_page_view(payload: PublicPageViewIn, request: Request, _=Depends(auth_optional)):
     return await track_public_page_view(request, payload)
