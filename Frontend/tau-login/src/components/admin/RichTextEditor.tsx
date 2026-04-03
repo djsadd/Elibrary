@@ -1,31 +1,20 @@
 import { CKEditor } from "@ckeditor/ckeditor5-react";
-import {
-  Alignment,
-  BlockQuote,
-  Bold,
-  ClassicEditor,
-  Essentials,
-  FontBackgroundColor,
-  FontColor,
-  FontFamily,
-  FontSize,
-  Heading,
-  Image,
-  ImageToolbar,
-  ImageUpload,
-  Indent,
-  Italic,
-  Link,
-  List,
-  Paragraph,
-  PasteFromOffice,
-  RemoveFormat,
-  SourceEditing,
-  Strikethrough,
-  Table,
-  TableToolbar,
-  Underline,
-} from "ckeditor5";
+import { Alignment } from "@ckeditor/ckeditor5-alignment";
+import { BlockQuote } from "@ckeditor/ckeditor5-block-quote";
+import { Bold, Italic, Strikethrough, Underline } from "@ckeditor/ckeditor5-basic-styles";
+import { Essentials } from "@ckeditor/ckeditor5-essentials";
+import { ClassicEditor } from "@ckeditor/ckeditor5-editor-classic";
+import { FontBackgroundColor, FontColor, FontFamily, FontSize } from "@ckeditor/ckeditor5-font";
+import { Heading } from "@ckeditor/ckeditor5-heading";
+import { Image, ImageToolbar, ImageUpload } from "@ckeditor/ckeditor5-image";
+import { Indent } from "@ckeditor/ckeditor5-indent";
+import { Link } from "@ckeditor/ckeditor5-link";
+import { List } from "@ckeditor/ckeditor5-list";
+import { Paragraph } from "@ckeditor/ckeditor5-paragraph";
+import { PasteFromOffice } from "@ckeditor/ckeditor5-paste-from-office";
+import { RemoveFormat } from "@ckeditor/ckeditor5-remove-format";
+import { SourceEditing } from "@ckeditor/ckeditor5-source-editing";
+import { Table, TableToolbar } from "@ckeditor/ckeditor5-table";
 import { useMemo, useState } from "react";
 import "ckeditor5/ckeditor5.css";
 
