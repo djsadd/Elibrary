@@ -71,6 +71,27 @@ html.public-theme.public-a11y .public-main .border-r {
   cursor: default;
 }
 
+.rich-text-editor-ckeditor .ck.ck-editor {
+  border: 0;
+}
+
+.rich-text-editor-ckeditor .ck.ck-toolbar {
+  border: 0;
+  border-bottom: 1px solid var(--public-border);
+  border-top-left-radius: 1rem;
+  border-top-right-radius: 1rem;
+}
+
+.rich-text-editor-ckeditor .ck.ck-editor__main > .ck-editor__editable {
+  border: 0;
+  min-height: 420px;
+  padding: 1.25rem 1.5rem;
+}
+
+.rich-text-editor-ckeditor .ck.ck-editor__main > .ck-editor__editable.ck-focused {
+  box-shadow: none;
+}
+
 .rich-text-editor h1,
 .rich-text-editor h2,
 .rich-text-editor h3,
