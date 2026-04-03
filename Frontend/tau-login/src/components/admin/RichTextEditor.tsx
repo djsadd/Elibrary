@@ -1,22 +1,34 @@
-import { CKEditor } from "@ckeditor/ckeditor5-react";
-import { Alignment } from "@ckeditor/ckeditor5-alignment";
-import { BlockQuote } from "@ckeditor/ckeditor5-block-quote";
-import { Bold, Italic, Strikethrough, Underline } from "@ckeditor/ckeditor5-basic-styles";
-import { Essentials } from "@ckeditor/ckeditor5-essentials";
-import { ClassicEditor } from "@ckeditor/ckeditor5-editor-classic";
-import { FontBackgroundColor, FontColor, FontFamily, FontSize } from "@ckeditor/ckeditor5-font";
-import { Heading } from "@ckeditor/ckeditor5-heading";
-import { Image, ImageToolbar, ImageUpload } from "@ckeditor/ckeditor5-image";
-import { Indent } from "@ckeditor/ckeditor5-indent";
-import { Link } from "@ckeditor/ckeditor5-link";
-import { List } from "@ckeditor/ckeditor5-list";
-import { Paragraph } from "@ckeditor/ckeditor5-paragraph";
-import { PasteFromOffice } from "@ckeditor/ckeditor5-paste-from-office";
-import { RemoveFormat } from "@ckeditor/ckeditor5-remove-format";
-import { SourceEditing } from "@ckeditor/ckeditor5-source-editing";
-import { Table, TableToolbar } from "@ckeditor/ckeditor5-table";
+import { Editor } from "@tinymce/tinymce-react";
 import { useMemo, useState } from "react";
-import "ckeditor5/ckeditor5.css";
+import "tinymce/tinymce";
+import "tinymce/icons/default";
+import "tinymce/models/dom";
+import "tinymce/themes/silver";
+import "tinymce/skins/ui/oxide/skin.css";
+import "tinymce/plugins/advlist";
+import "tinymce/plugins/anchor";
+import "tinymce/plugins/autolink";
+import "tinymce/plugins/autosave";
+import "tinymce/plugins/charmap";
+import "tinymce/plugins/code";
+import "tinymce/plugins/codesample";
+import "tinymce/plugins/directionality";
+import "tinymce/plugins/emoticons";
+import "tinymce/plugins/fullscreen";
+import "tinymce/plugins/help";
+import "tinymce/plugins/image";
+import "tinymce/plugins/insertdatetime";
+import "tinymce/plugins/link";
+import "tinymce/plugins/lists";
+import "tinymce/plugins/media";
+import "tinymce/plugins/nonbreaking";
+import "tinymce/plugins/pagebreak";
+import "tinymce/plugins/preview";
+import "tinymce/plugins/searchreplace";
+import "tinymce/plugins/table";
+import "tinymce/plugins/visualblocks";
+import "tinymce/plugins/visualchars";
+import "tinymce/plugins/wordcount";
 
 type RichTextEditorProps = {
   value: string;
@@ -32,43 +44,23 @@ type UploadResponse = {
   uploaded_to?: string;
 };
 
-function createUploadAdapter(loader: any, setUploadError: (value: string | null) => void) {
-  return {
-    upload: async () => {
-      try {
-        setUploadError(null);
-        const file = await loader.file;
-        const formData = new FormData();
-        formData.append("file", file);
-        const token = localStorage.getItem("token") || sessionStorage.getItem("token");
-        const response = await fetch("/api/files/upload", {
-          method: "POST",
-          headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-          body: formData,
-        });
-        if (!response.ok) {
-          const message = await response.text().catch(() => `HTTP ${response.status}`);
-          throw new Error(message || "Image upload failed");
-        }
-        const payload = (await response.json()) as UploadResponse;
-        const uploadedTo = payload.file?.uploaded_to || payload.uploaded_to;
-        if (!uploadedTo) throw new Error("Image URL missing in upload response");
-        const url = uploadedTo.startsWith("/api/files/") ? uploadedTo : `/api/files${uploadedTo}`;
-        return { default: url };
-      } catch (error: any) {
-        const message = error?.message || "Image upload failed";
-        setUploadError(message);
-        throw error;
-      }
-    },
-    abort: () => {},
-  };
-}
-
-function uploadAdapterPlugin(setUploadError: (value: string | null) => void) {
-  return (editor: any) => {
-    editor.plugins.get("FileRepository").createUploadAdapter = (loader: any) => createUploadAdapter(loader, setUploadError);
-  };
+async function uploadImage(file: File): Promise<string> {
+  const formData = new FormData();
+  formData.append("file", file);
+  const token = localStorage.getItem("token") || sessionStorage.getItem("token");
+  const response = await fetch("/api/files/upload", {
+    method: "POST",
+    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+    body: formData,
+  });
+  if (!response.ok) {
+    const message = await response.text().catch(() => `HTTP ${response.status}`);
+    throw new Error(message || "Image upload failed");
+  }
+  const payload = (await response.json()) as UploadResponse;
+  const uploadedTo = payload.file?.uploaded_to || payload.uploaded_to;
+  if (!uploadedTo) throw new Error("Image URL missing in upload response");
+  return uploadedTo.startsWith("/api/files/") ? uploadedTo : `/api/files${uploadedTo}`;
 }
 
 export default function RichTextEditor({
@@ -78,90 +70,101 @@ export default function RichTextEditor({
 }: RichTextEditorProps) {
   const [uploadError, setUploadError] = useState<string | null>(null);
 
-  const config: any = useMemo(
+  const init = useMemo(
     () => ({
-      licenseKey: (import.meta.env.VITE_CKEDITOR_LICENSE_KEY as string | undefined) || "GPL",
+      branding: false,
+      promotion: false,
+      menubar: "file edit view insert format tools table help",
+      min_height: 420,
+      height: 520,
+      resize: true,
+      browser_spellcheck: true,
+      contextmenu: "undo redo | inserttable | cell row column deletetable | link image",
       plugins: [
-        Essentials,
-        Paragraph,
-        Heading,
-        Bold,
-        Italic,
-        Underline,
-        Strikethrough,
-        RemoveFormat,
-        FontFamily,
-        FontSize,
-        FontColor,
-        FontBackgroundColor,
-        Alignment,
-        Indent,
-        Link,
-        List,
-        BlockQuote,
-        PasteFromOffice,
-        Table,
-        TableToolbar,
-        Image,
-        ImageUpload,
-        ImageToolbar,
-        SourceEditing,
+        "advlist",
+        "anchor",
+        "autolink",
+        "autosave",
+        "charmap",
+        "code",
+        "codesample",
+        "directionality",
+        "emoticons",
+        "fullscreen",
+        "help",
+        "image",
+        "insertdatetime",
+        "link",
+        "lists",
+        "media",
+        "nonbreaking",
+        "pagebreak",
+        "preview",
+        "searchreplace",
+        "table",
+        "visualblocks",
+        "visualchars",
+        "wordcount",
       ],
-      extraPlugins: [uploadAdapterPlugin(setUploadError)],
-      toolbar: {
-        shouldNotGroupWhenFull: true,
-        items: [
-          "undo",
-          "redo",
-          "|",
-          "heading",
-          "|",
-          "fontFamily",
-          "fontSize",
-          "fontColor",
-          "fontBackgroundColor",
-          "|",
-          "bold",
-          "italic",
-          "underline",
-          "strikethrough",
-          "removeFormat",
-          "|",
-          "alignment",
-          "|",
-          "bulletedList",
-          "numberedList",
-          "|",
-          "outdent",
-          "indent",
-          "|",
-          "link",
-          "insertTable",
-          "imageUpload",
-          "blockQuote",
-          "sourceEditing",
-        ],
+      toolbar:
+        "undo redo | blocks fontfamily fontsize | bold italic underline strikethrough forecolor backcolor | " +
+        "alignleft aligncenter alignright alignjustify | bullist numlist outdent indent | " +
+        "link image media table blockquote codesample | removeformat code preview fullscreen",
+      block_formats: "Paragraph=p; Heading 1=h1; Heading 2=h2; Heading 3=h3; Heading 4=h4; Heading 5=h5; Heading 6=h6",
+      font_family_formats:
+        "Arial=arial,helvetica,sans-serif;" +
+        "Verdana=verdana,geneva,sans-serif;" +
+        "Tahoma=tahoma,arial,helvetica,sans-serif;" +
+        "Trebuchet MS=trebuchet ms,geneva,sans-serif;" +
+        "Times New Roman=times new roman,times,serif;" +
+        "Georgia=georgia,palatino,serif;" +
+        "Courier New=courier new,courier,monospace;",
+      font_size_formats: "8pt 10pt 12pt 14pt 16pt 18pt 20pt 24pt 28pt 32pt 36pt 48pt",
+      toolbar_mode: "sliding" as const,
+      paste_data_images: true,
+      automatic_uploads: true,
+      image_caption: true,
+      image_title: true,
+      image_advtab: true,
+      convert_urls: false,
+      relative_urls: false,
+      remove_script_host: false,
+      content_style: `
+        body {
+          font-family: Arial, Helvetica, sans-serif;
+          font-size: 14px;
+          line-height: 1.6;
+          color: #0f172a;
+          margin: 1rem;
+        }
+        img {
+          max-width: 100%;
+          height: auto;
+        }
+        table {
+          border-collapse: collapse;
+          width: 100%;
+        }
+        table td, table th {
+          border: 1px solid #cbd5e1;
+          padding: 8px;
+        }
+      `,
+      images_upload_handler: async (blobInfo: any) => {
+        try {
+          setUploadError(null);
+          const file = blobInfo.blob();
+          return await uploadImage(file);
+        } catch (error: any) {
+          const message = error?.message || "Image upload failed";
+          setUploadError(message);
+          throw error;
+        }
       },
-      heading: {
-        options: [
-          { model: "paragraph", title: "Paragraph", class: "ck-heading_paragraph" },
-          { model: "heading1", view: "h1", title: "Heading 1", class: "ck-heading_heading1" },
-          { model: "heading2", view: "h2", title: "Heading 2", class: "ck-heading_heading2" },
-          { model: "heading3", view: "h3", title: "Heading 3", class: "ck-heading_heading3" },
-        ],
-      },
-      fontFamily: {
-        supportAllValues: true,
-      },
-      fontSize: {
-        options: [10, 12, 14, "default", 18, 20, 22, 24, 28, 32, 40],
-        supportAllValues: true,
-      },
-      image: {
-        toolbar: ["imageTextAlternative"],
-      },
-      table: {
-        contentToolbar: ["tableColumn", "tableRow", "mergeTableCells"],
+      setup: (editor: any) => {
+        editor.on("PastePostProcess", () => {
+          setUploadError(null);
+        });
       },
     }),
     [],
@@ -169,28 +172,21 @@ export default function RichTextEditor({
 
   return (
     <div className="space-y-3">
-      <div className={`rich-text-editor rich-text-editor-ckeditor w-full rounded-2xl border bg-white ${minHeightClassName}`}>
-        <CKEditor
-          editor={ClassicEditor}
-          config={config}
-          data={value}
-          onReady={(editor) => {
-            editor.editing.view.change((writer: any) => {
-              writer.setStyle("min-height", "420px", editor.editing.view.document.getRoot());
-            });
-          }}
-          onChange={(_, editor) => {
-            const data = editor.getData();
+      <div className={`rich-text-editor rich-text-editor-tinymce w-full rounded-2xl border bg-white ${minHeightClassName}`}>
+        <Editor
+          value={value}
+          onEditorChange={(content) => {
             setUploadError(null);
-            onChange(data);
+            onChange(content);
           }}
+          init={init}
         />
       </div>
 
       {uploadError && <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">{uploadError}</div>}
 
       <div className="text-xs text-slate-500">
-        CKEditor 5 with Office paste, tables, fonts, colors, source editing and image upload.
+        TinyMCE with tables, media, colors, fonts, justify, code view, Office-friendly paste and image upload.
       </div>
     </div>
   );
