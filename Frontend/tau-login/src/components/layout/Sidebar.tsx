@@ -37,6 +37,7 @@ export default function Sidebar() {
       ? ([
           { to: "/admin", label: t("nav.admin"), icon: AdminIcon },
           { to: "/analytics", label: t("nav.analytics"), icon: AnalyticsIcon },
+          { to: "/content", label: t("nav.content"), icon: ContentIcon },
         ] as any)
       : ([] as any)),
     { to: "/intelligent-search", label: "Интеллектуальный поиск", icon: SearchIcon },
@@ -207,6 +208,15 @@ function AnalyticsIcon({ className = "", ...props }: any) {
   return (
     <svg {...props} className={className} viewBox="0 0 24 24" fill="currentColor">
       <path d="M4 19h16v2H4v-2zm2-8h3v6H6v-6zm5-4h3v10h-3V7zm5 2h3v8h-3V9z" />
+    </svg>
+  );
+}
+
+function ContentIcon({ className = "", ...props }: any) {
+  return (
+    <svg {...props} className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8}>
+      <path d="M5 4h14a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1Z" />
+      <path d="M8 8h8M8 12h8M8 16h5" strokeLinecap="round" />
     </svg>
   );
 }

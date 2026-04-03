@@ -1,112 +1,450 @@
-# PlatonusAuth API
+# PlatonusAuth Developer Documentation
 
-Сервис `PlatonusAuth` отвечает за авторизацию пользователя через Platonus и получение его профиля по роли.
+## 1. Назначение сервиса
 
-## Назначение
+`PlatonusAuth` это технический адаптер между нашей системой и `https://platonus.tau-edu.kz`.
 
-Сервис:
+Сервис не использует официальный OAuth/OpenID flow. Вместо этого он:
 
-- принимает логин и пароль пользователя Platonus;
-- выполняет вход в `https://platonus.tau-edu.kz`;
-- определяет `personID` и роли пользователя;
-- возвращает роль и профильные данные из Platonus.
+1. открывает страницу логина Platonus через `Playwright`;
+2. логинится под пользователем;
+3. забирает из браузерной сессии cookies, `sid`, `token`;
+4. использует эти данные для вызова внутренних REST endpoint'ов Platonus;
+5. возвращает наружу только роль пользователя и объект `info`.
 
-Текущая реализация построена на `FastAPI + Playwright`.
+Важно:
 
-## Базовый URL
+- текущий HTTP API сервиса не возвращает наружу cookies, `sid`, `token`;
+- токен и cookies используются только внутри одного запроса;
+- если другому разработчику нужен именно `token` или session material, код сервиса нужно расширять.
 
-При запуске через `docker-compose` сервис доступен по адресу:
+## 2. Внешний API сервиса
+
+### 2.1 Base URL
+
+При запуске через `docker compose`:
 
 ```text
 http://localhost:8013
 ```
 
-Swagger UI:
+Служебные endpoint'ы:
 
-```text
-http://localhost:8013/docs
-```
+- `GET /docs`
+- `GET /openapi.json`
+- `GET /metrics`
 
-OpenAPI schema:
+### 2.2 Endpoint авторизации
 
-```text
-http://localhost:8013/openapi.json
-```
+#### `POST /auth_platonus`
 
-Метрики Prometheus:
+Авторизует пользователя в Platonus и возвращает его роль и профильные данные.
 
-```text
-http://localhost:8013/metrics
-```
+#### Request
 
-## Основной endpoint
-
-### `POST /auth_platonus`
-
-Авторизует пользователя в Platonus по логину и паролю.
-
-#### Request body
+`Content-Type: application/json`
 
 ```json
 {
-  "username": "student_login",
-  "password": "student_password"
+  "username": "user_login",
+  "password": "user_password"
 }
 ```
 
-#### Пример запроса
+#### cURL
 
 ```bash
 curl -X POST "http://localhost:8013/auth_platonus" \
   -H "Content-Type: application/json" \
-  -d '{
-    "username": "student_login",
-    "password": "student_password"
-  }'
+  -d "{\"username\":\"user_login\",\"password\":\"user_password\"}"
 ```
 
-#### Успешный ответ `200 OK`
+#### Success response
 
 ```json
 {
   "role": "студент",
   "info": {
-    "id": 12345,
-    "firstname": "Иван",
-    "lastname": "Иванов"
+    "...": "raw object from Platonus"
   }
 }
 ```
 
-Поле `info` возвращается в том виде, в котором его отдает Platonus:
+### 2.3 Реальный контракт ответа
 
-- для студентов: ответ `GET /rest/student/studentInfo/{person_id}/ru`;
-- для сотрудников: ответ `GET /rest/employee/employeeInfo/{person_id}/3/ru?dn=1`.
+Сервис возвращает строго:
 
-## Поддерживаемые роли
+```json
+{
+  "role": "<role_name>",
+  "info": { }
+}
+```
 
-В текущей реализации поддерживаются:
+Где:
 
-- `студент`;
-- `преподаватель`;
-- `библиотека`.
+- `role` это строка, определенная по ответу `/rest/api/person/roles`;
+- `info` это сырой JSON-ответ одного из endpoint'ов Platonus без нормализации.
 
-Особенности:
+Поддерживаемые значения `role`:
 
-- роль `деканат` явно отключена и возвращает ошибку;
-- любые неподдерживаемые роли завершаются ошибкой авторизации.
+- `студент`
+- `преподаватель`
+- `библиотека`
 
-## Коды ответов
+Неподдерживаемые сценарии:
 
-### `200 OK`
+- `деканат` возвращает ошибку;
+- любая неизвестная роль возвращает ошибку.
 
-Авторизация успешна, роль и данные пользователя получены.
+## 3. Что реально получает сервис после логина
+
+После успешной авторизации в браузерной сессии код извлекает:
+
+### 3.1 Cookies
+
+Код вызывает:
+
+```python
+cookies = page.context.cookies("https://platonus.tau-edu.kz")
+```
+
+Далее cookies собираются в заголовок:
+
+```http
+cookie: name1=value1; name2=value2; ...
+```
+
+Это основной session context для дальнейших запросов к REST API Platonus.
+
+### 3.2 SID
+
+Из cookies выбирается:
+
+```python
+sid_value = cookie_map.get("plt_sid") or cookie_map.get("sid") or ""
+```
+
+Далее в запросы пробрасывается заголовок:
+
+```http
+sid: <sid_value>
+```
+
+То есть приоритет такой:
+
+1. `plt_sid`
+2. `sid`
+3. пустая строка, если cookie не найдена
+
+### 3.3 Token
+
+Токен читается из `localStorage` браузера:
+
+```python
+localStorage.getItem('token') || localStorage.getItem('access_token') || ''
+```
+
+Далее в запросы пробрасывается:
+
+```http
+token: <token_value>
+```
+
+То есть приоритет:
+
+1. `localStorage["token"]`
+2. `localStorage["access_token"]`
+3. пустая строка
+
+### 3.4 User-Agent
+
+Код также передает реальный browser `user-agent`:
+
+```http
+user-agent: <browser_user_agent>
+```
+
+### 3.5 Финальный набор заголовков для Platonus
+
+Итоговый заголовочный набор формируется так:
+
+```json
+{
+  "cookie": "<cookie_header>",
+  "sid": "<sid_value>",
+  "token": "<token_value>",
+  "user-agent": "<browser_user_agent>",
+  "accept": "application/json",
+  "accept-language": "kz"
+}
+```
+
+Это ключевая часть интеграции. Именно этими заголовками сервис авторизует последующие REST-запросы в Platonus.
+
+## 4. Внутренний flow запроса
+
+Ниже фактический сценарий выполнения `POST /auth_platonus`.
+
+### Шаг 1. Открытие страницы входа
+
+```text
+GET https://platonus.tau-edu.kz/mail?type=1
+```
+
+Ожидаются DOM-элементы:
+
+- `#login_input`
+- `#pass_input`
+- `#Submit1`
+
+Если эти селекторы изменятся, логин перестанет работать.
+
+### Шаг 2. Логин через UI
+
+Код:
+
+```python
+page.fill("#login_input", username)
+page.fill("#pass_input", password)
+page.click("#Submit1")
+page.wait_for_load_state("networkidle")
+```
+
+### Шаг 3. Получение session material
+
+После логина код извлекает:
+
+- cookies;
+- `sid`;
+- `token`;
+- `user-agent`.
+
+### Шаг 4. Получение `personID`
+
+Запрос:
+
+```http
+GET https://platonus.tau-edu.kz/rest/api/person/personID
+```
+
+Ожидаемый тип ответа:
+
+```json
+{
+  "personID": 12345
+}
+```
+
+Особенность текущей реализации:
+
+- если `personID` не найден, сервис делает повторный запрос еще один раз;
+- если ответ не JSON, возвращается `401` с текстом `personID response is not JSON` или `personID retry response is not JSON`.
+
+### Шаг 5. Получение ролей
+
+Запрос:
+
+```http
+GET https://platonus.tau-edu.kz/rest/api/person/roles
+```
+
+Ожидаемый тип ответа:
+
+```json
+[
+  {
+    "name": "Студент"
+  }
+]
+```
+
+Код приводит `name` к lowercase и сравнивает с захардкоженными строками ролей.
+
+### Шаг 6. Получение профильных данных
+
+#### Если роль `студент`
+
+Запрос:
+
+```http
+GET https://platonus.tau-edu.kz/rest/student/studentInfo/{person_id}/ru
+```
+
+Возвращается:
+
+```json
+{
+  "role": "студент",
+  "info": { "...": "studentInfo raw payload" }
+}
+```
+
+#### Если роль `преподаватель` или `библиотека`
+
+Запрос:
+
+```http
+GET https://platonus.tau-edu.kz/rest/employee/employeeInfo/{person_id}/3/ru?dn=1
+```
+
+Возвращается:
+
+```json
+{
+  "role": "преподаватель",
+  "info": { "...": "employeeInfo raw payload" }
+}
+```
+
+или
+
+```json
+{
+  "role": "библиотека",
+  "info": { "...": "employeeInfo raw payload" }
+}
+```
+
+#### Если роль `деканат`
+
+Возвращается ошибка:
+
+```json
+{
+  "detail": "Временно отключено для выбранной роли."
+}
+```
+
+#### Если роль неизвестна
+
+Возвращается ошибка:
+
+```json
+{
+  "detail": "Роль не поддерживается для входа."
+}
+```
+
+## 5. Что не отдается наружу, хотя внутри уже есть
+
+Это критично для другого разработчика.
+
+Внутри `register.py` после логина уже существуют:
+
+- полный набор cookies;
+- `cookie_header`;
+- `sid_value`;
+- `token_value`;
+- `user_agent`;
+- `person_id`;
+- `roles_data`.
+
+Но наружу endpoint `/auth_platonus` возвращает только:
+
+```json
+{
+  "role": "...",
+  "info": { }
+}
+```
+
+То есть сейчас внешний клиент не может:
+
+- переиспользовать сессию Platonus;
+- забрать `token`;
+- забрать `sid`;
+- забрать cookies;
+- самостоятельно сходить в другие endpoint'ы Platonus от имени пользователя.
+
+Если это требуется, API нужно менять.
+
+## 6. Как расширить сервис, если нужен token/sid/cookies
+
+Если задача другого разработчика это не просто получить профиль, а дальше вызывать Platonus API, то минимально нужно расширить `register.py` и `app.py`.
+
+### 6.1 Что добавить в return из `auth()`
+
+Нужно возвращать не только:
+
+```python
+return {"role": role, "info": info}
+```
+
+а, например:
+
+```python
+return {
+    "role": role,
+    "info": info,
+    "session": {
+        "cookies": cookies,
+        "cookie_header": cookie_header,
+        "sid": sid_value,
+        "token": token_value,
+        "user_agent": user_agent,
+        "person_id": person_id,
+        "roles": roles_data,
+    },
+}
+```
+
+### 6.2 Что изменить в HTTP response
+
+Сейчас `app.py` отдает:
+
+```python
+return {"role": response["role"], "info": response["info"]}
+```
+
+Если нужен расширенный контракт, нужно отдавать:
+
+```python
+return response
+```
+
+или отдельный DTO через `Pydantic`.
+
+### 6.3 Рекомендуемый ответ для тех. интеграции
+
+Если цель именно developer-facing API, лучше использовать такой контракт:
+
+```json
+{
+  "role": "студент",
+  "person_id": 12345,
+  "roles": [
+    {
+      "name": "Студент"
+    }
+  ],
+  "session": {
+    "sid": "....",
+    "token": "....",
+    "cookie_header": "..."
+  },
+  "info": {
+    "...": "raw payload"
+  }
+}
+```
+
+Важно:
+
+- это уже чувствительные auth-данные;
+- такой ответ нельзя бездумно логировать;
+- такой ответ нельзя отдавать фронтенду без отдельной оценки рисков.
+
+## 7. Ошибки и их реальное происхождение
 
 ### `400 Bad Request`
 
-Логин или пароль не переданы в теле запроса.
+Причина:
 
-Пример:
+- `username` не передан;
+- `password` не передан.
+
+Текущий текст ошибки в коде неудачный:
 
 ```json
 {
@@ -114,123 +452,125 @@ curl -X POST "http://localhost:8013/auth_platonus" \
 }
 ```
 
-Примечание: текст ошибки унаследован из кода, но endpoint фактически ожидает `username` и `password` именно в JSON-запросе.
+Фактически env-переменные для HTTP API не нужны.
 
 ### `401 Unauthorized`
 
-Platonus не принял учетные данные или роль пользователя недоступна для входа через этот сервис.
+Это не только неправильный пароль. В текущем коде сюда попадает любой `RuntimeError`, в том числе:
 
-Примеры причин:
+- страница логина изменилась;
+- не найден selector `#login_input`;
+- `personID` не JSON;
+- `roles` не JSON;
+- `studentInfo` не JSON;
+- `employeeInfo` не JSON;
+- роль отключена;
+- роль не поддерживается.
 
-- неверный логин или пароль;
-- роль временно отключена;
-- роль не поддерживается текущей логикой сервиса.
+То есть `401` здесь смешивает auth-ошибки и ошибки интеграции.
 
 ### `500 Internal Server Error`
 
-Ошибка на этапе взаимодействия с Platonus или при разборе ответа внешнего API.
+Это любая другая непойманная ошибка Python.
 
-Возможные причины:
+Текущий текст:
 
-- Platonus изменил HTML-структуру страницы входа;
-- внешний API вернул не JSON;
-- временно недоступен сайт `platonus.tau-edu.kz`.
-
-## Как работает авторизация
-
-Сервис делает следующие шаги:
-
-1. Открывает страницу входа Platonus через headless Chromium.
-2. Вводит логин и пароль в форму.
-3. После входа извлекает cookies, `sid` и token из браузерного контекста.
-4. Запрашивает `personID` через REST API Platonus.
-5. Запрашивает список ролей пользователя.
-6. В зависимости от роли получает подробную информацию о пользователе.
-
-Используемые внешние endpoint'ы Platonus:
-
-- `GET /rest/api/person/personID`
-- `GET /rest/api/person/roles`
-- `GET /rest/student/studentInfo/{person_id}/ru`
-- `GET /rest/employee/employeeInfo/{person_id}/3/ru?dn=1`
-
-Базовый домен:
-
-```text
-https://platonus.tau-edu.kz
+```json
+{
+  "detail": "Failed to fetch notifications: ..."
+}
 ```
 
-## Запуск через Docker Compose
+Это тоже некорректное сообщение, унаследованное из другого кода.
 
-В корневом `docker-compose.yml` сервис публикуется на порт `8013`.
+## 8. Ограничения текущей реализации
 
-Команда запуска:
+### 8.1 Хрупкость по DOM
 
-```bash
-docker compose up --build platonusauth
+Сервис зависит от селекторов:
+
+- `#login_input`
+- `#pass_input`
+- `#Submit1`
+
+Любое изменение страницы логина ломает интеграцию.
+
+### 8.2 Хрупкость по внутреннему API Platonus
+
+Сервис зависит от endpoint'ов:
+
+- `/rest/api/person/personID`
+- `/rest/api/person/roles`
+- `/rest/student/studentInfo/{person_id}/ru`
+- `/rest/employee/employeeInfo/{person_id}/3/ru?dn=1`
+
+Если Platonus изменит:
+
+- формат заголовков;
+- обязательность `token`;
+- способ сессии;
+- схему JSON;
+
+код придется обновлять.
+
+### 8.3 Нет нормализации доменной модели
+
+`info` это сырой payload внешней системы.
+
+Плюсы:
+
+- быстро;
+- без потери данных.
+
+Минусы:
+
+- интеграция хрупкая;
+- фронтенд или другой сервис зависят от структуры Platonus;
+- нет стабильного внутреннего контракта.
+
+### 8.4 Нет session persistence
+
+Сессия существует только внутри одного запроса. После ответа браузер закрывается:
+
+```python
+browser.close()
 ```
 
-После запуска сервис будет доступен на:
+То есть сервис не хранит:
 
-```text
-http://localhost:8013
-```
+- refresh token;
+- access token cache;
+- cookie jar;
+- сессионный state между запросами.
 
-## Локальный запуск без Docker
+## 9. Практический сценарий для другого разработчика
 
-Перейдите в директорию сервиса:
+Если нужна только проверка пользователя и его профиль:
 
-```bash
-cd PlatonusAuth
-```
+1. дергай `POST /auth_platonus`;
+2. передай логин и пароль;
+3. читай `role`;
+4. используй `info`.
 
-Установите зависимости:
+Если нужно дальше ходить в Platonus от имени пользователя:
 
-```bash
-pip install -r requirements.txt
-```
+1. текущего API недостаточно;
+2. нужно расширять контракт ответа;
+3. нужно возвращать `token`, `sid`, `cookie_header`, `person_id`, `roles`.
 
-Запустите API:
+## 10. Точки входа в коде
 
-```bash
-uvicorn app:app --host 0.0.0.0 --port 8013
-```
+- [app.py](/d:/Users/admin/PycharmProjects/Elib/PlatonusAuth/app.py) - HTTP API, endpoint `POST /auth_platonus`
+- [register.py](/d:/Users/admin/PycharmProjects/Elib/PlatonusAuth/register.py) - логика браузерной авторизации, сбор cookies/token/sid, вызовы REST API Platonus
+- [Dockerfile](/d:/Users/admin/PycharmProjects/Elib/PlatonusAuth/Dockerfile) - контейнер запуска сервиса
+- [requirements.txt](/d:/Users/admin/PycharmProjects/Elib/PlatonusAuth/requirements.txt) - зависимости
 
-## Переменные окружения
+## 11. Рекомендации по доработке
 
-В API endpoint `POST /auth_platonus` логин и пароль передаются в теле запроса.
+Если этот сервис должен использоваться как стабильная developer API-интеграция, следующая минимальная доработка обязательна:
 
-Переменные окружения:
-
-- `PLATONUS_USERNAME`
-- `PLATONUS_PASSWORD`
-
-нужны только для прямого запуска файла `register.py` как standalone-скрипта.
-
-Пример:
-
-```bash
-python register.py
-```
-
-## Ограничения текущей реализации
-
-- Сервис зависит от доступности и HTML-разметки страницы входа Platonus.
-- Авторизация работает через браузерную автоматизацию, а не через прямой официальный OAuth/OpenID flow.
-- Формат поля `info` не нормализуется внутри сервиса и зависит от ответа Platonus.
-- При изменении ролей или внутренних endpoint'ов Platonus код может потребовать доработки.
-
-## Быстрая интеграция
-
-Минимальный сценарий для другого сервиса или фронтенда:
-
-1. Отправить `POST /auth_platonus`.
-2. Передать `username` и `password` в JSON.
-3. Проверить `role` в ответе.
-4. Использовать объект `info` как профиль пользователя из Platonus.
-
-## Файлы сервиса
-
-- `app.py` - FastAPI приложение и endpoint `/auth_platonus`;
-- `register.py` - логика входа в Platonus через Playwright;
-- `Dockerfile` - контейнер для запуска сервиса.
+1. исправить некорректные тексты ошибок;
+2. разделить auth-ошибки и integration-ошибки по разным status code;
+3. ввести нормализованную response schema;
+4. отдельно решить, можно ли возвращать `token/sid/cookies` наружу;
+5. убрать чувствительные данные из stdout-логов, если сервис пойдет в production.

@@ -7,7 +7,6 @@ import { useAuth } from "@/shared/auth/AuthContext";
 const nav = [
   { to: "/admin", label: () => t("admin.nav.overview"), end: true },
   { to: "/admin/articles/quick", label: () => "Quick Article" },
-  { to: "/admin/content", label: () => t("admin.nav.content"), adminOnly: true },
   { to: "/admin/books", label: () => t("admin.nav.books") },
   { to: "/admin/books/new", label: () => t("admin.nav.addBook") },
   { to: "/admin/playlists", label: () => t("admin.nav.playlists") },

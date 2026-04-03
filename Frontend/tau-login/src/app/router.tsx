@@ -8,7 +8,7 @@ import AppLayout from "@/components/layout/AppLayout";
 
 import DashboardPage from "../pages/dashboard/DashboardPage";
 import ProfilePage from "../pages/profile/ProfilePage";
-import { ProtectedRouteSync, PublicRouteSync, AdminRouteSync, AdminOnlyRouteSync } from "@/shared/routes/guards";
+import { PublicRouteSync, AdminRouteSync, AdminOnlyRouteSync } from "@/shared/routes/guards";
 import CatalogListPage from "../pages/catalog/CatalogListPage";
 import CatalogDetailPage from "../pages/catalog/CatalogDetailPage";
 import BookNotesPage from "../pages/notes/BookNotesPage";
@@ -39,9 +39,11 @@ import IntegrationsPage from "../pages/admin/sections/IntegrationsPage";
 import ReportsPage from "../pages/admin/sections/ReportsPage";
 import RolesPage from "../pages/admin/sections/RolesPage";
 import ProtectionPage from "../pages/admin/sections/ProtectionPage";
-import ContentPage from "../pages/admin/sections/ContentPage";
+import PagesPage from "../pages/admin/sections/PagesPage";
+import MenuPage from "../pages/admin/sections/MenuPage";
 import NotFoundPage from "../pages/NotFoundPage";
 import AnalyticsLayout from "../pages/analytics/AnalyticsLayout";
+import ContentLayout from "../pages/content/ContentLayout";
 import AnalyticsOverviewPage from "../pages/analytics/sections/AnalyticsOverviewPage";
 import AnalyticsUsersPage from "../pages/analytics/sections/AnalyticsUsersPage";
 import AnalyticsTrafficPage from "../pages/analytics/sections/AnalyticsTrafficPage";
@@ -140,6 +142,19 @@ const router = createBrowserRouter([
           { path: "books", element: <WithTitle title="Analytics Books - TAU"><AnalyticsBooksPage /></WithTitle> },
         ],
       },
+      {
+        path: "content",
+        element: (
+          <AdminOnlyRouteSync>
+            <WithTitle title="Content - TAU"><ContentLayout /></WithTitle>
+          </AdminOnlyRouteSync>
+        ),
+        children: [
+          { index: true, element: <Navigate to="/content/pages" replace /> },
+          { path: "pages", element: <WithTitle title="Content Pages - TAU"><PagesPage /></WithTitle> },
+          { path: "menu", element: <WithTitle title="Content Menu - TAU"><MenuPage /></WithTitle> },
+        ],
+      },
       { path: "catalog/:id", element: <WithTitle title="Book Details - TAU"><CatalogDetailPage /></WithTitle> },
       { path: "catalog/books/:id", element: <WithTitle title="Book Details - TAU"><CatalogDetailPage /></WithTitle> },
       { path: "catalog/:id/notes", element: <WithTitle title="My Notes - TAU"><BookNotesPage /></WithTitle> },
@@ -162,11 +177,11 @@ const router = createBrowserRouter([
               path: "content",
               element: (
                 <AdminOnlyRouteSync>
-                  <WithTitle title="Admin Content - TAU"><ContentPage /></WithTitle>
+                  <Navigate to="/content/pages" replace />
                 </AdminOnlyRouteSync>
               ),
             },
-            { path: "pages", element: <Navigate to="/admin/content" replace /> },
+            { path: "pages", element: <Navigate to="/content/pages" replace /> },
             { path: "books/:id", element: <WithTitle title="Book Details - TAU"><AdminBookDetailPage /></WithTitle> },
             { path: "books/:id/edit", element: <WithTitle title="Edit Book - TAU"><EditBookPage /></WithTitle> },
             { path: "playlists", element: <WithTitle title="Admin Playlists - TAU"><PlaylistsListPage /></WithTitle> },
@@ -181,7 +196,7 @@ const router = createBrowserRouter([
             { path: "files", element: <WithTitle title="Admin Files - TAU"><FilesPage /></WithTitle> },
             { path: "roles", element: <WithTitle title="Admin Roles - TAU"><RolesPage /></WithTitle> },
             { path: "reports", element: <WithTitle title="Admin Reports - TAU"><ReportsPage /></WithTitle> },
-            { path: "menu", element: <Navigate to="/admin/content" replace /> },
+            { path: "menu", element: <Navigate to="/content/menu" replace /> },
             { path: "integrations", element: <WithTitle title="Admin Integrations - TAU"><IntegrationsPage /></WithTitle> },
             { path: "settings", element: <WithTitle title="Admin Settings - TAU"><SettingsPage /></WithTitle> },
             { path: "protection", element: <WithTitle title="Admin Protection - TAU"><ProtectionPage /></WithTitle> },
