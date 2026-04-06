@@ -13,6 +13,7 @@ import {
 
 type KindFilter = "all" | "link" | "dropdown";
 type VisibilityFilter = "all" | "visible" | "hidden";
+type LevelSort = "asc" | "desc";
 
 const PAGE_SIZE_OPTIONS = [10, 20, 50] as const;
 
@@ -32,6 +33,8 @@ export default function MenuPage() {
   const query = searchParams.get("q") || "";
   const kind = (searchParams.get("kind") as KindFilter) || "all";
   const visibility = (searchParams.get("visibility") as VisibilityFilter) || "all";
+  const levelFilter = searchParams.get("level") || "all";
+  const levelSort = (searchParams.get("levelSort") as LevelSort) || "asc";
   const perPage = Number(searchParams.get("perPage") || 10);
   const page = Math.max(1, Number(searchParams.get("page") || 1));
 
@@ -61,16 +64,22 @@ export default function MenuPage() {
   }, []);
 
   const flatItems = useMemo(() => flattenMenuItems(menuItems), [menuItems]);
+  const availableLevels = useMemo(() => Array.from(new Set(flatItems.map((item) => item.level))).sort((a, b) => a - b), [flatItems]);
 
   const filteredItems = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
+    const normalizedLevel = levelFilter === "all" ? null : Number(levelFilter);
     return [...flatItems]
-      .sort((a, b) => a.level - b.level || a.sort_order - b.sort_order || a.id - b.id)
+      .sort((a, b) => {
+        const levelDiff = levelSort === "desc" ? b.level - a.level : a.level - b.level;
+        return levelDiff || a.sort_order - b.sort_order || a.id - b.id;
+      })
       .filter((item) => {
         const itemKind = inferMenuKind(item);
         const kindMatches = kind === "all" || itemKind === kind;
         const visibilityMatches =
           visibility === "all" || (visibility === "visible" ? item.is_visible : !item.is_visible);
+        const levelMatches = normalizedLevel === null || item.level === normalizedLevel;
         const haystack = [
           item.title,
           item.title_ru,
@@ -85,9 +94,14 @@ export default function MenuPage() {
           .join(" ")
           .toLowerCase();
 
-        return kindMatches && visibilityMatches && (!normalizedQuery || haystack.includes(normalizedQuery));
+        return (
+          kindMatches &&
+          visibilityMatches &&
+          levelMatches &&
+          (!normalizedQuery || haystack.includes(normalizedQuery))
+        );
       });
-  }, [flatItems, kind, query, visibility]);
+  }, [flatItems, kind, levelFilter, levelSort, query, visibility]);
 
   const safePerPage = PAGE_SIZE_OPTIONS.includes(perPage as (typeof PAGE_SIZE_OPTIONS)[number]) ? perPage : 10;
   const totalPages = Math.max(1, Math.ceil(filteredItems.length / safePerPage));
@@ -147,7 +161,7 @@ export default function MenuPage() {
       </section>
 
       <section className="rounded-xl border border-slate-200 bg-white p-4">
-        <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_180px_180px_160px]">
+        <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_160px_180px_180px_180px_160px]">
           <label className="text-sm">
             <div className="mb-1 text-slate-600">{t("admin.menu.filters.search")}</div>
             <input
@@ -170,6 +184,21 @@ export default function MenuPage() {
             </select>
           </label>
           <label className="text-sm">
+            <div className="mb-1 text-slate-600">{t("admin.menu.filters.level")}</div>
+            <select
+              value={levelFilter}
+              onChange={(e) => setParam("level", e.target.value === "all" ? undefined : e.target.value)}
+              className="w-full rounded-md border px-3 py-2"
+            >
+              <option value="all">{t("admin.menu.filters.allLevels")}</option>
+              {availableLevels.map((level) => (
+                <option key={level} value={level}>
+                  {t("admin.menu.filters.levelValue", { level })}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="text-sm">
             <div className="mb-1 text-slate-600">{t("admin.menu.filters.visibility")}</div>
             <select
               value={visibility}
@@ -179,6 +208,17 @@ export default function MenuPage() {
               <option value="all">{t("admin.menu.filters.allVisibility")}</option>
               <option value="visible">{t("admin.menu.states.visible")}</option>
               <option value="hidden">{t("admin.menu.states.hidden")}</option>
+            </select>
+          </label>
+          <label className="text-sm">
+            <div className="mb-1 text-slate-600">{t("admin.menu.filters.levelSort")}</div>
+            <select
+              value={levelSort}
+              onChange={(e) => setParam("levelSort", e.target.value === "asc" ? undefined : e.target.value)}
+              className="w-full rounded-md border px-3 py-2"
+            >
+              <option value="asc">{t("admin.menu.filters.levelSortAsc")}</option>
+              <option value="desc">{t("admin.menu.filters.levelSortDesc")}</option>
             </select>
           </label>
           <label className="text-sm">
