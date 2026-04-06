@@ -2190,12 +2190,40 @@ dict.kk.publicHome = {
 
 dict.en.admin.nav.menu = 'Menu';
 dict.en.admin.menu = {
-  description: 'Menu list and separate menu creation form.',
+  description: 'Manage menu items in a separate list view with filters, metadata and a dedicated creation screen.',
   refresh: 'Refresh',
   confirmDelete: 'Delete menu item?',
   kinds: { link: 'Link', dropdown: 'Dropdown' },
   states: { visible: 'visible', hidden: 'hidden', noTarget: 'No target' },
   options: { topLevel: 'Top level', noPage: 'No page selected' },
+  filters: {
+    search: 'Search',
+    searchPlaceholder: 'Title, slug, description or target',
+    kind: 'Type',
+    allKinds: 'All types',
+    visibility: 'Visibility',
+    allVisibility: 'All visibility states',
+    perPage: 'Per page',
+  },
+  pagination: {
+    summary: 'Showing {{shown}} of {{total}}',
+    page: 'Page {{page}} of {{total}}',
+    range: 'Records {{shown}} of {{total}}',
+    prev: 'Prev',
+    next: 'Next',
+  },
+  meta: {
+    total: 'Total items',
+    visible: 'Visible',
+    dropdowns: 'Dropdowns',
+    id: 'ID',
+    level: 'Level',
+    sortOrder: 'Sort order',
+    children: 'Children',
+  },
+  errors: {
+    notFound: 'Menu item not found.',
+  },
   fields: {
     title: 'Title',
     titleRu: 'Title (RU)',
@@ -2233,12 +2261,40 @@ dict.en.admin.menu = {
 
 dict.ru.admin.nav.menu = 'Меню';
 dict.ru.admin.menu = {
-  description: 'Список меню и отдельная форма создания меню.',
+  description: 'Управление пунктами меню через отдельный список с фильтрами, метаданными и отдельным экраном создания.',
   refresh: 'Обновить',
   confirmDelete: 'Удалить пункт меню?',
   kinds: { link: 'Ссылка', dropdown: 'Выпадающее меню' },
   states: { visible: 'видимый', hidden: 'скрытый', noTarget: 'Нет цели' },
   options: { topLevel: 'Верхний уровень', noPage: 'Страница не выбрана' },
+  filters: {
+    search: 'Поиск',
+    searchPlaceholder: 'Название, slug, описание или цель',
+    kind: 'Тип',
+    allKinds: 'Все типы',
+    visibility: 'Видимость',
+    allVisibility: 'Все состояния видимости',
+    perPage: 'На странице',
+  },
+  pagination: {
+    summary: 'Показано {{shown}} из {{total}}',
+    page: 'Страница {{page}} из {{total}}',
+    range: 'Записи {{shown}} из {{total}}',
+    prev: 'Назад',
+    next: 'Вперёд',
+  },
+  meta: {
+    total: 'Всего пунктов',
+    visible: 'Видимые',
+    dropdowns: 'Выпадающие',
+    id: 'ID',
+    level: 'Уровень',
+    sortOrder: 'Порядок',
+    children: 'Дочерние',
+  },
+  errors: {
+    notFound: 'Пункт меню не найден.',
+  },
   fields: {
     title: 'Название',
     titleRu: 'Название (RU)',
@@ -2276,12 +2332,40 @@ dict.ru.admin.menu = {
 
 dict.kk.admin.nav.menu = 'Мәзір';
 dict.kk.admin.menu = {
-  description: 'Мәзір тізімі және мәзір құрудың бөлек формасы.',
+  description: 'Мәзір тармақтарын сүзгілері, метадеректері және жеке жасау экраны бар бөлек тізім арқылы басқарыңыз.',
   refresh: 'Жаңарту',
   confirmDelete: 'Мәзір тармағын жою керек пе?',
   kinds: { link: 'Сілтеме', dropdown: 'Ашылмалы мәзір' },
   states: { visible: 'көрінеді', hidden: 'жасырын', noTarget: 'Мақсат жоқ' },
   options: { topLevel: 'Жоғарғы деңгей', noPage: 'Бет таңдалмаған' },
+  filters: {
+    search: 'Іздеу',
+    searchPlaceholder: 'Атауы, slug, сипаттамасы немесе мақсаты',
+    kind: 'Түрі',
+    allKinds: 'Барлық түрлер',
+    visibility: 'Көрінуі',
+    allVisibility: 'Көрінудің барлық күйлері',
+    perPage: 'Бір бетте',
+  },
+  pagination: {
+    summary: '{{total}} жазбаның {{shown}} көрсетілді',
+    page: '{{page}} / {{total}} бет',
+    range: '{{total}} жазбаның {{shown}}',
+    prev: 'Артқа',
+    next: 'Алға',
+  },
+  meta: {
+    total: 'Барлық тармақтар',
+    visible: 'Көрінетіндер',
+    dropdowns: 'Ашылмалы мәзірлер',
+    id: 'ID',
+    level: 'Деңгей',
+    sortOrder: 'Реті',
+    children: 'Ішкі тармақтар',
+  },
+  errors: {
+    notFound: 'Мәзір тармағы табылмады.',
+  },
   fields: {
     title: 'Атауы',
     titleRu: 'Атауы (RU)',

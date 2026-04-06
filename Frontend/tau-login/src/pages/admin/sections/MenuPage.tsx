@@ -1,135 +1,54 @@
 import { useEffect, useMemo, useState } from "react";
+import { Link, useSearchParams } from "react-router-dom";
 
-import { api } from "@/shared/api/client";
-import { getLang, t } from "@/shared/i18n";
+import { t } from "@/shared/i18n";
 
-type Page = {
-  id: number;
-  title: string;
-};
+import {
+  flattenMenuItems,
+  inferMenuKind,
+  loadMenuSummary,
+  resolveMenuTitle,
+  type MenuItem,
+} from "./contentMenu";
 
-type MenuItem = {
-  id: number;
-  title: string;
-  title_ru?: string | null;
-  title_kk?: string | null;
-  title_en?: string | null;
-  slug: string;
-  description?: string | null;
-  image_url?: string | null;
-  parent_id?: number | null;
-  page_id?: number | null;
-  external_url?: string | null;
-  sort_order: number;
-  is_visible: boolean;
-  children: MenuItem[];
-  path?: string | null;
-};
+type KindFilter = "all" | "link" | "dropdown";
+type VisibilityFilter = "all" | "visible" | "hidden";
 
-type ContentSummary = {
-  pages: Page[];
-  menu_items: MenuItem[];
-};
+const PAGE_SIZE_OPTIONS = [10, 20, 50] as const;
 
-type MenuKind = "link" | "dropdown";
-
-type MenuFormState = {
-  id?: number;
-  title: string;
-  title_ru: string;
-  title_kk: string;
-  title_en: string;
-  slug: string;
-  description: string;
-  image_url: string;
-  parent_id: string;
-  page_id: string;
-  external_url: string;
-  sort_order: string;
-  is_visible: boolean;
-  kind: MenuKind;
-};
-
-const emptyMenuForm = (): MenuFormState => ({
-  title: "",
-  title_ru: "",
-  title_kk: "",
-  title_en: "",
-  slug: "",
-  description: "",
-  image_url: "",
-  parent_id: "",
-  page_id: "",
-  external_url: "",
-  sort_order: "0",
-  is_visible: true,
-  kind: "link",
-});
-
-function toSlug(value: string): string {
-  return value
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9\s-_]/g, "")
-    .replace(/\s+/g, "-")
-    .replace(/-+/g, "-");
-}
-
-function flattenMenuItems(items: MenuItem[], level = 0): Array<MenuItem & { level: number }> {
-  return items.flatMap((item) => [{ ...item, level }, ...flattenMenuItems(item.children || [], level + 1)]);
-}
-
-function inferMenuKind(item: Pick<MenuItem, "children" | "page_id" | "external_url">): MenuKind {
-  if ((item.children?.length || 0) > 0) return "dropdown";
-  if (!item.page_id && !item.external_url) return "dropdown";
-  return "link";
-}
-
-function resolveMenuTitle(item: Pick<MenuItem, "title" | "title_ru" | "title_kk" | "title_en">): string {
-  const lang = getLang();
-  if (lang === "ru" && item.title_ru?.trim()) return item.title_ru;
-  if (lang === "kk" && item.title_kk?.trim()) return item.title_kk;
-  if (lang === "en" && item.title_en?.trim()) return item.title_en;
-  return item.title?.trim() || item.title_ru?.trim() || item.title_kk?.trim() || item.title_en?.trim() || "";
-}
-
-function Pill({
-  active,
-  onClick,
-  children,
-}: {
-  active: boolean;
-  onClick: () => void;
-  children: React.ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={[
-        "rounded-full border px-3 py-1.5 text-xs font-medium transition",
-        active ? "border-slate-800 bg-slate-800 text-white" : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50",
-      ].join(" ")}
-    >
-      {children}
-    </button>
-  );
+function getPageRange(page: number, perPage: number, total: number) {
+  if (!total) return "0";
+  const from = (page - 1) * perPage + 1;
+  const to = Math.min(page * perPage, total);
+  return `${from}-${to}`;
 }
 
 export default function MenuPage() {
-  const [data, setData] = useState<ContentSummary>({ pages: [], menu_items: [] });
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [showForm, setShowForm] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState<MenuFormState>(emptyMenuForm);
+
+  const query = searchParams.get("q") || "";
+  const kind = (searchParams.get("kind") as KindFilter) || "all";
+  const visibility = (searchParams.get("visibility") as VisibilityFilter) || "all";
+  const perPage = Number(searchParams.get("perPage") || 10);
+  const page = Math.max(1, Number(searchParams.get("page") || 1));
+
+  const setParam = (key: string, value?: string) => {
+    const next = new URLSearchParams(searchParams);
+    if (!value) next.delete(key);
+    else next.set(key, value);
+    if (key !== "page") next.set("page", "1");
+    setSearchParams(next);
+  };
 
   const load = async () => {
     setLoading(true);
     setError(null);
     try {
-      const result = await api<ContentSummary>("/api/catalog/admin/content");
-      setData(result);
+      const result = await loadMenuSummary();
+      setMenuItems(result.menu_items);
     } catch (e: any) {
       setError(e?.message || "Failed to load menu");
     } finally {
@@ -141,351 +60,263 @@ export default function MenuPage() {
     void load();
   }, []);
 
-  const menuItems = useMemo(() => flattenMenuItems(data.menu_items), [data.menu_items]);
+  const flatItems = useMemo(() => flattenMenuItems(menuItems), [menuItems]);
 
-  const openCreateForm = (parent?: MenuItem & { level?: number }) => {
-    setForm({
-      ...emptyMenuForm(),
-      parent_id: parent ? String(parent.id) : "",
-    });
-    setShowForm(true);
-  };
+  const filteredItems = useMemo(() => {
+    const normalizedQuery = query.trim().toLowerCase();
+    return [...flatItems]
+      .sort((a, b) => a.level - b.level || a.sort_order - b.sort_order || a.id - b.id)
+      .filter((item) => {
+        const itemKind = inferMenuKind(item);
+        const kindMatches = kind === "all" || itemKind === kind;
+        const visibilityMatches =
+          visibility === "all" || (visibility === "visible" ? item.is_visible : !item.is_visible);
+        const haystack = [
+          item.title,
+          item.title_ru,
+          item.title_kk,
+          item.title_en,
+          item.slug,
+          item.description,
+          item.path,
+          item.external_url,
+        ]
+          .filter(Boolean)
+          .join(" ")
+          .toLowerCase();
 
-  const openEditForm = (item: MenuItem) => {
-    setForm({
-      id: item.id,
-      title: item.title,
-      title_ru: item.title_ru || "",
-      title_kk: item.title_kk || "",
-      title_en: item.title_en || "",
-      slug: item.slug,
-      description: item.description || "",
-      image_url: item.image_url || "",
-      parent_id: item.parent_id ? String(item.parent_id) : "",
-      page_id: item.page_id ? String(item.page_id) : "",
-      external_url: item.external_url || "",
-      sort_order: String(item.sort_order || 0),
-      is_visible: item.is_visible,
-      kind: inferMenuKind(item),
-    });
-    setShowForm(true);
-  };
+        return kindMatches && visibilityMatches && (!normalizedQuery || haystack.includes(normalizedQuery));
+      });
+  }, [flatItems, kind, query, visibility]);
 
-  const onSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setSaving(true);
-    setError(null);
-    try {
-      const payload = {
-        title: form.title,
-        title_ru: form.title_ru || null,
-        title_kk: form.title_kk || null,
-        title_en: form.title_en || null,
-        slug: form.slug,
-        description: form.description || null,
-        image_url: form.image_url || null,
-        parent_id: form.parent_id ? Number(form.parent_id) : null,
-        page_id: form.kind === "link" && form.page_id ? Number(form.page_id) : null,
-        external_url: form.kind === "link" ? form.external_url || null : null,
-        sort_order: Number(form.sort_order || "0"),
-        is_visible: form.is_visible,
-      };
-      if (form.id) {
-        await api(`/api/catalog/admin/content/menu/${form.id}`, { method: "PUT", body: JSON.stringify(payload) });
-      } else {
-        await api("/api/catalog/admin/content/menu", { method: "POST", body: JSON.stringify(payload) });
-      }
-      setForm(emptyMenuForm());
-      setShowForm(false);
-      await load();
-    } catch (e: any) {
-      setError(e?.message || "Failed to save menu item");
-    } finally {
-      setSaving(false);
+  const safePerPage = PAGE_SIZE_OPTIONS.includes(perPage as (typeof PAGE_SIZE_OPTIONS)[number]) ? perPage : 10;
+  const totalPages = Math.max(1, Math.ceil(filteredItems.length / safePerPage));
+  const currentPage = Math.min(page, totalPages);
+  const offset = (currentPage - 1) * safePerPage;
+  const paginatedItems = filteredItems.slice(offset, offset + safePerPage);
+  const visibleCount = flatItems.filter((item) => item.is_visible).length;
+  const dropdownCount = flatItems.filter((item) => inferMenuKind(item) === "dropdown").length;
+
+  useEffect(() => {
+    if (currentPage !== page) {
+      const next = new URLSearchParams(searchParams);
+      next.set("page", String(currentPage));
+      setSearchParams(next, { replace: true });
     }
-  };
-
-  const removeItem = async (id: number) => {
-    if (!window.confirm(t("admin.menu.confirmDelete"))) return;
-    try {
-      await api(`/api/catalog/admin/content/menu/${id}`, { method: "DELETE" });
-      await load();
-    } catch (e: any) {
-      setError(e?.message || "Failed to delete menu item");
-    }
-  };
+  }, [currentPage, page, searchParams, setSearchParams]);
 
   return (
     <div className="space-y-6">
-      <div className="flex items-start justify-between gap-4">
+      <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <h2 className="text-lg font-semibold">{t("admin.nav.menu")}</h2>
           <p className="mt-1 text-sm text-slate-600">{t("admin.menu.description")}</p>
         </div>
-        <button
-          type="button"
-          onClick={() => void load()}
-          className="rounded-md border px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
-        >
-          {t("admin.menu.refresh")}
-        </button>
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={() => void load()}
+            className="rounded-md border px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
+          >
+            {t("admin.menu.refresh")}
+          </button>
+          <Link
+            to="/content/menu/new"
+            className="rounded-md bg-slate-800 px-3 py-2 text-sm font-medium text-white"
+          >
+            {t("admin.menu.actions.createMenu")}
+          </Link>
+        </div>
       </div>
 
       {error && <div className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
 
-      <div className="grid gap-6 xl:grid-cols-[420px_minmax(0,1fr)]">
-        <section className="rounded-md border p-4">
-          <div className="mb-4 flex items-center justify-between gap-3">
-            <div>
-              <div className="font-medium text-slate-900">{t("admin.menu.form.title")}</div>
-              <div className="text-xs text-slate-500">
-                {form.id ? t("admin.menu.form.editing") : t("admin.menu.form.creating")}
-              </div>
-            </div>
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={() => openCreateForm()}
-                className="rounded-md border px-3 py-2 text-xs text-slate-700 hover:bg-slate-50"
-              >
-                  {t("admin.menu.actions.createMenu")}
-                </button>
-              <button
-                type="button"
-                onClick={() => setShowForm((v) => !v)}
-                className="rounded-md border px-3 py-2 text-xs text-slate-700 hover:bg-slate-50"
-              >
-                  {showForm ? t("admin.menu.actions.hideForm") : t("admin.menu.actions.openForm")}
-                </button>
-              </div>
-            </div>
+      <section className="grid gap-4 rounded-xl border border-slate-200 bg-white p-4 md:grid-cols-3">
+        <div className="rounded-lg bg-slate-50 p-4">
+          <div className="text-xs uppercase tracking-wide text-slate-500">{t("admin.menu.meta.total")}</div>
+          <div className="mt-2 text-2xl font-semibold text-slate-900">{flatItems.length}</div>
+        </div>
+        <div className="rounded-lg bg-emerald-50 p-4">
+          <div className="text-xs uppercase tracking-wide text-emerald-700">{t("admin.menu.meta.visible")}</div>
+          <div className="mt-2 text-2xl font-semibold text-emerald-900">{visibleCount}</div>
+        </div>
+        <div className="rounded-lg bg-amber-50 p-4">
+          <div className="text-xs uppercase tracking-wide text-amber-700">{t("admin.menu.meta.dropdowns")}</div>
+          <div className="mt-2 text-2xl font-semibold text-amber-900">{dropdownCount}</div>
+        </div>
+      </section>
 
-          {showForm ? (
-            <form onSubmit={onSubmit} className="space-y-3">
-              <div className="flex gap-2">
-                <Pill active={form.kind === "link"} onClick={() => setForm((prev) => ({ ...prev, kind: "link" }))}>
-                  {t("admin.menu.kinds.link")}
-                </Pill>
-                <Pill active={form.kind === "dropdown"} onClick={() => setForm((prev) => ({ ...prev, kind: "dropdown", page_id: "", external_url: "" }))}>
-                  {t("admin.menu.kinds.dropdown")}
-                </Pill>
-              </div>
+      <section className="rounded-xl border border-slate-200 bg-white p-4">
+        <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_180px_180px_160px]">
+          <label className="text-sm">
+            <div className="mb-1 text-slate-600">{t("admin.menu.filters.search")}</div>
+            <input
+              value={query}
+              onChange={(e) => setParam("q", e.target.value)}
+              placeholder={t("admin.menu.filters.searchPlaceholder")}
+              className="w-full rounded-md border px-3 py-2"
+            />
+          </label>
+          <label className="text-sm">
+            <div className="mb-1 text-slate-600">{t("admin.menu.filters.kind")}</div>
+            <select
+              value={kind}
+              onChange={(e) => setParam("kind", e.target.value === "all" ? undefined : e.target.value)}
+              className="w-full rounded-md border px-3 py-2"
+            >
+              <option value="all">{t("admin.menu.filters.allKinds")}</option>
+              <option value="link">{t("admin.menu.kinds.link")}</option>
+              <option value="dropdown">{t("admin.menu.kinds.dropdown")}</option>
+            </select>
+          </label>
+          <label className="text-sm">
+            <div className="mb-1 text-slate-600">{t("admin.menu.filters.visibility")}</div>
+            <select
+              value={visibility}
+              onChange={(e) => setParam("visibility", e.target.value === "all" ? undefined : e.target.value)}
+              className="w-full rounded-md border px-3 py-2"
+            >
+              <option value="all">{t("admin.menu.filters.allVisibility")}</option>
+              <option value="visible">{t("admin.menu.states.visible")}</option>
+              <option value="hidden">{t("admin.menu.states.hidden")}</option>
+            </select>
+          </label>
+          <label className="text-sm">
+            <div className="mb-1 text-slate-600">{t("admin.menu.filters.perPage")}</div>
+            <select
+              value={safePerPage}
+              onChange={(e) => setParam("perPage", e.target.value)}
+              className="w-full rounded-md border px-3 py-2"
+            >
+              {PAGE_SIZE_OPTIONS.map((option) => (
+                <option key={option} value={option}>
+                  {option}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+      </section>
 
-              <div className="grid gap-3 md:grid-cols-2">
-                <label className="text-sm">
-                  <div className="mb-1 text-slate-600">{t("admin.menu.fields.title")}</div>
-                  <input
-                    value={form.title}
-                    onChange={(e) => {
-                      const title = e.target.value;
-                      setForm((prev) => ({ ...prev, title, slug: prev.id ? prev.slug : toSlug(title) }));
-                    }}
-                    className="w-full rounded-md border px-3 py-2"
-                    required
-                  />
-                </label>
-                <label className="text-sm">
-                  <div className="mb-1 text-slate-600">{t("admin.menu.fields.titleRu")}</div>
-                  <input
-                    value={form.title_ru}
-                    onChange={(e) => setForm((prev) => ({ ...prev, title_ru: e.target.value }))}
-                    className="w-full rounded-md border px-3 py-2"
-                  />
-                </label>
-                <label className="text-sm">
-                  <div className="mb-1 text-slate-600">{t("admin.menu.fields.titleKk")}</div>
-                  <input
-                    value={form.title_kk}
-                    onChange={(e) => setForm((prev) => ({ ...prev, title_kk: e.target.value }))}
-                    className="w-full rounded-md border px-3 py-2"
-                  />
-                </label>
-                <label className="text-sm">
-                  <div className="mb-1 text-slate-600">{t("admin.menu.fields.titleEn")}</div>
-                  <input
-                    value={form.title_en}
-                    onChange={(e) => setForm((prev) => ({ ...prev, title_en: e.target.value }))}
-                    className="w-full rounded-md border px-3 py-2"
-                  />
-                </label>
-                <label className="text-sm">
-                  <div className="mb-1 text-slate-600">{t("admin.menu.fields.slug")}</div>
-                  <input
-                    value={form.slug}
-                    onChange={(e) => setForm((prev) => ({ ...prev, slug: toSlug(e.target.value) }))}
-                    className="w-full rounded-md border px-3 py-2"
-                    required
-                  />
-                </label>
-              </div>
-
-              <div className="grid gap-3 md:grid-cols-2">
-                <label className="text-sm">
-                  <div className="mb-1 text-slate-600">{t("admin.menu.fields.parent")}</div>
-                  <select
-                    value={form.parent_id}
-                    onChange={(e) => setForm((prev) => ({ ...prev, parent_id: e.target.value }))}
-                    className="w-full rounded-md border px-3 py-2"
-                  >
-                    <option value="">{t("admin.menu.options.topLevel")}</option>
-                    {menuItems
-                      .filter((item) => item.id !== form.id)
-                      .map((item) => (
-                        <option key={item.id} value={item.id}>
-                          {"- ".repeat(item.level)}{resolveMenuTitle(item)}
-                        </option>
-                      ))}
-                  </select>
-                </label>
-                <label className="text-sm">
-                  <div className="mb-1 text-slate-600">{t("admin.menu.fields.sortOrder")}</div>
-                  <input
-                    type="number"
-                    value={form.sort_order}
-                    onChange={(e) => setForm((prev) => ({ ...prev, sort_order: e.target.value }))}
-                    className="w-full rounded-md border px-3 py-2"
-                  />
-                </label>
-              </div>
-
-              {form.kind === "link" && (
-                <div className="grid gap-3 md:grid-cols-2">
-                  <label className="text-sm">
-                    <div className="mb-1 text-slate-600">{t("admin.menu.fields.pageTarget")}</div>
-                    <select
-                      value={form.page_id}
-                      onChange={(e) => setForm((prev) => ({ ...prev, page_id: e.target.value }))}
-                      className="w-full rounded-md border px-3 py-2"
-                    >
-                      <option value="">{t("admin.menu.options.noPage")}</option>
-                      {data.pages.map((page) => (
-                        <option key={page.id} value={page.id}>
-                          {page.title}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <label className="text-sm">
-                    <div className="mb-1 text-slate-600">{t("admin.menu.fields.externalUrl")}</div>
-                    <input
-                      value={form.external_url}
-                      onChange={(e) => setForm((prev) => ({ ...prev, external_url: e.target.value }))}
-                      placeholder="https://..."
-                      className="w-full rounded-md border px-3 py-2"
-                    />
-                  </label>
-                </div>
-              )}
-
-              <div className="grid gap-3 md:grid-cols-2">
-                <label className="text-sm">
-                  <div className="mb-1 text-slate-600">{t("admin.menu.fields.imageUrl")}</div>
-                  <input
-                    value={form.image_url}
-                    onChange={(e) => setForm((prev) => ({ ...prev, image_url: e.target.value }))}
-                    className="w-full rounded-md border px-3 py-2"
-                  />
-                </label>
-                <label className="flex items-center gap-2 rounded-md border px-3 py-2 text-sm">
-                  <input
-                    type="checkbox"
-                    checked={form.is_visible}
-                    onChange={(e) => setForm((prev) => ({ ...prev, is_visible: e.target.checked }))}
-                  />
-                  {t("admin.menu.fields.visible")}
-                </label>
-              </div>
-
-              <label className="block text-sm">
-                <div className="mb-1 text-slate-600">{t("admin.menu.fields.description")}</div>
-                <textarea
-                  value={form.description}
-                  onChange={(e) => setForm((prev) => ({ ...prev, description: e.target.value }))}
-                  className="min-h-24 w-full rounded-md border px-3 py-2"
-                />
-              </label>
-
-              <div className="flex gap-2">
-                <button
-                  type="submit"
-                  disabled={saving}
-                  className="rounded-md bg-slate-800 px-4 py-2 text-sm font-medium text-white disabled:opacity-60"
-                >
-                  {saving ? t("admin.menu.actions.saving") : form.id ? t("admin.menu.actions.saveMenu") : t("admin.menu.actions.createMenu")}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setForm(emptyMenuForm());
-                    setShowForm(false);
-                  }}
-                  className="rounded-md border px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
-                >
-                  {t("admin.common.cancel")}
-                </button>
-              </div>
-            </form>
-          ) : (
-            <div className="text-sm text-slate-500">{t("admin.menu.form.collapsed")}</div>
-          )}
-        </section>
-
-        <section className="rounded-md border p-4">
-          <div className="mb-4">
+      <section className="rounded-xl border border-slate-200 bg-white">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 px-4 py-3">
+          <div>
             <div className="font-medium text-slate-900">{t("admin.menu.list.title")}</div>
-            <div className="text-xs text-slate-500">{t("admin.menu.list.description")}</div>
-          </div>
-
-          {loading ? (
-            <div className="text-sm text-slate-500">{t("admin.common.loading")}</div>
-          ) : menuItems.length === 0 ? (
-            <div className="text-sm text-slate-500">{t("admin.menu.list.empty")}</div>
-          ) : (
-            <div className="space-y-2">
-              {menuItems.map((item) => {
-                const kind = inferMenuKind(item);
-                return (
-                  <div key={item.id} className="rounded-md border px-4 py-3">
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <div className="font-medium text-slate-900">
-                          {"- ".repeat(item.level)}{resolveMenuTitle(item)}
-                        </div>
-                        <div className="mt-1 text-xs text-slate-500">
-                          {kind === "dropdown" ? t("admin.menu.kinds.dropdown") : t("admin.menu.kinds.link")} | /{item.slug} | {item.is_visible ? t("admin.menu.states.visible") : t("admin.menu.states.hidden")}
-                        </div>
-                        <div className="mt-1 text-xs text-slate-500">{item.path || item.external_url || t("admin.menu.states.noTarget")}</div>
-                      </div>
-                      <div className="flex flex-wrap gap-2">
-                        <button
-                          type="button"
-                          onClick={() => openCreateForm(item)}
-                          className="rounded-md border px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50"
-                        >
-                          {t("admin.menu.actions.addChild")}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => openEditForm(item)}
-                          className="rounded-md border px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50"
-                        >
-                          {t("admin.common.edit")}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => void removeItem(item.id)}
-                          className="rounded-md border border-red-200 px-3 py-1.5 text-xs text-red-700 hover:bg-red-50"
-                        >
-                          {t("admin.common.delete")}
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                );
+            <div className="text-sm text-slate-500">
+              {t("admin.menu.pagination.summary", {
+                shown: getPageRange(currentPage, safePerPage, filteredItems.length),
+                total: filteredItems.length,
               })}
             </div>
+          </div>
+          <div className="text-sm text-slate-500">
+            {t("admin.menu.pagination.page", { page: currentPage, total: totalPages })}
+          </div>
+        </div>
+
+        <div className="p-4">
+          {loading ? (
+            <div className="text-sm text-slate-500">{t("admin.common.loading")}</div>
+          ) : paginatedItems.length === 0 ? (
+            <div className="rounded-md border border-dashed border-slate-300 px-4 py-8 text-center text-sm text-slate-500">
+              {t("admin.menu.list.empty")}
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {paginatedItems.map((item) => (
+                <MenuRow key={item.id} item={item} />
+              ))}
+            </div>
           )}
-        </section>
+        </div>
+
+        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 px-4 py-3">
+          <div className="text-sm text-slate-500">
+            {t("admin.menu.pagination.range", {
+              shown: getPageRange(currentPage, safePerPage, filteredItems.length),
+              total: filteredItems.length,
+            })}
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setParam("page", String(Math.max(1, currentPage - 1)))}
+              disabled={currentPage <= 1}
+              className="rounded-md border px-3 py-2 text-sm disabled:opacity-50"
+            >
+              {t("admin.menu.pagination.prev")}
+            </button>
+            <button
+              type="button"
+              onClick={() => setParam("page", String(Math.min(totalPages, currentPage + 1)))}
+              disabled={currentPage >= totalPages}
+              className="rounded-md border px-3 py-2 text-sm disabled:opacity-50"
+            >
+              {t("admin.menu.pagination.next")}
+            </button>
+          </div>
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function MenuRow({ item }: { item: MenuItem & { level: number } }) {
+  const kind = inferMenuKind(item);
+  const visibilityClass = item.is_visible
+    ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+    : "border-slate-200 bg-slate-100 text-slate-600";
+
+  return (
+    <div className="rounded-xl border border-slate-200 p-4">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <Link to={`/content/menu/${item.id}`} className="font-medium text-slate-900 hover:text-slate-700">
+              {"- ".repeat(item.level)}
+              {resolveMenuTitle(item)}
+            </Link>
+            <span className={`rounded-full border px-2 py-0.5 text-xs font-medium ${visibilityClass}`}>
+              {item.is_visible ? t("admin.menu.states.visible") : t("admin.menu.states.hidden")}
+            </span>
+            <span className="rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-xs font-medium text-slate-600">
+              {kind === "dropdown" ? t("admin.menu.kinds.dropdown") : t("admin.menu.kinds.link")}
+            </span>
+          </div>
+          <div className="mt-1 text-sm text-slate-500">/{item.slug}</div>
+          <div className="mt-2 text-sm text-slate-600">{item.path || item.external_url || t("admin.menu.states.noTarget")}</div>
+          {item.description && <div className="mt-3 line-clamp-2 text-sm text-slate-600">{item.description}</div>}
+        </div>
+
+        <div className="flex flex-wrap gap-2">
+          <Link
+            to={`/content/menu/new?parentId=${item.id}`}
+            className="rounded-md border px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
+          >
+            {t("admin.menu.actions.addChild")}
+          </Link>
+          <Link
+            to={`/content/menu/${item.id}`}
+            className="rounded-md bg-slate-800 px-3 py-2 text-sm font-medium text-white"
+          >
+            {t("admin.common.edit")}
+          </Link>
+        </div>
+      </div>
+
+      <div className="mt-4 grid gap-3 text-xs text-slate-500 md:grid-cols-4">
+        <div>
+          <span className="font-medium text-slate-700">{t("admin.menu.meta.id")}:</span> {item.id}
+        </div>
+        <div>
+          <span className="font-medium text-slate-700">{t("admin.menu.meta.level")}:</span> {item.level}
+        </div>
+        <div>
+          <span className="font-medium text-slate-700">{t("admin.menu.meta.sortOrder")}:</span> {item.sort_order}
+        </div>
+        <div>
+          <span className="font-medium text-slate-700">{t("admin.menu.meta.children")}:</span> {item.children.length}
+        </div>
       </div>
     </div>
   );

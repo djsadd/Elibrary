@@ -42,6 +42,7 @@ import ProtectionPage from "../pages/admin/sections/ProtectionPage";
 import PagesPage from "../pages/admin/sections/PagesPage";
 import PageEditorPage from "../pages/admin/sections/PageEditorPage";
 import MenuPage from "../pages/admin/sections/MenuPage";
+import MenuEditorPage from "../pages/admin/sections/MenuEditorPage";
 import NotFoundPage from "../pages/NotFoundPage";
 import AnalyticsLayout from "../pages/analytics/AnalyticsLayout";
 import ContentLayout from "../pages/content/ContentLayout";
@@ -156,6 +157,8 @@ const router = createBrowserRouter([
           { path: "pages/new", element: <WithTitle title="Create Content Page - TAU"><PageEditorPage /></WithTitle> },
           { path: "pages/:id", element: <WithTitle title="Edit Content Page - TAU"><PageEditorPage /></WithTitle> },
           { path: "menu", element: <WithTitle title="Content Menu - TAU"><MenuPage /></WithTitle> },
+          { path: "menu/new", element: <WithTitle title="Create Content Menu Item - TAU"><MenuEditorPage /></WithTitle> },
+          { path: "menu/:id", element: <WithTitle title="Edit Content Menu Item - TAU"><MenuEditorPage /></WithTitle> },
         ],
       },
       { path: "catalog/:id", element: <WithTitle title="Book Details - TAU"><CatalogDetailPage /></WithTitle> },
