@@ -40,6 +40,7 @@ import ReportsPage from "../pages/admin/sections/ReportsPage";
 import RolesPage from "../pages/admin/sections/RolesPage";
 import ProtectionPage from "../pages/admin/sections/ProtectionPage";
 import PagesPage from "../pages/admin/sections/PagesPage";
+import PageEditorPage from "../pages/admin/sections/PageEditorPage";
 import MenuPage from "../pages/admin/sections/MenuPage";
 import NotFoundPage from "../pages/NotFoundPage";
 import AnalyticsLayout from "../pages/analytics/AnalyticsLayout";
@@ -152,6 +153,8 @@ const router = createBrowserRouter([
         children: [
           { index: true, element: <Navigate to="/content/pages" replace /> },
           { path: "pages", element: <WithTitle title="Content Pages - TAU"><PagesPage /></WithTitle> },
+          { path: "pages/new", element: <WithTitle title="Create Content Page - TAU"><PageEditorPage /></WithTitle> },
+          { path: "pages/:id", element: <WithTitle title="Edit Content Page - TAU"><PageEditorPage /></WithTitle> },
           { path: "menu", element: <WithTitle title="Content Menu - TAU"><MenuPage /></WithTitle> },
         ],
       },

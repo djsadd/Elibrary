@@ -2324,7 +2324,7 @@ dict.kk.admin.nav.content = 'Контент';
 
 dict.en.admin.pages = {
   heading: 'Pages',
-  description: 'Create public pages with a large rich text editor for text, links, images and tables.',
+  description: 'Manage public pages in a separate list view with filters, metadata and a dedicated creation screen.',
   refresh: 'Refresh',
   create: 'Create page',
   save: 'Save page',
@@ -2339,6 +2339,31 @@ dict.en.admin.pages = {
   safeHtmlHint: 'HTML is sanitized on save.',
   draft: 'Draft',
   published: 'Published',
+  filters: {
+    search: 'Search',
+    searchPlaceholder: 'Title, slug or summary',
+    status: 'Status',
+    allStatuses: 'All statuses',
+    perPage: 'Per page',
+  },
+  pagination: {
+    summary: 'Showing {{shown}} of {{total}}',
+    page: 'Page {{page}} of {{total}}',
+    range: 'Records {{shown}} of {{total}}',
+    prev: 'Prev',
+    next: 'Next',
+  },
+  meta: {
+    total: 'Total pages',
+    published: 'Published',
+    drafts: 'Drafts',
+    updatedAt: 'Updated',
+    blocks: 'Blocks',
+    id: 'ID',
+  },
+  errors: {
+    notFound: 'Page not found.',
+  },
   options: { noMenuItem: 'Not linked to menu' },
   fields: {
     title: 'Title',
@@ -2362,7 +2387,7 @@ dict.en.admin.pages = {
 
 dict.ru.admin.pages = {
   heading: 'Страницы',
-  description: 'Создание публичных страниц с большим редактором: текст, ссылки, изображения, таблицы и другое оформление.',
+  description: 'Управление публичными страницами через отдельный список с фильтрами, метаданными и отдельным экраном создания.',
   refresh: 'Обновить',
   create: 'Создать страницу',
   save: 'Сохранить страницу',
@@ -2377,6 +2402,31 @@ dict.ru.admin.pages = {
   safeHtmlHint: 'HTML очищается на сохранении.',
   draft: 'Черновик',
   published: 'Опубликована',
+  filters: {
+    search: 'Поиск',
+    searchPlaceholder: 'Название, slug или описание',
+    status: 'Статус',
+    allStatuses: 'Все статусы',
+    perPage: 'На странице',
+  },
+  pagination: {
+    summary: 'Показано {{shown}} из {{total}}',
+    page: 'Страница {{page}} из {{total}}',
+    range: 'Записи {{shown}} из {{total}}',
+    prev: 'Назад',
+    next: 'Вперёд',
+  },
+  meta: {
+    total: 'Всего страниц',
+    published: 'Опубликовано',
+    drafts: 'Черновики',
+    updatedAt: 'Обновлено',
+    blocks: 'Блоков',
+    id: 'ID',
+  },
+  errors: {
+    notFound: 'Страница не найдена.',
+  },
   options: { noMenuItem: 'Не привязана к меню' },
   fields: {
     title: 'Название',
@@ -2400,7 +2450,7 @@ dict.ru.admin.pages = {
 
 dict.kk.admin.pages = {
   heading: 'Беттер',
-  description: 'Үлкен редакторы бар жария беттерді жасау: мәтін, сілтемелер, суреттер, кестелер және басқа пішімдеу.',
+  description: 'Жария беттерді сүзгілері, метадеректері және жеке жасау экраны бар бөлек тізім арқылы басқарыңыз.',
   refresh: 'Жаңарту',
   create: 'Бет жасау',
   save: 'Бетті сақтау',
@@ -2415,6 +2465,31 @@ dict.kk.admin.pages = {
   safeHtmlHint: 'HTML сақтау кезінде тазартылады.',
   draft: 'Черновик',
   published: 'Жарияланған',
+  filters: {
+    search: 'Іздеу',
+    searchPlaceholder: 'Атауы, slug немесе сипаттамасы',
+    status: 'Күйі',
+    allStatuses: 'Барлық күйлер',
+    perPage: 'Бір бетте',
+  },
+  pagination: {
+    summary: '{{total}} жазбаның {{shown}} көрсетілді',
+    page: '{{page}} / {{total}} бет',
+    range: '{{total}} жазбаның {{shown}}',
+    prev: 'Артқа',
+    next: 'Алға',
+  },
+  meta: {
+    total: 'Барлық беттер',
+    published: 'Жарияланған',
+    drafts: 'Черновиктер',
+    updatedAt: 'Жаңартылды',
+    blocks: 'Блоктар',
+    id: 'ID',
+  },
+  errors: {
+    notFound: 'Бет табылмады.',
+  },
   options: { noMenuItem: 'Мәзірге байланыспаған' },
   fields: {
     title: 'Атауы',
