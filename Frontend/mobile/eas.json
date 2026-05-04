@@ -16,6 +16,13 @@
     }
   },
   "submit": {
-    "production": {}
+    "production": {
+      "ios": {
+        "appName": "E-Lib Mobile",
+        "bundleIdentifier": "com.elib.mobile",
+        "companyName": "UNIVERSITET TURAN-ASTANA",
+        "language": "en-US"
+      }
+    }
   }
 }

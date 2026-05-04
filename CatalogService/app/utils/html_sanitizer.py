@@ -26,6 +26,7 @@ ALLOWED_TAGS = {
     "s",
     "span",
     "strong",
+    "source",
     "table",
     "tbody",
     "td",
@@ -34,18 +35,21 @@ ALLOWED_TAGS = {
     "tr",
     "u",
     "ul",
+    "video",
 }
 
-VOID_TAGS = {"br", "hr", "img"}
+VOID_TAGS = {"br", "hr", "img", "source"}
 
 ALLOWED_ATTRS = {
     "a": {"href", "title", "target", "rel"},
     "img": {"src", "alt", "title", "class"},
+    "source": {"src", "type"},
     "th": {"colspan", "rowspan"},
     "td": {"colspan", "rowspan"},
     "div": {"class"},
     "p": {"class"},
     "span": {"class"},
+    "video": {"src", "title", "controls", "preload", "poster", "class", "width", "height"},
 }
 
 STYLE_ATTR_TAGS = {
@@ -71,7 +75,10 @@ STYLE_ATTR_TAGS = {
     "img",
     "pre",
     "code",
+    "video",
 }
+
+BOOLEAN_ATTRS = {"controls"}
 
 SAFE_FONT_FAMILIES = {
     "arial",
@@ -148,9 +155,15 @@ class SafeHtmlParser(HTMLParser):
             allowed_attrs.add("style")
         for name, value in attrs:
             attr_name = (name or "").lower()
-            if attr_name not in allowed_attrs or value is None:
+            if attr_name not in allowed_attrs:
+                continue
+            if value is None:
+                if attr_name in BOOLEAN_ATTRS:
+                    rendered_attrs.append(f" {attr_name}")
                 continue
             if attr_name in {"href", "src"} and not _is_safe_url(value):
+                continue
+            if attr_name in {"width", "height"} and not value.isdigit():
                 continue
             if attr_name == "style":
                 safe_style = _sanitize_style(value)

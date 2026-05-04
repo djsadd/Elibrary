@@ -1,3 +1,5 @@
+import mimetypes
+
 from fastapi import APIRouter, UploadFile, HTTPException
 from fastapi.responses import FileResponse
 from app.services.file_service import save_file, get_file
@@ -18,6 +20,7 @@ async def upload_file(file: UploadFile):
 async def download_file(year: str, month: str, filename: str):
     try:
         path = get_file(year, month, filename)
-        return FileResponse(path, media_type="application/octet-stream")
+        media_type = mimetypes.guess_type(path)[0] or "application/octet-stream"
+        return FileResponse(path, media_type=media_type)
     except FileNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e))

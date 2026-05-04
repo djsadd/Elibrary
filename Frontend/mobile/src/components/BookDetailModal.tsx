@@ -13,7 +13,7 @@ import {
 } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { WebView } from "react-native-webview";
-import * as FileSystem from "expo-file-system";
+import * as FileSystem from "expo-file-system/legacy";
 import { Book, Review } from "../types";
 import { API_BASE } from "../lib/constants";
 import { getFavoriteIds, setFavoriteIds } from "../lib/storage";

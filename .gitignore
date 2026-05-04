@@ -14,7 +14,7 @@ dist/
 downloads/
 eggs/
 .eggs/
-lib/
+/lib/
 lib64/
 parts/
 sdist/
@@ -98,6 +98,9 @@ ipython_config.py
 /node_modules
 /.pnp
 .pnp.js
+.expo/
+!Frontend/mobile/src/lib/
+!Frontend/mobile/src/lib/**
 
 # testing
 /coverage

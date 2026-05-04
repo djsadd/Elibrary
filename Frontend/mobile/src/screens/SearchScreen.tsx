@@ -73,7 +73,7 @@ export default function SearchScreen({ accessToken, fetchWithAuth, onBookPress }
       setAiReply(null);
       setAiSelectedVector(null);
       setAiVectorExplanation("");
-      const data = await apiPost<any>("/api/ai/chat_card", { query: trimmed }, accessToken);
+      const data = await apiPost<any>("/api/ai/chat_card", { query: trimmed }, accessToken ?? undefined);
       if (Array.isArray(data?.book_search)) setAiBooks(data.book_search);
       if (Array.isArray(data?.vector_search)) setAiVectors(data.vector_search);
       if (typeof data?.reply === "string") setAiReply(data.reply);

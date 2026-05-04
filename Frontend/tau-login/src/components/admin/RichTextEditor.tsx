@@ -37,8 +37,10 @@ type RichTextEditorProps = {
 type UploadResponse = {
   status?: string;
   file?: {
+    filename?: string;
     uploaded_to?: string;
   };
+  filename?: string;
   uploaded_to?: string;
 };
 
@@ -49,6 +51,10 @@ function escapeHtml(value: string): string {
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#39;");
+}
+
+function getFileTitle(file: File): string {
+  return file.name || "Uploaded file";
 }
 
 async function uploadAsset(file: File, errorLabel: string): Promise<string> {
@@ -116,7 +122,7 @@ export default function RichTextEditor({
       toolbar:
         "undo redo | blocks fontfamily fontsize | bold italic underline strikethrough forecolor backcolor | " +
         "alignleft aligncenter alignright alignjustify | bullist numlist outdent indent | " +
-        "link image photoslider videoupload media table blockquote codesample | removeformat code preview fullscreen",
+        "link image photoslider videoupload fileupload media table blockquote codesample | removeformat code preview fullscreen",
       block_formats: "Paragraph=p; Heading 1=h1; Heading 2=h2; Heading 3=h3; Heading 4=h4; Heading 5=h5; Heading 6=h6",
       font_family_formats:
         "Arial=arial,helvetica,sans-serif;" +
@@ -130,7 +136,7 @@ export default function RichTextEditor({
       toolbar_mode: "sliding" as const,
       paste_data_images: true,
       automatic_uploads: true,
-      file_picker_types: "image media",
+      file_picker_types: "image media file",
       image_caption: true,
       image_title: true,
       image_advtab: true,
@@ -176,7 +182,7 @@ export default function RichTextEditor({
       file_picker_callback: (callback: (url: string, meta?: Record<string, string>) => void, _value: string, meta: { filetype?: string }) => {
         const input = document.createElement("input");
         input.type = "file";
-        input.accept = meta.filetype === "media" ? "video/*" : "image/*";
+        input.accept = meta.filetype === "media" ? "video/*" : meta.filetype === "image" ? "image/*" : "";
         input.onchange = async () => {
           const file = input.files?.[0];
           if (!file) return;
@@ -184,11 +190,14 @@ export default function RichTextEditor({
             setUploadError(null);
             const uploadedUrl = await uploadAsset(
               file,
-              meta.filetype === "media" ? "Video upload failed" : "Image upload failed",
+              meta.filetype === "media" ? "Video upload failed" : meta.filetype === "image" ? "Image upload failed" : "File upload failed",
             );
-            callback(uploadedUrl, { title: file.name });
+            callback(uploadedUrl, { text: getFileTitle(file), title: getFileTitle(file) });
           } catch (error: any) {
-            setUploadError(error?.message || (meta.filetype === "media" ? "Video upload failed" : "Image upload failed"));
+            setUploadError(
+              error?.message ||
+                (meta.filetype === "media" ? "Video upload failed" : meta.filetype === "image" ? "Image upload failed" : "File upload failed"),
+            );
           }
         };
         input.click();
@@ -239,6 +248,28 @@ export default function RichTextEditor({
             input.click();
           },
         });
+        editor.ui.registry.addButton("fileupload", {
+          text: "File",
+          tooltip: "Upload file",
+          onAction: () => {
+            const input = document.createElement("input");
+            input.type = "file";
+            input.onchange = async () => {
+              const file = input.files?.[0];
+              if (!file) return;
+              try {
+                setUploadError(null);
+                const uploadedUrl = await uploadAsset(file, "File upload failed");
+                const safeUrl = escapeHtml(uploadedUrl);
+                const safeTitle = escapeHtml(getFileTitle(file));
+                editor.insertContent(`<p><a href="${safeUrl}" target="_blank" rel="noopener noreferrer">${safeTitle}</a></p><p></p>`);
+              } catch (error: any) {
+                setUploadError(error?.message || "File upload failed");
+              }
+            };
+            input.click();
+          },
+        });
         editor.on("PastePostProcess", () => {
           setUploadError(null);
         });
@@ -264,7 +295,7 @@ export default function RichTextEditor({
       {uploadError && <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">{uploadError}</div>}
 
       <div className="text-xs text-slate-500">
-        TinyMCE with tables, media, colors, fonts, justify, code view, Office-friendly paste, image upload and video upload.
+        TinyMCE with tables, media, colors, fonts, justify, code view, Office-friendly paste, image upload, video upload and file upload.
       </div>
     </div>
   );

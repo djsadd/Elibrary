@@ -168,6 +168,17 @@ html.public-theme.public-a11y .public-main .border-r {
   border: 1px solid var(--public-border);
 }
 
+.rich-text-editor video,
+.public-rich-text video {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin: 1rem 0;
+  border-radius: 1rem;
+  border: 1px solid var(--public-border);
+  background: #0f172a;
+}
+
 .rich-text-editor table,
 .public-rich-text table {
   width: 100%;
