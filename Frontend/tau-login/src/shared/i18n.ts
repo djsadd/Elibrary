@@ -2612,3 +2612,39 @@ dict.kk.admin.pages = {
     contentEn: 'Мазмұн (EN)',
   },
 };
+
+dict.en.admin.createBook = {
+  title: 'Create Book',
+  subtitle: 'Upload files and fill in the metadata to add a new book to the catalogue.',
+  fields: { title: 'Title', year: 'Year', language: 'Language', publisherInfo: 'Publisher information', summary: 'Summary', edition: 'Edition', pageCount: 'Page count', availableCopies: 'Available copies', source: 'Source', formats: 'Formats', authors: 'Authors', subjects: 'Subjects', publiclyVisible: 'Publicly visible', usersOptional: 'Users (optional)' },
+  placeholders: { selectLanguage: 'Select language', edition: '3rd edition', selectFormats: 'Select formats', author: 'Search or add an author', subject: 'Search or add a subject', user: 'Search or add a user (email/login)' },
+  files: { title: 'Files', cover: 'Cover image', pdf: 'Book file (PDF)', pdfHint: 'The PDF is uploaded first, then linked to the new book.' },
+  uploadHint: 'Files are uploaded first, then the book is created with its metadata.',
+  actions: { save: 'Save Book', clearDemo: 'Clear demo data' },
+  messages: { created: 'Book created successfully.', createFailed: 'Failed to create the book', demoCleared: 'Demo books cleared.' },
+  addOption: 'Add “{{value}}”', noResults: 'No results', remove: 'Remove',
+};
+
+dict.ru.admin.createBook = {
+  title: 'Создание книги',
+  subtitle: 'Загрузите файлы и заполните метаданные, чтобы добавить новую книгу в каталог.',
+  fields: { title: 'Название', year: 'Год', language: 'Язык', publisherInfo: 'Сведения об издательстве', summary: 'Описание', edition: 'Издание', pageCount: 'Количество страниц', availableCopies: 'Доступно экземпляров', source: 'Источник', formats: 'Форматы', authors: 'Авторы', subjects: 'Темы', publiclyVisible: 'Доступна всем пользователям', usersOptional: 'Пользователи (необязательно)' },
+  placeholders: { selectLanguage: 'Выберите язык', edition: '3-е издание', selectFormats: 'Выберите форматы', author: 'Найти или добавить автора', subject: 'Найти или добавить тему', user: 'Найти или добавить пользователя (email/логин)' },
+  files: { title: 'Файлы', cover: 'Изображение обложки', pdf: 'Файл книги (PDF)', pdfHint: 'Сначала загружается PDF, затем он привязывается к новой книге.' },
+  uploadHint: 'Сначала загружаются файлы, затем создаётся книга с метаданными.',
+  actions: { save: 'Сохранить книгу', clearDemo: 'Очистить демо-данные' },
+  messages: { created: 'Книга успешно создана.', createFailed: 'Не удалось создать книгу', demoCleared: 'Демо-книги удалены.' },
+  addOption: 'Добавить «{{value}}»', noResults: 'Ничего не найдено', remove: 'Удалить',
+};
+
+dict.kk.admin.createBook = {
+  title: 'Кітап жасау',
+  subtitle: 'Каталогқа жаңа кітап қосу үшін файлдарды жүктеп, метадеректерді толтырыңыз.',
+  fields: { title: 'Атауы', year: 'Жылы', language: 'Тілі', publisherInfo: 'Баспа туралы мәлімет', summary: 'Сипаттамасы', edition: 'Басылымы', pageCount: 'Бет саны', availableCopies: 'Қолжетімді даналар', source: 'Дереккөз', formats: 'Форматтар', authors: 'Авторлар', subjects: 'Тақырыптар', publiclyVisible: 'Барлық пайдаланушыларға қолжетімді', usersOptional: 'Пайдаланушылар (міндетті емес)' },
+  placeholders: { selectLanguage: 'Тілді таңдаңыз', edition: '3-басылым', selectFormats: 'Форматтарды таңдаңыз', author: 'Авторды іздеу немесе қосу', subject: 'Тақырыпты іздеу немесе қосу', user: 'Пайдаланушыны іздеу немесе қосу (email/логин)' },
+  files: { title: 'Файлдар', cover: 'Мұқаба суреті', pdf: 'Кітап файлы (PDF)', pdfHint: 'Алдымен PDF жүктеледі, содан кейін жаңа кітапқа тіркеледі.' },
+  uploadHint: 'Алдымен файлдар жүктеліп, содан кейін метадеректері бар кітап жасалады.',
+  actions: { save: 'Кітапты сақтау', clearDemo: 'Демо-деректерді тазалау' },
+  messages: { created: 'Кітап сәтті жасалды.', createFailed: 'Кітапты жасау мүмкін болмады', demoCleared: 'Демо-кітаптар жойылды.' },
+  addOption: '«{{value}}» қосу', noResults: 'Нәтиже табылмады', remove: 'Жою',
+};

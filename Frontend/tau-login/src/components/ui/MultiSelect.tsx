@@ -7,9 +7,12 @@ type Props = {
   onChange: (next: string[]) => void;
   onCreate?: (value: string) => void;
   placeholder?: string;
+  createOptionLabel?: (value: string) => string;
+  noResultsText?: string;
+  removeLabel?: string;
 };
 
-export default function MultiSelect({ label, options, selected, onChange, onCreate, placeholder }: Props) {
+export default function MultiSelect({ label, options, selected, onChange, onCreate, placeholder, createOptionLabel, noResultsText, removeLabel }: Props) {
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState("");
   const wrapRef = useRef<HTMLDivElement | null>(null);
@@ -54,7 +57,7 @@ export default function MultiSelect({ label, options, selected, onChange, onCrea
             selected.map(v => (
               <span key={v} className="inline-flex items-center gap-1 bg-slate-100 text-slate-700 text-xs px-2 py-1 rounded">
                 {v}
-                <button type="button" onClick={(e)=>{ e.stopPropagation(); remove(v); }} className="text-slate-400 hover:text-slate-600">×</button>
+                <button type="button" aria-label={removeLabel ? `${removeLabel}: ${v}` : undefined} onClick={(e)=>{ e.stopPropagation(); remove(v); }} className="text-slate-400 hover:text-slate-600">×</button>
               </span>
             ))
           )}
@@ -71,13 +74,13 @@ export default function MultiSelect({ label, options, selected, onChange, onCrea
                 onClick={() => { const v = q.trim(); if (!v) return; onCreate(v); onChange(Array.from(new Set([...selected, v]))); setQ(""); }}
                 className="mt-2 w-full text-left text-xs px-2 py-1.5 rounded-md bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
               >
-                Add "{q.trim()}"
+                {createOptionLabel ? createOptionLabel(q.trim()) : `Add "${q.trim()}"`}
               </button>
             )}
           </div>
           <div className="max-h-56 overflow-auto">
             {filtered.length === 0 ? (
-              <div className="px-3 py-3 text-sm text-slate-500">No results</div>
+              <div className="px-3 py-3 text-sm text-slate-500">{noResultsText || 'No results'}</div>
             ) : filtered.map(opt => {
               const active = selected.includes(opt);
               return (
