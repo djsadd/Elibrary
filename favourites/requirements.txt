@@ -4,7 +4,7 @@ sqlalchemy
 pydantic-settings
 python-dotenv
 psycopg2-binary
+psycopg[binary]>=3.2,<4
 httpx
 prometheus-fastapi-instrumentator>=6.0.0
 python-json-logger>=2.0.0
-httpx
