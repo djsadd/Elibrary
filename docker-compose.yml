@@ -66,6 +66,7 @@ services:
   gateway:
     build: ./API-Gateaway
     container_name: gateway
+    restart: unless-stopped
     env_file:
       - API-Gateaway/.env.prod
     depends_on:
@@ -82,6 +83,7 @@ services:
   auth:
     build: ./AuthService
     container_name: auth
+    restart: unless-stopped
     env_file:
       - AuthService/.env.prod  
     extra_hosts:
@@ -91,6 +93,12 @@ services:
       - redis
     ports:
       - "8001:8001"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8001/health', timeout=3)"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
 
   catalog:
     build: ./CatalogService
