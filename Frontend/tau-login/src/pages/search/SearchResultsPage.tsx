@@ -73,7 +73,6 @@ export default function SearchResultsPage() {
         if (format) {
           const params = new URLSearchParams();
           params.set("q", q);
-          params.set("limit", "500");
           params.set("offset", "0");
           const url = `/api/catalog/books/search?${params.toString()}`;
           const raw = await api<BookListResponse>(url);
@@ -171,7 +170,15 @@ export default function SearchResultsPage() {
                 className="group relative block bg-white border border-gray-100 rounded-lg p-2 sm:p-3 text-center shadow-sm hover:shadow-md transition-shadow"
               >
                 <div className="relative mb-3">
-                  <img src={book.cover || bookImg} alt={`book-${book.id}`} className="w-full h-44 sm:h-56 object-contain rounded-md bg-slate-100 p-2" />
+                  <img
+                    src={book.cover || bookImg}
+                    onError={(event) => {
+                      event.currentTarget.onerror = null;
+                      event.currentTarget.src = bookImg;
+                    }}
+                    alt={`book-${book.id}`}
+                    className="w-full h-44 sm:h-56 object-contain rounded-md bg-slate-100 p-2"
+                  />
                 </div>
                 <div className="text-sm font-medium text-slate-800 truncate">{book.title}</div>
                 {namesFrom((book as any).authors).length ? (

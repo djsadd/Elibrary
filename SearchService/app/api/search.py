@@ -97,7 +97,10 @@ async def search(
 
         items: list[BookDoc] = []
         try:
-            enriched = await fetch_books_batch(ids=hit_ids)
+            enriched = await fetch_books_batch(
+                ids=hit_ids,
+                authorization=request.headers.get("authorization"),
+            )
             by_id = {int(b.get("id")): b for b in (enriched or []) if isinstance(b, dict) and b.get("id") is not None}
             for d in hit_docs:
                 try:
