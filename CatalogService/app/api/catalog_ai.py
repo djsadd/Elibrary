@@ -1,4 +1,4 @@
-git statusimport httpx
+import httpx
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 
