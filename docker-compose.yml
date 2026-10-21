@@ -216,7 +216,7 @@ services:
       - API_SERVER=http://gateway:8000
       - CLIENT_MAX_BODY_SIZE=200m
     ports:
-      - "127.0.0.1:80:80"
+      - "127.0.0.1:80:80"  - "192.168.112.169:80:80"    depends_on:
     depends_on:
       - gateway
 
