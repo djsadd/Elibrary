@@ -1,3 +1,4 @@
+from app.utils.authz import require_roles
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -45,7 +46,7 @@ def get_author(author_id: int, db: Session = Depends(get_db)):
     return _author_to_detail(author)
 
 
-@router.patch("/authors/{author_id}", response_model=AuthorDetail)
+@router.patch("/authors/{author_id}", response_model=AuthorDetail, dependencies=[Depends(require_roles("editor", "admin", "librarian"))])
 def update_author(
     author_id: int,
     payload: AuthorUpdate,

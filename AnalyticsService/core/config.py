@@ -8,13 +8,16 @@ class Settings(BaseSettings):
     ENV: str = "dev"
     LOG_LEVEL: str = "INFO"
 
-    DATABASE_URL: str = Field("postgresql+psycopg2://elib:elib@localhost:5432/analytics_db")
+    AUTH_SERVICE_URL: str = "http://auth:8001"
+    INTERNAL_API_TOKEN: str = ""
+
+    DATABASE_URL: str = Field(...)
     CLICKHOUSE_URL: str = Field("http://localhost:8123")
     CLICKHOUSE_DATABASE: str = "analytics"
     CLICKHOUSE_ENABLED: bool = True
 
     TIMEZONE: str = "Asia/Almaty"
-    IP_HASH_SECRET: str = "change-me"
+    IP_HASH_SECRET: str = ""
 
     EVENT_RETENTION_DAYS: int = 180
 
@@ -29,7 +32,7 @@ class Settings(BaseSettings):
             url = make_url(value)
             if url.host in {"localhost", "127.0.0.1", "::1"}:
                 url = url.set(host="postgres")
-                return str(url)
+                return url.render_as_string(hide_password=False)
         return value
 
 

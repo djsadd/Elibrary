@@ -30,6 +30,7 @@ def books_index_body() -> dict:
                 # cover may be a huge base64 data-url; ignore long values to prevent indexing failures
                 "cover": {"type": "keyword", "index": False, "ignore_above": 512},
                 "popularity": {"type": "integer"},
+                "is_public": {"type": "boolean"},
             },
         },
     }

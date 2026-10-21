@@ -1,9 +1,10 @@
+import BookCard from "@/components/common/BookCard";
+import { designCopy } from "@/shared/designCopy";
 ﻿import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import DashboardHeader from "@/components/layout/DashboardHeader";
 import { api } from "@/shared/api/client";
 import { t, getLang } from "@/shared/i18n";
-import bookImg from "@/assets/images/Image.png";
 
 type AuthorMin = { id: number | string; name: string };
 type BookMin = { id: number | string; title: string; cover?: string | null; authors?: AuthorMin[]; formats?: string[] | string | null };
@@ -126,7 +127,7 @@ export default function MyShelfPage() {
   return (
     <div>
       <DashboardHeader />
-      <h1 className="text-2xl font-semibold text-slate-800 mb-4">{t('shelf.title')}</h1>
+      <div className="page-heading"><h1>{t('shelf.title')}</h1><p>{designCopy().personalBody}</p></div>
       <div className="border-b mb-4 overflow-x-auto -mx-4 sm:mx-0">
         <div className="flex items-center gap-3 sm:gap-4 px-4 sm:px-0 flex-nowrap min-w-max">
           {(() => {
@@ -165,7 +166,7 @@ export default function MyShelfPage() {
                 onClick={() => setTab(k)}
                 className={`px-2 py-2 -mb-px border-b-2 text-sm whitespace-nowrap ${
                   tab === k
-                    ? 'border-[#7b0f2b] text-[#7b0f2b]'
+                    ? 'border-[#b51e3e] text-[#b51e3e]'
                     : 'border-transparent text-slate-500 hover:text-slate-700'
                 }`}
               >
@@ -179,41 +180,20 @@ export default function MyShelfPage() {
 
       {error && <div className="text-red-600 mb-3">{t('shelf.failed')}: {error}</div>}
 
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-7 gap-4">
+      <div className="book-grid">
         {loading
           ? Array.from({ length: 12 }).map((_, idx) => (
               <SkeletonCard key={`skeleton-${idx}`} imageHeight="h-40 sm:h-56" />
             ))
           : filtered.map((ub) => {
               const b = ub.book || ({} as BookMin);
-              const authorNames = Array.isArray(b.authors) ? b.authors.map(a => a.name).filter(Boolean) : [];
               const progress = typeof ub.progress_percent === 'number' ? Math.max(0, Math.min(100, Math.round(ub.progress_percent))) : null;
-              return (
-                <Link
-                  to={`/catalog/books/${encodeURIComponent(String(b.id ?? ''))}`}
-                  key={`${ub.id}-${b.id}`}
-                  className="block bg-white border border-gray-100 rounded-lg p-3 text-center shadow-sm hover:shadow-md transition-shadow"
-                >
-                  <img src={b.cover || bookImg} alt={`book-${b.id}`} className="w-full h-40 sm:h-56 object-contain rounded-md mb-3 bg-slate-100 p-2" />
-                  <div className="text-sm font-medium text-slate-800 truncate">{b.title || '-'}</div>
-                  {authorNames.length ? (
-                    <div className="text-xs text-slate-400 truncate">{authorNames.join(", ")}</div>
-                  ) : null}
-                  {progress != null && (
-                    <div className="mt-2">
-                      <div className="w-full h-1.5 bg-slate-200 rounded">
-                        <div className="h-1.5 bg-emerald-500 rounded" style={{ width: `${progress}%` }} />
-                      </div>
-                      <div className="text-[11px] text-slate-500 mt-1">{progress}%</div>
-                    </div>
-                  )}
-                </Link>
-              );
+              return <BookCard key={`${ub.id}-${b.id}`} book={{...b,id:b.id ?? ub.id,title:b.title || '-'}} to={`/catalog/books/${encodeURIComponent(String(b.id ?? ''))}`} progress={progress}/>;
             })}
       </div>
 
       {!loading && filtered.length === 0 && (
-        <div className="text-slate-500 mt-4">{t('shelf.empty')}</div>
+        <div className="empty-state"><div><h3>{t("shelf.empty")}</h3><p>{designCopy().personalBody}</p></div><Link className="text-action" to="/catalog">{designCopy().allBooks} ↗</Link></div>
       )}
     </div>
   );

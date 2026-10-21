@@ -53,7 +53,7 @@ export default function AuthorsPage() {
   const Avatar = ({ name }: { name: string }) => {
     const initial = (name?.[0] || "?").toUpperCase();
     return (
-      <div className="w-8 h-8 rounded-full bg-[#7b0f2b]/10 text-[#7b0f2b] flex items-center justify-center text-sm font-semibold">
+      <div className="w-8 h-8 rounded-full bg-[#b51e3e]/10 text-[#b51e3e] flex items-center justify-center text-sm font-semibold">
         {initial}
       </div>
     );
@@ -99,7 +99,7 @@ export default function AuthorsPage() {
         <button
           type="submit"
           disabled={creating}
-          className="px-4 py-2 rounded-md bg-[#7b0f2b] text-white text-sm disabled:opacity-60"
+          className="px-4 py-2 rounded-md bg-[#b51e3e] text-white text-sm disabled:opacity-60"
         >
           {creating ? "Adding…" : "Add"}
         </button>
@@ -151,7 +151,7 @@ export default function AuthorsPage() {
                         </div>
                         <Link
                           to={`/admin/authors/${author.id}/edit`}
-                          className="text-sm text-[#7b0f2b] hover:underline"
+                          className="text-sm text-[#b51e3e] hover:underline"
                         >
                           Edit
                         </Link>

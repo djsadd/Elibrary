@@ -52,6 +52,7 @@ def _ensure_cookie(request: Request, response: Response, name: str, max_age_s: i
         max_age=max_age_s,
         samesite="lax",
         httponly=True,
+        secure=request.url.scheme == "https",
     )
     return value
 
@@ -62,6 +63,8 @@ async def track_public_page_view(request: Request, body: PublicPageViewIn) -> Re
     Middleware is configured to skip this path to avoid double-counting.
     """
     response = Response(status_code=204)
+    if not settings.ANALYTICS_ENABLED:
+        return response
 
     user_agent = request.headers.get("user-agent")
     client_ip = _extract_client_ip(request)
@@ -116,7 +119,7 @@ async def track_public_page_view(request: Request, body: PublicPageViewIn) -> Re
     }
 
     try:
-        await _CLIENT.post(analytics_url, json=payload, headers={"Cache-Control": "no-store"})
+        await _CLIENT.post(analytics_url, json=payload, headers={"Cache-Control": "no-store", "X-Service-Token": settings.INTERNAL_API_TOKEN})
     except Exception:
         # Analytics must never break the public site.
         pass

@@ -1,12 +1,16 @@
-import { Link, useLocation } from "react-router-dom";
-import logo from "@/assets/images/Logo.svg";
+import LibraryBrand from "@/components/common/LibraryBrand";
+import { designCopy } from "@/shared/designCopy";
+import { useSidebar } from "@/shared/SidebarContext";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { t } from "@/shared/i18n";
 import { MobileDashboardHeader } from "./DashboardHeader";
 import { useAuth } from "@/shared/auth/AuthContext";
 
 export default function Sidebar() {
   const loc = useLocation();
-  const { token } = useAuth();
+  const { close } = useSidebar();
+  const { token, logout } = useAuth();
+  const navigate = useNavigate();
 
   function rolesFromToken(t: string | null): string[] {
     if (!t) return [];
@@ -25,10 +29,11 @@ export default function Sidebar() {
   }
 
   const roles = rolesFromToken(token);
+  const isContentAdmin = roles.some(r => /^admin$/i.test(r));
   const isAdmin = roles.some((r) => /^(admin|librarian)$/i.test(String(r)));
 
   const items = [
-    { to: "/public", label: "Домой", icon: GlobeIcon },
+    
     { to: "/", label: t("nav.home"), icon: HomeIcon },
     { to: "/catalog", label: t("nav.catalog"), icon: CatalogIcon },
     { to: "/shelf", label: t("nav.shelf"), icon: ShelfIcon },
@@ -37,69 +42,23 @@ export default function Sidebar() {
       ? ([
           { to: "/admin", label: t("nav.admin"), icon: AdminIcon },
           { to: "/analytics", label: t("nav.analytics"), icon: AnalyticsIcon },
-          { to: "/content", label: t("nav.content"), icon: ContentIcon },
+          ...(isContentAdmin ? [{ to: "/content", label: t("nav.content"), icon: ContentIcon }] : []),
         ] as any)
       : ([] as any)),
-    { to: "/intelligent-search", label: "Интеллектуальный поиск", icon: SearchIcon },
+    { to: "/intelligent-search", label: t("header.search.ariaLabel"), icon: SearchIcon },
     { to: "/profile", label: t("nav.profile"), icon: UserIcon },
-    { to: "#", label: t("nav.contribute"), icon: ContributeIcon },
   ];
 
   return (
-    <div className="h-full flex flex-col justify-between bg-white">
-      <div>
-        {/* logo area - centered */}
-        <div className="px-6 pt-8 pb-6 flex items-center justify-center">
-          {logo ? (
-            <img src={logo} alt="TAU" className="w-20 h-auto" />
-          ) : (
-            <div className="text-2xl font-bold text-[#7b0f2b]">TAU</div>
-          )}
-        </div>
-
-        {/* mobile header controls - moved from top header into sidebar on mobile */}
-        <MobileDashboardHeader />
-
-        {/* menu */}
-        <nav className="px-3 sm:px-4">
-          <ul className="space-y-1.5">
-            {items.map((it) => {
-              const active = it.to === "/" ? loc.pathname === "/" : loc.pathname.startsWith(it.to);
-              return (
-                <li key={it.label}>
-                  <Link
-                    to={it.to}
-                    className={`flex items-center gap-3 px-4 py-3 sm:px-6 rounded-md transition-colors text-base sm:text-sm ${
-                      active
-                        ? "text-[#7b0f2b] bg-slate-50 font-medium"
-                        : "text-slate-600 hover:text-[#7b0f2b] hover:bg-slate-50"
-                    }`}
-                  >
-                    <span className="w-5 h-5 flex items-center justify-center">
-                      <it.icon
-                        className={
-                          active
-                            ? "w-6 h-6 sm:w-5 sm:h-5 text-[#7b0f2b]"
-                            : "w-6 h-6 sm:w-5 sm:h-5 text-slate-400"
-                        }
-                      />
-                    </span>
-                    <span>{it.label}</span>
-                  </Link>
-                </li>
-              );
-            })}
-          </ul>
-        </nav>
-      </div>
-
-      <div className="px-4 sm:px-6 py-6 sm:py-8 text-sm text-slate-400">
-        <div className="space-y-2">
-          <div className="hover:text-slate-600 cursor-pointer">About</div>
-          <div className="hover:text-slate-600 cursor-pointer">Support</div>
-          <div className="hover:text-slate-600 cursor-pointer">Terms &amp; Condition</div>
-        </div>
-      </div>
+    <div className="library-sidebar">
+      <Link to="/" className="sidebar-brand" onClick={close}><LibraryBrand/></Link>
+      <MobileDashboardHeader />
+      <div className="sidebar-label">{designCopy().workspace}</div>
+      <nav aria-label={designCopy().navigation}><ul>{items.map((it) => {
+        const active = it.to === "/" ? loc.pathname === "/" : loc.pathname.startsWith(it.to);
+        return <li key={it.to}><Link to={it.to} onClick={close} aria-current={active ? 'page' : undefined} className={`sidebar-link ${active ? 'is-active' : ''}`}><it.icon className="sidebar-icon"/><span>{it.label}</span>{active && <span className="sidebar-active-dot"/>}</Link></li>;
+      })}</ul></nav>
+      <div className="sidebar-bottom"><Link to="/public" onClick={close}>{designCopy().back}</Link><button className="sidebar-logout" onClick={() => { logout(); close(); navigate("/auth/login"); }}>{designCopy().logout}</button><small>{designCopy().university}</small></div>
     </div>
   );
 }

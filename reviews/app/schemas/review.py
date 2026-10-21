@@ -4,8 +4,8 @@ from datetime import datetime
 
 
 class ReviewBase(BaseModel):
-    rating: float = Field(ge=0, le=5)
-    comment: Optional[str] = None
+    rating: float = Field(ge=0, le=5, allow_inf_nan=False)
+    comment: Optional[str] = Field(None, max_length=10000)
 
 
 class ReviewCreate(ReviewBase):
@@ -23,4 +23,4 @@ class ReviewOut(ReviewBase):
     created_at: datetime
 
     class Config:
-        orm_mode = True
+        from_attributes = True

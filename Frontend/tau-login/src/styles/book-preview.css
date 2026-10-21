@@ -1,0 +1,237 @@
+.book-preview-dialog {
+  width: min(1000px, calc(100vw - 48px));
+  max-width: 1000px;
+  max-height: calc(100dvh - 48px);
+  padding: 0;
+  margin: auto;
+  border: 0;
+  border-radius: 0;
+  color: var(--atlas-ink);
+  background: var(--atlas-paper);
+  font-family: var(--font-text, sans-serif);
+  overflow: auto;
+  overscroll-behavior: contain;
+  box-shadow: 0 28px 100px color-mix(in srgb, var(--atlas-deep) 35%, transparent);
+}
+
+.book-preview-dialog::backdrop {
+  background: color-mix(in srgb, var(--atlas-deep) 82%, transparent);
+}
+
+.book-preview-dialog[open] {
+  animation: book-preview-enter 200ms var(--ease-out, ease-out) both;
+}
+
+.book-preview-toolbar {
+  position: sticky;
+  top: 16px;
+  z-index: 1;
+  display: flex;
+  justify-content: flex-end;
+  height: 0;
+  margin-inline: 16px;
+  pointer-events: none;
+}
+
+.book-preview-close {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0;
+  border: 1px solid color-mix(in srgb, var(--atlas-burgundy) 24%, transparent);
+  border-radius: 50%;
+  background: var(--atlas-paper);
+  color: var(--atlas-burgundy);
+  pointer-events: auto;
+  cursor: pointer;
+}
+
+.book-preview-close:hover {
+  background: var(--atlas-pink);
+}
+
+.book-preview-dialog :is(button, a):focus-visible {
+  outline: 2px solid var(--atlas-burgundy);
+  outline-offset: 4px;
+}
+
+.book-preview-spread {
+  display: grid;
+  grid-template-columns: minmax(0, .82fr) minmax(0, 1.18fr);
+  min-height: 600px;
+}
+
+.book-preview-cover-page {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding: 34px 32px 28px;
+  border-right: 1px solid color-mix(in srgb, var(--atlas-burgundy) 18%, transparent);
+  background: var(--atlas-paper);
+}
+
+.book-preview-imprint,
+.book-preview-edition-number {
+  color: var(--atlas-burgundy);
+  font-size: 12px;
+  font-weight: 550;
+  letter-spacing: .09em;
+  line-height: 1.5;
+  text-transform: uppercase;
+}
+
+.book-preview-cover-stage {
+  display: grid;
+  flex: 1;
+  place-items: center;
+  min-height: 0;
+  padding-block: 36px;
+}
+
+.book-preview-cover-stage img {
+  display: block;
+  width: auto;
+  max-width: 100%;
+  height: auto;
+  max-height: 390px;
+  object-fit: contain;
+  box-shadow: 8px 12px 22px color-mix(in srgb, var(--atlas-deep) 15%, transparent);
+}
+
+.book-preview-copy {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding: 80px 48px 40px;
+  background: var(--tau-white, var(--atlas-paper));
+}
+
+.book-preview-dialog .book-preview-label {
+  margin: 0 0 18px;
+  color: var(--atlas-burgundy);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.5;
+  letter-spacing: .09em;
+  text-transform: uppercase;
+}
+
+.book-preview-dialog .book-preview-title {
+  margin: 0;
+  color: var(--atlas-burgundy);
+  font-family: var(--font-display);
+  font-size: clamp(30px, 3.5vw, 44px);
+  font-weight: 500;
+  line-height: 1.12;
+  letter-spacing: -.045em;
+  overflow-wrap: anywhere;
+  text-wrap: balance;
+}
+
+.book-preview-metadata {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px 40px;
+  margin: 28px 0;
+  padding: 20px 0;
+  border-block: 1px solid color-mix(in srgb, var(--atlas-burgundy) 18%, transparent);
+}
+
+.book-preview-metadata > div {
+  display: grid;
+  gap: 6px;
+}
+
+.book-preview-metadata dt {
+  color: var(--atlas-ink);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.book-preview-metadata dd {
+  margin: 0;
+  color: var(--atlas-ink);
+  font-size: 16px;
+  font-weight: 550;
+  line-height: 1.5;
+}
+
+.book-preview-dialog .book-preview-description {
+  margin: 0 0 20px;
+  color: var(--atlas-ink);
+  font-size: 18px;
+  line-height: 1.65;
+}
+
+.book-preview-dialog .book-preview-note {
+  margin: 0 0 32px;
+  color: var(--atlas-ink);
+  font-size: 14px;
+  line-height: 1.65;
+}
+
+.book-preview-actions {
+  margin-top: auto;
+}
+
+.book-preview-catalog {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  min-height: 56px;
+  padding: 16px 20px;
+  color: var(--tau-white, white);
+  background: var(--atlas-burgundy);
+  font-size: 16px;
+  font-weight: 550;
+  line-height: 1.5;
+  text-decoration: none;
+}
+
+.book-preview-catalog:hover {
+  background: var(--atlas-deep);
+}
+
+.book-preview-catalog > span:last-child {
+  flex-shrink: 0;
+  font-size: 24px;
+  line-height: 1;
+}
+
+.book-preview-dialog .book-preview-access {
+  margin: 14px 0 0;
+  color: var(--atlas-ink);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+@keyframes book-preview-enter {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@media (max-width: 680px) {
+  .book-preview-dialog {
+    width: calc(100vw - 24px);
+    max-height: calc(100dvh - 24px);
+  }
+
+  .book-preview-toolbar { top: 12px; margin-inline: 12px; }
+  .book-preview-spread { grid-template-columns: minmax(0, 1fr); min-height: 0; }
+  .book-preview-cover-page { padding: 28px 24px 20px; border-right: 0; border-bottom: 1px solid color-mix(in srgb, var(--atlas-burgundy) 18%, transparent); }
+  .book-preview-imprint { padding-right: 48px; }
+  .book-preview-cover-stage { height: 184px; flex: none; padding-block: 20px; }
+  .book-preview-cover-stage img { max-height: 144px; }
+  .book-preview-copy { padding: 32px 24px; }
+  .book-preview-dialog .book-preview-title { font-size: clamp(28px, 7.5vw, 40px); }
+  .book-preview-dialog .book-preview-description { font-size: 16px; }
+  .book-preview-metadata { margin-block: 24px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .book-preview-dialog[open] { animation: none; }
+}

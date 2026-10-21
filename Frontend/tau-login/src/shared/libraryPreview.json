@@ -1,0 +1,98 @@
+[
+  {
+    "id": 1,
+    "title": "Основы программирования",
+    "lang": "ru",
+    "year": "2026",
+    "authors": [
+      {
+        "id": 1,
+        "name": "TAU Demo / 01"
+      }
+    ],
+    "subjects": [
+      {
+        "id": 1,
+        "name": "Программирование"
+      },
+      {
+        "id": 2,
+        "name": "Демонстрационная коллекция"
+      }
+    ],
+    "summary": "[TAU-DEMO-programming] Оригинальный тестовый материал для проверки каталога, чтения и заметок. Это краткий демонстрационный конспект, а не полноценный учебник.",
+    "cover": "/library/programming.png"
+  },
+  {
+    "id": 4,
+    "title": "Деректерді талдау негіздері",
+    "lang": "kk",
+    "year": "2025",
+    "authors": [
+      {
+        "id": 4,
+        "name": "TAU Demo / 04"
+      }
+    ],
+    "subjects": [
+      {
+        "id": 2,
+        "name": "Демонстрационная коллекция"
+      },
+      {
+        "id": 5,
+        "name": "Деректерді талдау"
+      }
+    ],
+    "summary": "[TAU-DEMO-data-kk] Каталогты, оқуды және жазбаларды тексеруге арналған түпнұсқа тест материалы. Бұл толық оқулық емес, қысқа демонстрациялық конспект.",
+    "cover": "/library/data-kk.png"
+  },
+  {
+    "id": 6,
+    "title": "Introduction to Data Science",
+    "lang": "en",
+    "year": "2026",
+    "authors": [
+      {
+        "id": 2,
+        "name": "TAU Demo / 02"
+      }
+    ],
+    "subjects": [
+      {
+        "id": 2,
+        "name": "Демонстрационная коллекция"
+      },
+      {
+        "id": 7,
+        "name": "Data Science"
+      }
+    ],
+    "summary": "[TAU-DEMO-data-en] Original test material for checking the catalogue, reader and notes. This is a short demonstration guide, not a complete textbook.",
+    "cover": "/library/data-en.png"
+  },
+  {
+    "id": 7,
+    "title": "Design of Digital Products",
+    "lang": "en",
+    "year": "2025",
+    "authors": [
+      {
+        "id": 3,
+        "name": "TAU Demo / 03"
+      }
+    ],
+    "subjects": [
+      {
+        "id": 2,
+        "name": "Демонстрационная коллекция"
+      },
+      {
+        "id": 8,
+        "name": "Дизайн"
+      }
+    ],
+    "summary": "[TAU-DEMO-design-en] Original test material for checking the catalogue, reader and notes. This is a short demonstration guide, not a complete textbook.",
+    "cover": "/library/design-en.png"
+  }
+]

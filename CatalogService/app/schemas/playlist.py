@@ -26,4 +26,4 @@ class PlaylistOut(PlaylistBase):
     books: List[BookOut] = []  # ✅ вместо List[dict]
 
     class Config:
-        orm_mode = True
+        from_attributes = True

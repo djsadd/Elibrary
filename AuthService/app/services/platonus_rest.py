@@ -16,7 +16,7 @@ def _base() -> str:
     raw = str(getattr(settings, "PLATONUS_AUTH_URL", "") or "").strip()
     try:
         u = urlparse(raw)
-        if u.scheme and u.netloc:
+        if u.scheme == "https" and u.netloc:
             return f"{u.scheme}://{u.netloc}"
     except Exception:
         pass
@@ -74,15 +74,14 @@ def login(
         "icNumber": ic_number,
         "authForDeductedStudentsAndGraduates": "true" if allow_deducted else "false",
     }
-    r = requests.post(url, json=payload, headers={"X-Requested-With": "XMLHttpRequest", "Accept": "application/json"}, timeout=timeout_s)
+    r = requests.post(url, json=payload, headers={"X-Requested-With": "XMLHttpRequest", "Accept": "application/json"}, timeout=timeout_s, allow_redirects=False)
     try:
         data = r.json()
     except Exception:
         raise PlatonusAuthError(f"Authentication service returned an invalid response (HTTP {r.status_code})")
 
     if str(data.get("login_status", "")).lower() != "success":
-        msg = data.get("message") or "Account sign-in failed"
-        raise PlatonusAuthError(str(msg))
+        raise PlatonusAuthError("Account sign-in failed")
 
     auth_token = str(data.get("auth_token") or "").strip()
     sid = str(data.get("sid") or "").strip()
@@ -93,7 +92,7 @@ def login(
 
 def get_person_id(*, session: PlatonusSession, timeout_s: int = 20) -> str:
     url = f"{_base()}/rest/api/person/personID"
-    r = requests.get(url, headers=_headers(session), timeout=timeout_s)
+    r = requests.get(url, headers=_headers(session), timeout=timeout_s, allow_redirects=False)
     r.raise_for_status()
     data = r.json()
     pid = data.get("personID")
@@ -104,7 +103,7 @@ def get_person_id(*, session: PlatonusSession, timeout_s: int = 20) -> str:
 
 def get_roles(*, session: PlatonusSession, timeout_s: int = 20) -> list[dict[str, Any]]:
     url = f"{_base()}/rest/api/person/roles"
-    r = requests.get(url, headers=_headers(session), timeout=timeout_s)
+    r = requests.get(url, headers=_headers(session), timeout=timeout_s, allow_redirects=False)
     r.raise_for_status()
     data = r.json()
     if isinstance(data, list):
@@ -114,7 +113,7 @@ def get_roles(*, session: PlatonusSession, timeout_s: int = 20) -> list[dict[str
 
 def get_student_info(*, session: PlatonusSession, person_id: str, lang: str = "ru", timeout_s: int = 20) -> dict[str, Any]:
     url = f"{_base()}/rest/student/studentInfo/{person_id}/{lang}"
-    r = requests.get(url, headers=_headers(session), timeout=timeout_s)
+    r = requests.get(url, headers=_headers(session), timeout=timeout_s, allow_redirects=False)
     r.raise_for_status()
     data = r.json()
     if isinstance(data, dict):
@@ -132,7 +131,7 @@ def get_employee_info(
     timeout_s: int = 20,
 ) -> dict[str, Any]:
     url = f"{_base()}/rest/employee/employeeInfo/{person_id}/{org_id}/{lang}?dn={dn}"
-    r = requests.get(url, headers=_headers(session), timeout=timeout_s)
+    r = requests.get(url, headers=_headers(session), timeout=timeout_s, allow_redirects=False)
     r.raise_for_status()
     data = r.json()
     if isinstance(data, dict):

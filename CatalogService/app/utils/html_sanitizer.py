@@ -96,8 +96,9 @@ ALLOWED_SCHEMES = {"http", "https", "mailto", "tel"}
 
 
 def _is_safe_url(value: str) -> bool:
-    if not value:
+    if not value or any(ord(c) < 32 for c in value) or "\\" in value:
         return False
+    value = value.strip()
     if value.startswith(("/", "#")):
         return True
     parsed = urlparse(value)
@@ -161,7 +162,7 @@ class SafeHtmlParser(HTMLParser):
                 if attr_name in BOOLEAN_ATTRS:
                     rendered_attrs.append(f" {attr_name}")
                 continue
-            if attr_name in {"href", "src"} and not _is_safe_url(value):
+            if attr_name in {"href", "src", "poster"} and not _is_safe_url(value):
                 continue
             if attr_name in {"width", "height"} and not value.isdigit():
                 continue

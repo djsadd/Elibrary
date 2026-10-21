@@ -5,7 +5,6 @@ from playwright.sync_api import sync_playwright, TimeoutError, Error
 
 
 def auth(username: str, password: str) -> Dict[str, Any]:
-  print("Starting Platonus authentication for user:", username)
   with sync_playwright() as p:
     browser = p.chromium.launch(headless=True)
     page = browser.new_page()
@@ -58,8 +57,6 @@ def auth(username: str, password: str) -> Dict[str, Any]:
     try:
       person_data = person_id_response.json()
     except ValueError:
-      print("person_id_response_status:", person_id_response.status)
-      print("person_id_response_text:", person_id_response.text())
       browser.close()
       raise RuntimeError("personID response is not JSON")
     person_id = person_data.get("personID")
@@ -71,18 +68,9 @@ def auth(username: str, password: str) -> Dict[str, Any]:
       try:
         person_data_retry = person_id_retry.json()
       except ValueError:
-        print("person_id_retry_status:", person_id_retry.status)
-        print("person_id_retry_text:", person_id_retry.text())
         browser.close()
         raise RuntimeError("personID retry response is not JSON")
       person_id = person_data_retry.get("personID")
-    print("person_id_response:", person_data)
-    print("person_id_response_status:", person_id_response.status)
-    print("cookies:", cookie_map)
-    print("user_agent:", user_agent)
-    print("sid:", sid_value)
-    print("token:", token_value)
-    print("request_headers:", headers)
     roles_response = page.request.get(
       "https://platonus.tau-edu.kz/rest/api/person/roles",
       headers=headers,
@@ -90,8 +78,6 @@ def auth(username: str, password: str) -> Dict[str, Any]:
     try:
       roles_data = roles_response.json()
     except ValueError:
-      print("roles_response_status:", roles_response.status)
-      print("roles_response_text:", roles_response.text())
       browser.close()
       raise RuntimeError("roles response is not JSON")
     role_names = [
@@ -99,7 +85,6 @@ def auth(username: str, password: str) -> Dict[str, Any]:
       for role in roles_data
       if isinstance(role, dict)
     ]
-    print("roles_response:", roles_data)
     if "студент" in role_names:
       student_info_response = page.request.get(
         f"https://platonus.tau-edu.kz/rest/student/studentInfo/{person_id}/ru",
@@ -108,11 +93,8 @@ def auth(username: str, password: str) -> Dict[str, Any]:
       try:
         student_info = student_info_response.json()
       except ValueError:
-        print("student_info_response_status:", student_info_response.status)
-        print("student_info_response_text:", student_info_response.text())
         browser.close()
         raise RuntimeError("studentInfo response is not JSON")
-      print("student_info_response:", student_info)
       browser.close()
       return {"role": "студент", "info": student_info}
     if "преподаватель" in role_names or "библиотека" in role_names:
@@ -123,11 +105,8 @@ def auth(username: str, password: str) -> Dict[str, Any]:
       try:
         employee_info = employee_info_response.json()
       except ValueError:
-        print("employee_info_response_status:", employee_info_response.status)
-        print("employee_info_response_text:", employee_info_response.text())
         browser.close()
         raise RuntimeError("employeeInfo response is not JSON")
-      print("employee_info_response:", employee_info)
       browser.close()
       role = "преподаватель" if "преподаватель" in role_names else "библиотека"
       return {"role": role, "info": employee_info}
@@ -148,4 +127,3 @@ if __name__ == "__main__":
     )
 
   result = auth(env_username, env_password)
-  print(result["html"])

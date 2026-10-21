@@ -49,6 +49,7 @@ def _ensure_subjects(db: Session, names: list[str]) -> list[Subject]:
 def _to_out(b: Book) -> BookOut:
     return BookOut(
         id=b.id,
+        is_public=b.is_public,
         title=b.title,
         year=b.year,
         lang=b.lang,
@@ -72,7 +73,7 @@ def _author_to_detail(author: Author) -> AuthorDetail:
             authors=[{"id": a.id, "name": a.name} for a in b.authors],
             formats=b.formats_list,
         )
-        for b in (author.books or [])
+        for b in (author.books or []) if b.is_public
     ]
     return AuthorDetail(id=author.id, name=author.name, books=books)
 
@@ -86,6 +87,6 @@ def _subject_to_detail(subject: Subject) -> SubjectDetail:
             authors=[{"id": a.id, "name": a.name} for a in b.authors],
             formats=b.formats_list,
         )
-        for b in (subject.books or [])
+        for b in (subject.books or []) if b.is_public
     ]
     return SubjectDetail(id=subject.id, name=subject.name, books=books)

@@ -3,12 +3,20 @@ from typing import List, Optional, Literal
 from datetime import datetime
 from app.schemas.common import Pagination
 from pydantic import field_validator
+from app.utils.storage import validate_file_id
 
 # --- Новые перечисления ---
 BookSourceLiteral = Literal["KABIS", "LIBRARY", "RMEB", "IPRBOOKS", "OTHER"]
 
 
-class BookCreate(BaseModel):
+class FileReference(BaseModel):
+    @field_validator("file_id", check_fields=False)
+    @classmethod
+    def safe_file_id(cls, value):
+        return validate_file_id(value)
+
+
+class BookCreate(FileReference):
     title: str
     year: Optional[str] = None
     lang: Optional[str] = None
@@ -30,7 +38,7 @@ class BookCreate(BaseModel):
     is_public: bool = True
 
 
-class QuickBookCreate(BaseModel):
+class QuickBookCreate(FileReference):
     """
     Быстрое создание книги/статьи для роли редактора (editor).
     Минимальные требуемые поля для быстрой загрузки материалов.
@@ -57,7 +65,7 @@ class QuickBookCreate(BaseModel):
     is_public: bool = Field(True, description="Публичный доступ")
 
 
-class BookUpdate(BaseModel):
+class BookUpdate(FileReference):
     title: Optional[str] = None
     year: Optional[str] = None
     lang: Optional[str] = None

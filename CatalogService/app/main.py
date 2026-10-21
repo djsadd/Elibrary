@@ -1,3 +1,4 @@
+from app.utils.request_limits import RequestLimitsMiddleware
 # app/main.py
 import uvicorn
 from fastapi import FastAPI
@@ -118,7 +119,7 @@ app = FastAPI(title="CatalogService", version="0.1.0")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=__import__("json").loads(__import__("os").getenv("CORS_ALLOW_ORIGINS", "[]")),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -135,5 +136,8 @@ def health():
     return {"status": "ok", "service": "catalog"}
 
 
+app.add_middleware(RequestLimitsMiddleware)
+
 if __name__ == "__main__":
-    uvicorn.run("app.main:app", host="0.0.0.0", port=8002, reload=True)
+    uvicorn.run("app.main:app", host="127.0.0.1", port=8002, reload=True)
+

@@ -16,6 +16,7 @@ class Settings(BaseSettings):
     REINDEX_ON_START: bool = False
 
     ADMIN_TOKEN: str = ""
+    AUTH_SERVICE_URL: str = "http://auth:8001"
 
     SEARCH_DEFAULT_LIMIT: int = 20
     SEARCH_MAX_LIMIT: int = 50

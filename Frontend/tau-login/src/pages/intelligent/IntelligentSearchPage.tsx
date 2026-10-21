@@ -1,5 +1,5 @@
 import DashboardHeader from "@/components/layout/DashboardHeader";
-import placeholder from "@/assets/images/Image.png";
+import placeholder from "@/assets/images/book-placeholder.svg";
 import { getLang } from "@/shared/i18n";
 import { api } from "@/shared/api/client";
 import type { StudentProfile } from "@/shared/api/search";
@@ -246,7 +246,7 @@ const content: Record<
 
 function getModeTone(tab: ResultTab, activeTab: ResultTab) {
   return activeTab === tab
-    ? "border-[#7b0f2b] bg-[#7b0f2b] text-white shadow-xl shadow-rose-200/70"
+    ? "border-[#b51e3e] bg-[#b51e3e] text-white shadow-xl shadow-rose-200/70"
     : "border-white/70 bg-white/85 text-slate-900 hover:border-rose-200 hover:bg-white";
 }
 
@@ -408,19 +408,19 @@ export default function IntelligentSearchPage() {
   }
 
   return (
-    <div>
+    <div className="intelligent-page">
       <DashboardHeader />
 
       <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8 sm:py-8">
-        <section className="relative overflow-hidden rounded-[32px] border border-rose-100 bg-[radial-gradient(circle_at_top_left,_rgba(123,15,43,0.13),_transparent_36%),radial-gradient(circle_at_bottom_right,_rgba(255,191,36,0.16),_transparent_28%),linear-gradient(135deg,_#fffaf8_0%,_#fff3f4_44%,_#ffffff_100%)] p-5 shadow-[0_30px_80px_-40px_rgba(123,15,43,0.45)] sm:p-8">
-          <div className="absolute -top-24 right-0 h-56 w-56 rounded-full bg-rose-200/40 blur-3xl" />
-          <div className="absolute -bottom-24 left-10 h-56 w-56 rounded-full bg-amber-200/40 blur-3xl" />
+        <section className="intelligent-search-intro">
+          <div className="absolute -top-24 right-0 h-56 w-56 rounded-full hidden" />
+          <div className="absolute -bottom-24 left-10 h-56 w-56 rounded-full hidden" />
 
           <div className="relative flex flex-col gap-6">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
               <div className="max-w-3xl">
                 <div className="mb-3 flex flex-wrap items-center gap-2">
-                  <span className="inline-flex items-center rounded-full border border-rose-200 bg-white/80 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.24em] text-[#7b0f2b]">
+                  <span className="inline-flex items-center rounded-sm border border-[#d8ccc2] bg-transparent px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.24em] text-[#b51e3e]">
                     {copy.badge}
                   </span>
                 </div>
@@ -442,18 +442,18 @@ export default function IntelligentSearchPage() {
                   key={example}
                   type="button"
                   onClick={() => setQuery(example)}
-                  className="rounded-full border border-white/90 bg-white/80 px-3 py-1.5 text-sm text-slate-700 transition hover:border-rose-200 hover:text-[#7b0f2b]"
+                  className="rounded-full border border-white/90 bg-white/80 px-3 py-1.5 text-sm text-slate-700 transition hover:border-rose-200 hover:text-[#b51e3e]"
                 >
                   {example}
                 </button>
               ))}
             </div>
 
-            <div className="rounded-[28px] border border-white/90 bg-white/85 p-4 shadow-xl shadow-rose-100/60 backdrop-blur sm:p-5">
+            <div className="intelligent-search-form p-4 sm:p-5">
               <div className="flex flex-col gap-4">
                 <div className="flex flex-col gap-3 lg:flex-row">
-                  <div className="flex min-h-16 flex-1 items-center gap-3 rounded-[24px] border border-rose-100 bg-white px-4 py-3 shadow-sm">
-                    <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-rose-50 text-[#7b0f2b]">
+                  <div className="flex min-h-16 flex-1 items-center gap-3 rounded-md border border-rose-100 bg-white px-4 py-3 shadow-sm">
+                    <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-rose-50 text-[#b51e3e]">
                       <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7">
                         <circle cx="11" cy="11" r="6" />
                         <path d="M16 16l4 4" />
@@ -475,7 +475,7 @@ export default function IntelligentSearchPage() {
                     type="button"
                     onClick={() => !loading && runSearch()}
                     disabled={loading}
-                    className="inline-flex min-h-16 items-center justify-center rounded-[24px] bg-[#7b0f2b] px-6 text-sm font-semibold text-white shadow-xl shadow-rose-300/60 transition hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-70"
+                    className="inline-flex min-h-16 items-center justify-center rounded-md bg-[#b51e3e] px-6 text-sm font-semibold text-white  transition hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-70"
                   >
                     {loading ? copy.searching : copy.search}
                   </button>
@@ -654,7 +654,7 @@ export default function IntelligentSearchPage() {
             <div className="max-h-[85vh] w-full max-w-2xl overflow-hidden rounded-[30px] bg-white shadow-2xl">
               <div className="flex items-start justify-between gap-4 border-b border-slate-100 px-5 py-4">
                 <div>
-                  <div className="text-xs font-semibold uppercase tracking-[0.22em] text-[#7b0f2b]">
+                  <div className="text-xs font-semibold uppercase tracking-[0.22em] text-[#b51e3e]">
                     {copy.resultModes.book_search.modalLabel}
                   </div>
                   <div className="mt-1 text-lg font-semibold text-slate-900">
@@ -723,7 +723,7 @@ export default function IntelligentSearchPage() {
             <div className="max-h-[85vh] w-full max-w-4xl overflow-hidden rounded-[30px] bg-white shadow-2xl">
               <div className="flex items-start justify-between gap-4 border-b border-slate-100 px-5 py-4">
                 <div>
-                  <div className="text-xs font-semibold uppercase tracking-[0.22em] text-[#7b0f2b]">
+                  <div className="text-xs font-semibold uppercase tracking-[0.22em] text-[#b51e3e]">
                     {copy.resultModes.vector_search.modalLabel}
                   </div>
                   <div className="mt-1 text-lg font-semibold text-slate-900">
@@ -746,7 +746,7 @@ export default function IntelligentSearchPage() {
               </div>
 
               <div className="grid max-h-[65vh] grid-cols-1 gap-4 overflow-y-auto px-5 py-5 md:grid-cols-2">
-                <div className="rounded-[24px] border border-slate-200 bg-slate-50/80 p-4">
+                <div className="rounded-md border border-slate-200 bg-slate-50/80 p-4">
                   <div className="mb-3 text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
                     {copy.labels.fragment}
                   </div>
@@ -762,14 +762,14 @@ export default function IntelligentSearchPage() {
                       href={selectedVector.download_url}
                       target="_blank"
                       rel="noreferrer"
-                      className="mt-4 inline-flex text-sm font-medium text-[#7b0f2b] transition hover:underline"
+                      className="mt-4 inline-flex text-sm font-medium text-[#b51e3e] transition hover:underline"
                     >
                       {copy.labels.openDocument}
                     </a>
                   ) : null}
                 </div>
 
-                <div className="rounded-[24px] border border-rose-100 bg-rose-50/70 p-4">
+                <div className="rounded-md border border-rose-100 bg-rose-50/70 p-4">
                   <div className="mb-3 text-xs font-semibold uppercase tracking-[0.2em] text-rose-700">
                     {copy.labels.explanation}
                   </div>

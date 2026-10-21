@@ -7,14 +7,14 @@ from sqlalchemy import select
 from app.core.db import SessionLocal
 from app.models.libtau import Library, LibraryWithSubjects
 from sqlalchemy.orm import Session
-from app.utils.authz import get_current_user
+from app.utils.authz import get_current_user, require_roles
 from app.schemas.library_with_subjects import LibraryWithSubjectsOut
 
 from celery.result import AsyncResult
 from app.celeryconfig import celery
 from app.tasks import migrate_subjects_task
 
-router = APIRouter(prefix="/libtau", tags=["Library Integration"])
+router = APIRouter(prefix="/libtau", tags=["Library Integration"], dependencies=[Depends(require_roles("admin", "librarian"))])
 
 external_service = ExternalLibraryService()
 sync_service = LibrarySyncService(external_service)
@@ -28,7 +28,7 @@ PENDING_MIGRATION_SUBJECTS = []
 MIGRATION_TASK_ID = None
 
 logger = logging.getLogger("migrate_subjects")
-logger.setLevel(logging.DEBUG)
+logger.setLevel(logging.INFO)
 
 
 def get_db():
@@ -76,7 +76,7 @@ def get_library_books(
 @router.get("/crawl_pdfs")
 async def fetch_pdfs():
     global PENDING_SUBJECTS
-    sync_result = sync_service_subjects.sync_library_books(apply_changes=True)
+    sync_result = sync_service_subjects.sync_library_books(apply_changes=False)
     PENDING_SUBJECTS = sync_result["books"]
 
     return {

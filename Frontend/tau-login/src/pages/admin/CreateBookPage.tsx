@@ -237,58 +237,58 @@ export default function CreateBookPage() {
 
   return (
     <div className="space-y-4">
-      <div className="rounded-lg p-5 bg-gradient-to-r from-[#7b0f2b] to-rose-600 text-white shadow">
+      <div className="admin-editor-banner">
         <div className="text-xl font-semibold">{tr("title")}</div>
         <div className="text-sm opacity-90">{tr("subtitle")}</div>
       </div>
       <form onSubmit={onSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="bg-white rounded-md p-4 border shadow-sm">
           <label className="block text-sm font-medium">{tr("fields.title")}</label>
-          <input required value={title} onChange={(e) => setTitle(e.target.value)} className="mt-1 w-full border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#7b0f2b]/30" />
+          <input required value={title} onChange={(e) => setTitle(e.target.value)} className="mt-1 w-full border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#b51e3e]/30" />
 
           <label className="block text-sm font-medium mt-3">{tr("fields.year")}</label>
-          <input value={year} onChange={(e) => setYear(e.target.value)} className="mt-1 w-full border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#7b0f2b]/30" />
+          <input value={year} onChange={(e) => setYear(e.target.value)} className="mt-1 w-full border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#b51e3e]/30" />
 
           <label className="block text-sm font-medium mt-3">{tr("fields.language")}</label>
           {langs.length > 0 ? (
-            <select value={lang} onChange={(e) => setLang(e.target.value)} className="mt-1 w-full border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#7b0f2b]/30">
+            <select value={lang} onChange={(e) => setLang(e.target.value)} className="mt-1 w-full border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#b51e3e]/30">
               <option value="">{tr("placeholders.selectLanguage")}</option>
               {langs.map(l => <option key={l} value={l}>{l}</option>)}
             </select>
           ) : (
-            <input value={lang} onChange={(e) => setLang(e.target.value)} className="mt-1 w-full border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#7b0f2b]/30" />
+            <input value={lang} onChange={(e) => setLang(e.target.value)} className="mt-1 w-full border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#b51e3e]/30" />
           )}
 
           <label className="block text-sm font-medium mt-3">{tr("fields.publisherInfo")}</label>
-          <input value={pubInfo} onChange={(e) => setPubInfo(e.target.value)} className="mt-1 w-full border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#7b0f2b]/30" />
+          <input value={pubInfo} onChange={(e) => setPubInfo(e.target.value)} className="mt-1 w-full border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#b51e3e]/30" />
 
           <label className="block text-sm font-medium mt-3">{tr("fields.summary")}</label>
-          <textarea value={summary} onChange={(e) => setSummary(e.target.value)} className="mt-1 w-full border rounded-md px-3 py-2 min-h-24 focus:outline-none focus:ring-2 focus:ring-[#7b0f2b]/30" />
+          <textarea value={summary} onChange={(e) => setSummary(e.target.value)} className="mt-1 w-full border rounded-md px-3 py-2 min-h-24 focus:outline-none focus:ring-2 focus:ring-[#b51e3e]/30" />
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">
             <div>
               <label className="block text-sm font-medium">ISBN</label>
-              <input value={isbn} onChange={(e) => setIsbn(e.target.value)} placeholder="978-..." className="mt-1 w-full border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#7b0f2b]/30" />
+              <input value={isbn} onChange={(e) => setIsbn(e.target.value)} placeholder="978-..." className="mt-1 w-full border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#b51e3e]/30" />
             </div>
             <div>
               <label className="block text-sm font-medium">{tr("fields.edition")}</label>
-              <input value={edition} onChange={(e) => setEdition(e.target.value)} placeholder={tr("placeholders.edition")} className="mt-1 w-full border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#7b0f2b]/30" />
+              <input value={edition} onChange={(e) => setEdition(e.target.value)} placeholder={tr("placeholders.edition")} className="mt-1 w-full border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#b51e3e]/30" />
             </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">
             <div>
               <label className="block text-sm font-medium">{tr("fields.pageCount")}</label>
-              <input type="number" min={0} value={pageCount} onChange={(e) => setPageCount(e.target.value)} className="mt-1 w-full border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#7b0f2b]/30" />
+              <input type="number" min={0} value={pageCount} onChange={(e) => setPageCount(e.target.value)} className="mt-1 w-full border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#b51e3e]/30" />
             </div>
             <div>
               <label className="block text-sm font-medium">{tr("fields.availableCopies")}</label>
-              <input type="number" min={0} value={availableCopies} onChange={(e) => setAvailableCopies(e.target.value)} className="mt-1 w-full border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#7b0f2b]/30" />
+              <input type="number" min={0} value={availableCopies} onChange={(e) => setAvailableCopies(e.target.value)} className="mt-1 w-full border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#b51e3e]/30" />
             </div>
           </div>
 
           <label className="block text-sm font-medium mt-3">{tr("fields.source")}</label>
-          <select value={source} onChange={(e) => setSource(e.target.value)} className="mt-1 w-full border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#7b0f2b]/30">
+          <select value={source} onChange={(e) => setSource(e.target.value)} className="mt-1 w-full border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#b51e3e]/30">
             {sourceOptions.map(s => <option key={s} value={s}>{s}</option>)}
           </select>
 
@@ -352,7 +352,7 @@ export default function CreateBookPage() {
         <div className="bg-white rounded-md p-4 border shadow-sm">
           <div className="text-sm font-semibold text-slate-700 mb-3">{tr("files.title")}</div>
           <label className="block text-sm font-medium">{tr("files.cover")}</label>
-          <input type="file" accept="image/*" onChange={(e) => { const f = e.target.files?.[0] || null; setCoverFile(f); }} className="mt-1 block w-full text-sm file:mr-3 file:py-2 file:px-3 file:rounded-md file:border-0 file:bg-[#7b0f2b]/10 file:text-[#7b0f2b] hover:file:bg-[#7b0f2b]/20" />
+          <input type="file" accept="image/*" onChange={(e) => { const f = e.target.files?.[0] || null; setCoverFile(f); }} className="mt-1 block w-full text-sm file:mr-3 file:py-2 file:px-3 file:rounded-md file:border-0 file:bg-[#b51e3e]/10 file:text-[#b51e3e] hover:file:bg-[#b51e3e]/20" />
           <label className="block text-sm font-medium mt-4">{tr("files.pdf")}</label>
           <input type="file" accept="application/pdf" onChange={(e) => setPdfFile(e.target.files?.[0] || null)} className="mt-1 block w-full text-sm file:mr-3 file:py-2 file:px-3 file:rounded-md file:border-0 file:bg-emerald-600/10 file:text-emerald-700 hover:file:bg-emerald-600/20" />
           <div className="text-xs text-slate-500 mt-2">{tr("files.pdfHint")}</div>
@@ -362,7 +362,7 @@ export default function CreateBookPage() {
         <div className="md:col-span-2 flex items-center justify-between mt-1">
           <div className="text-sm text-slate-500">{tr("uploadHint")}</div>
           <div className="flex gap-2">
-            <button type="submit" className="px-4 py-2 bg-[#7b0f2b] hover:bg-rose-800 text-white rounded-md shadow-sm transition-colors">{tr("actions.save")}</button>
+            <button type="submit" className="px-4 py-2 bg-[#b51e3e] hover:bg-rose-800 text-white rounded-md shadow-sm transition-colors">{tr("actions.save")}</button>
             <button type="button" onClick={() => { localStorage.removeItem('books'); alert(tr("messages.demoCleared")); }} className="px-4 py-2 border rounded-md hover:bg-slate-50">{tr("actions.clearDemo")}</button>
           </div>
         </div>

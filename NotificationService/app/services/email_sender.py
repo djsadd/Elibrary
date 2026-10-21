@@ -5,5 +5,5 @@ class EmailSender:
     @staticmethod
     async def send(notification):
         # тупо для примера
-        print("Sending EMAIL:", notification.message)
+        raise RuntimeError("Email delivery adapter is not configured")
         return True

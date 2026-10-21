@@ -14,6 +14,10 @@ def range_for_dates(from_date: date | None, to_date: date | None) -> tuple[datet
     if not from_date:
         from_date = to_date - timedelta(days=30)
 
+    if from_date > to_date or (to_date - from_date).days > 366:
+        from fastapi import HTTPException
+        raise HTTPException(422, "Date range must be ordered and no longer than 366 days")
+
     start_local = datetime.combine(from_date, time.min, tzinfo=tz)
     end_local = datetime.combine(to_date + timedelta(days=1), time.min, tzinfo=tz)
     start_utc = start_local.astimezone(timezone.utc)

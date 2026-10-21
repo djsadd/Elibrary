@@ -275,10 +275,10 @@ export default function ProfilePage() {
   const fullName = [edit.first_name, edit.last_name].map((s) => String(s || "").trim()).filter(Boolean).join(" ") || "-";
 
   return (
-    <div>
+    <div className="profile-page">
       <DashboardHeader />
-      <div className="p-4 md:p-6">
-        <h2 className="text-2xl font-semibold mb-4">{t("profile.title")}</h2>
+      <div className="profile-content">
+        <div className="page-heading"><h1>{t("profile.title")}</h1></div>
 
         {loading && <div className="text-sm text-slate-500">{t("profile.loading")}</div>}
         {!loading && error && <div className="text-sm text-red-600">{error}</div>}
@@ -298,7 +298,7 @@ export default function ProfilePage() {
                 key={key}
                 onClick={() => setTab(key)}
                 className={`py-3 -mb-px border-b-2 whitespace-nowrap ${
-                  tab === key ? "border-[#7b0f2b] text-[#7b0f2b]" : "border-transparent text-slate-500 hover:text-slate-700"
+                  tab === key ? "border-[#b51e3e] text-[#b51e3e]" : "border-transparent text-slate-500 hover:text-slate-700"
                 }`}
               >
                 {label}
@@ -316,7 +316,7 @@ export default function ProfilePage() {
                     </div>
                     <div className="space-y-1">
                       <div className="text-sm font-medium text-slate-800">{fullName}</div>
-                      <button onClick={() => fileRef.current?.click()} className="text-xs text-[#7b0f2b] hover:underline">
+                      <button onClick={() => fileRef.current?.click()} className="text-xs text-[#b51e3e] hover:underline">
                         {t("profile.account.uploadPhoto")}
                       </button>
                       <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={onAvatarPick} />
@@ -325,7 +325,7 @@ export default function ProfilePage() {
 
                   <div className="flex flex-wrap items-center gap-3">
                     <Stat
-                      color="#F97316"
+                      color="#8f1630"
                       value={derived.reading}
                       label={t("profile.stats.readingNow")}
                       icon={
@@ -336,7 +336,7 @@ export default function ProfilePage() {
                       }
                     />
                     <Stat
-                      color="#10B981"
+                      color="#77635b"
                       value={derived.completed}
                       label={t("profile.stats.completed")}
                       icon={
@@ -346,7 +346,7 @@ export default function ProfilePage() {
                       }
                     />
                     <Stat
-                      color="#7C3AED"
+                      color="#3b202a"
                       value={derived.notes}
                       label={t("profile.stats.notes")}
                       icon={
@@ -434,7 +434,7 @@ export default function ProfilePage() {
                   <div className="mt-4 flex items-center gap-3">
                     <button
                       type="button"
-                      className="px-4 py-2 rounded-md bg-[#7b0f2b] text-white"
+                      className="px-4 py-2 rounded-md bg-[#b51e3e] text-white"
                       onClick={async () => {
                         try {
                           await api(`/api/auth/profile`, {
@@ -542,7 +542,7 @@ export default function ProfilePage() {
                               return (
                                 <tr key={ub.id} className="border-t border-slate-200">
                                   <td className="px-3 py-2">
-                                    <Link to={`/catalog/books/${encodeURIComponent(String(ub.book?.id ?? ""))}`} className="text-[#7b0f2b] hover:underline">
+                                    <Link to={`/catalog/books/${encodeURIComponent(String(ub.book?.id ?? ""))}`} className="text-[#b51e3e] hover:underline">
                                       {ub.book?.title || "-"}
                                     </Link>
                                   </td>
@@ -570,7 +570,7 @@ export default function ProfilePage() {
                           const bookTitle = String(f?.book_data?.title || bookById.get(f.book_id)?.title || "");
                           return (
                             <div key={f.id} className="flex items-center justify-between gap-3 text-sm">
-                              <Link to={`/catalog/books/${encodeURIComponent(String(f.book_id))}`} className="text-[#7b0f2b] hover:underline truncate">
+                              <Link to={`/catalog/books/${encodeURIComponent(String(f.book_id))}`} className="text-[#b51e3e] hover:underline truncate">
                                 {bookTitle || t("profile.notes.bookFallback", { id: f.book_id })}
                               </Link>
                               <span className="text-xs text-slate-500 whitespace-nowrap">{formatDateTime(f.created_at)}</span>
@@ -597,7 +597,7 @@ export default function ProfilePage() {
                             return (
                               <div key={r.id} className="border border-slate-100 rounded-md p-3">
                                 <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500">
-                                  <Link to={`/catalog/books/${encodeURIComponent(String(r.book_id))}`} className="text-[#7b0f2b] hover:underline font-medium">
+                                  <Link to={`/catalog/books/${encodeURIComponent(String(r.book_id))}`} className="text-[#b51e3e] hover:underline font-medium">
                                     {bookTitle}
                                   </Link>
                                   <span>{formatDateTime(r.created_at)}</span>
@@ -629,7 +629,7 @@ export default function ProfilePage() {
                         <div key={n.id} className="border rounded-md p-3">
                           <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500">
                             <div className="flex flex-wrap items-center gap-2">
-                              <Link to={`/catalog/books/${encodeURIComponent(String(n.book_id))}`} className="text-[#7b0f2b] hover:underline font-medium">
+                              <Link to={`/catalog/books/${encodeURIComponent(String(n.book_id))}`} className="text-[#b51e3e] hover:underline font-medium">
                                 {bookTitle}
                               </Link>
                               {n.page != null ? <span>• {t("profile.notes.page", { page: n.page })}</span> : null}
@@ -638,7 +638,7 @@ export default function ProfilePage() {
                           </div>
                           <div className="text-sm text-slate-700 mt-2 whitespace-pre-wrap">{n.note}</div>
                           <div className="mt-2">
-                            <Link to={`/catalog/${encodeURIComponent(String(n.book_id))}/notes`} className="text-xs text-[#7b0f2b] hover:underline">
+                            <Link to={`/catalog/${encodeURIComponent(String(n.book_id))}/notes`} className="text-xs text-[#b51e3e] hover:underline">
                               {t("profile.notes.openBookNotes")}
                             </Link>
                           </div>

@@ -1,0 +1,21 @@
+# Development subset; service manifests contain the same patched framework versions.
+# Full resolved environment: .local/installed-requirements.txt
+fastapi==0.147.0
+uvicorn==0.54.0
+sqlalchemy==2.0.36
+pydantic[email]==2.14.1
+pydantic-settings==2.16.0
+httpx==0.28.1
+PyJWT[crypto]==2.15.1
+bcrypt==4.0.1
+argon2-cffi==25.1.0
+redis==5.3.1
+python-dotenv==1.2.4
+python-multipart==0.0.32
+prometheus-fastapi-instrumentator==8.1.0
+python-json-logger==4.2.0
+minio==7.2.20
+celery==5.6.3
+requests==2.34.2
+cachetools==7.2.3
+psutil==7.2.2

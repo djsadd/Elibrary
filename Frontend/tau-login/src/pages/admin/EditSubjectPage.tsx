@@ -66,7 +66,7 @@ export default function EditSubjectPage() {
 
   return (
     <div className="space-y-4">
-      <div className="rounded-lg p-5 bg-gradient-to-r from-[#7b0f2b] to-rose-600 text-white shadow">
+      <div className="admin-editor-banner">
         <div className="text-xl font-semibold">Edit Subject</div>
         <div className="text-sm opacity-90">ID: {id}</div>
       </div>
@@ -97,7 +97,7 @@ export default function EditSubjectPage() {
             <button
               onClick={onSave}
               disabled={saving}
-              className="px-4 py-2 bg-[#7b0f2b] text-white rounded hover:bg-rose-800 disabled:opacity-60"
+              className="px-4 py-2 bg-[#b51e3e] text-white rounded hover:bg-rose-800 disabled:opacity-60"
             >
               {saving ? "Saving..." : "Save"}
             </button>

@@ -34,7 +34,7 @@ from app.schemas.auth import (
     UsersListResponse,
 )
 from app.utils.security import hash_password, verify_password
-from app.utils.tokens import create_access, create_refresh, decode
+from app.utils.tokens import create_access, create_refresh, credential_fingerprint, decode
 from app.services.email_sender import send_2fa_code_email, send_activation_code_email
 from app.services.twofa import create_challenge, resend_code, verify_code
 from app.services.audit import audit_event
@@ -55,6 +55,7 @@ from app.services.security_controls import (
     should_step_up,
 )
 from app.schemas.protection import LockoutBanRequest, LockoutItem, LockoutListResponse
+from app.schemas.auth import UserAccessUpdate
 from app.utils.authz import (
     AuthUser,
     get_current_user,
@@ -242,96 +243,10 @@ def register(req: RegisterRequest, request: Request, db: Session = Depends(get_d
     )
     audit_event("auth.register_attempt", request, target_email=req.email, extra={"ip": ip})
     raise HTTPException(409, "Регистрация новых пользователей отключена администратором") 
-    if db.query(User).filter_by(email=req.email).first():
-        raise HTTPException(409, "Email already exists")
-
-    code = f"{random.randint(0, 999999):06d}"
-
-    u = User(
-        email=req.email,
-        hashed_password=hash_password(req.password),
-        verification_code=code,
-        iin=req.iin,
-        first_name=req.first_name,
-        last_name=req.last_name,
-        phone=req.phone,
-        avatar_url=req.avatar_url,
-        role=req.role,
-        permissions=req.permissions,
-        institution=req.institution,
-        faculty=req.faculty,
-        group_name=req.group_name,
-        subscription_type=req.subscription_type,
-        subscription_expire_at=req.subscription_expire_at,
-        google_id=req.google_id,
-        github_id=req.github_id,
-    )
-    db.add(u)
-    db.commit()
-    db.refresh(u)
-
-    payload = {
-        "iin": u.iin,
-        "code": code,
-        "username": u.email,
-        "password": req.password,
-    }
-    try:
-        requests.post(
-            "http://192.168.115.29:8015/notifications/",
-            json=payload,
-            timeout=5,
-        )
-    except Exception:
-        # Не прерываем регистрацию при ошибке уведомления
-        pass
-
-    return {
-        "id": u.id,
-        "email": u.email,
-        "verification_required": True,
-    }
-
-
 @router.post("/verify", response_model=TokenPair)
 def verify(req: VerifyCodeRequest, request: Request, db: Session = Depends(get_db)):
-    ip = get_client_ip(request)
-    enforce_rate_limit(
-        action="verify",
-        scope="ip",
-        ident=ip or "unknown",
-        limit=int(settings.AUTH_RL_VERIFY_IP_LIMIT),
-        window_seconds=int(settings.AUTH_RL_VERIFY_IP_WINDOW_SECONDS),
-    )
-    audit_event("auth.verify_attempt", request, target_email=req.email, extra={"ip": ip})
-    u = db.query(User).filter_by(email=req.email).first()
-    if not u:
-        audit_event("auth.verify_failed", request, target_email=req.email, success=False, reason="user_not_found")
-        raise HTTPException(404, "User not found")
-    if u.verification_code != req.code:
-        audit_event(
-            "auth.verify_failed",
-            request,
-            target_user_id=u.id,
-            target_email=u.email,
-            success=False,
-            reason="invalid_code",
-        )
-        raise HTTPException(400, "Invalid verification code")
-
-    u.verification_code = None
-    u.is_active = True
-    db.commit()
-    db.refresh(u)
-    audit_event("auth.verify_success", request, target_user_id=u.id, target_email=u.email, success=True, extra={"ip": ip})
-
-    access, exp = create_access(u.id, u.role or "")
-    refresh, _ = create_refresh(u.id)
-    return TokenPair(
-        access_token=access,
-        refresh_token=refresh,
-        expires_in=int(exp - __import__("time").time()),
-    )
+    # Registration is disabled; an inactive account must not self-reactivate by email.
+    raise HTTPException(410, "Account activation is managed by administrators")
 
 
 def _twofa_required(u: User) -> bool:
@@ -395,37 +310,17 @@ def login(req: LoginRequest, request: Request, db: Session = Depends(get_db)):
         raise HTTPException(401, "Invalid credentials")
 
     if not u.is_active:
-        code = f"{random.randint(0, 999999):06d}"
-        u.verification_code = code
-        db.commit()
-        try:
-            send_activation_code_email(to_email=u.email, code=code, ttl_seconds=600)
-        except Exception as e:
-            raise HTTPException(status_code=503, detail=f"Failed to send activation email: {e}")
-
-        audit_event(
-            "auth.activation_required",
-            request,
-            target_user_id=u.id,
-            target_email=u.email,
-            success=False,
-            reason="inactive",
-            extra={"ip": ip},
-        )
-        return {
-            "email": u.email,
-            "verification_required": True,
-        }
+        raise HTTPException(403, "Account disabled")
 
     step_up = should_step_up(user_id=int(u.id), email=str(u.email), ip=ip)
     clear_login_failures(email=str(u.email), ip=ip)
 
     if _twofa_required(u) or step_up.required:
         try:
-            challenge_id, code, ttl = create_challenge(user_id=int(u.id))
+            challenge_id, code, ttl = create_challenge(user_id=int(u.id), credential=credential_fingerprint(u.hashed_password))
             send_2fa_code_email(to_email=u.email, code=code, ttl_seconds=int(ttl))
         except Exception as e:
-            raise HTTPException(status_code=503, detail=f"Failed to start 2FA: {e}")
+            raise HTTPException(status_code=503, detail="Authentication service temporarily unavailable")
 
         audit_event(
             "auth.2fa_challenge_issued",
@@ -438,8 +333,9 @@ def login(req: LoginRequest, request: Request, db: Session = Depends(get_db)):
         )
         return {"requires_2fa": True, "challenge_id": challenge_id, "expires_in": int(ttl)}
 
-    access, exp = create_access(u.id, u.role or "")
-    refresh, _ = create_refresh(u.id)
+    verified_credential = credential_fingerprint(u.hashed_password)
+    access, exp = create_access(u.id, u.role or "", credential=verified_credential)
+    refresh, _ = create_refresh(u.id, credential=verified_credential)
     mark_known_ip(user_id=int(u.id), ip=ip)
     audit_event("auth.login_success", request, target_user_id=u.id, target_email=u.email, success=True, extra={"ip": ip})
     AUTH_LOGIN_SUCCESS_TOTAL.inc()
@@ -622,7 +518,7 @@ def platonus_login(req: PlatonusLoginRequest, request: Request, db: Session = De
                     retry_after = int(settings.TWOFA_RESEND_COOLDOWN_SECONDS)
                 raise HTTPException(status_code=429, detail="Too many requests", headers={"Retry-After": str(retry_after)})
             except Exception as e:
-                raise HTTPException(status_code=503, detail=f"Failed to send email: {e}")
+                raise HTTPException(status_code=503, detail="Email delivery unavailable")
 
             audit_event(
                 "auth.platonus_email_code_sent",
@@ -686,12 +582,12 @@ def platonus_login(req: PlatonusLoginRequest, request: Request, db: Session = De
         db.commit()
         db.refresh(u)
     elif not u.is_active:
-        u.is_active = True
-        db.commit()
-        db.refresh(u)
+        raise HTTPException(403, "Account disabled")
     if desired_role:
         current_role = (u.role or "").strip().lower()
         if not current_role or current_role == "student" or (current_role == "teacher" and desired_role == "librarian"):
+            from app.utils.tokens import invalidate_user_sessions
+            invalidate_user_sessions(u.id)
             u.role = desired_role
             db.commit()
             db.refresh(u)
@@ -716,7 +612,7 @@ def platonus_login(req: PlatonusLoginRequest, request: Request, db: Session = De
             challenge_id, code, ttl = create_challenge(user_id=int(u.id))
             send_2fa_code_email(to_email=u.email, code=code, ttl_seconds=int(ttl))
         except Exception as e:
-            raise HTTPException(status_code=503, detail=f"Failed to start 2FA: {e}")
+            raise HTTPException(status_code=503, detail="Authentication service temporarily unavailable")
         audit_event(
             "auth.2fa_challenge_issued",
             request,
@@ -783,12 +679,12 @@ def platonus_email_request(body: PlatonusEmailRequest, request: Request):
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e) or "Invalid challenge")
     except Exception as e:
-        raise HTTPException(status_code=503, detail=f"Unavailable: {e}")
+        raise HTTPException(status_code=503, detail="Authentication service temporarily unavailable")
 
     try:
         send_activation_code_email(to_email=email, code=code, ttl_seconds=int(ttl))
     except Exception as e:
-        raise HTTPException(status_code=503, detail=f"Failed to send email: {e}")
+        raise HTTPException(status_code=503, detail="Email delivery unavailable")
 
     audit_event(
         "auth.platonus_email_code_sent",
@@ -814,7 +710,7 @@ def platonus_email_verify(body: PlatonusEmailVerifyRequest, request: Request, db
             raise HTTPException(status_code=429, detail=msg)
         raise HTTPException(status_code=400, detail=msg)
     except Exception as e:
-        raise HTTPException(status_code=503, detail=f"Unavailable: {e}")
+        raise HTTPException(status_code=503, detail="Authentication service temporarily unavailable")
 
     iin = str(payload.get("iin") or "").strip()
     new_role = str(payload.get("role") or "student").strip().lower()
@@ -849,8 +745,12 @@ def platonus_email_verify(body: PlatonusEmailVerifyRequest, request: Request, db
         db.commit()
         db.refresh(u)
     else:
+        if not u.is_active:
+            raise HTTPException(403, "Account disabled")
         u.email = email
         if new_role and (not u.role or (u.role or "").strip().lower() == "student"):
+            from app.utils.tokens import invalidate_user_sessions
+            invalidate_user_sessions(u.id)
             u.role = new_role
         if first_name and not u.first_name:
             u.first_name = first_name
@@ -878,11 +778,11 @@ def refresh_token(
     db: Session = Depends(get_db),
 ):
     u = db.get(User, int(user.user_id))
-    if not u:
-        raise HTTPException(404, "User not found")
+    if not u or not u.is_active:
+        raise HTTPException(401, "Invalid user")
 
-    access, exp = create_access(u.id, u.role or "")
-    new_refresh, _ = create_refresh(u.id)
+    access, exp = create_access(u.id, u.role or "", session_version=user.session_version, credential=user.credential)
+    new_refresh, _ = create_refresh(u.id, session_version=user.session_version, credential=user.credential)
     return TokenPair(
         access_token=access,
         refresh_token=new_refresh,
@@ -898,49 +798,21 @@ def introspect(body: IntrospectRequest, user: AuthUser | None = Depends(get_curr
     return IntrospectResponse(
         active=True,
         user_id=int(data["sub"]),
-        roles=data.get("roles", []),
+        roles=user.roles,
         exp=data.get("exp"),
     )
 
 
 @router.post("/introspect_any", response_model=IntrospectAnyResponse)
 def introspect_any(body: IntrospectRequest):
-    # Signature check but ignore expiration; supports both access/refresh tokens.
-    try:
-        from jose import jwt
-
-        payload = jwt.decode(
-            body.token,
-            settings.JWT_SECRET_KEY,
-            algorithms=[settings.JWT_ALG],
-            options={"verify_exp": False},
-        )
-    except Exception:
+    # Kept for compatibility, but expired/refresh tokens never authenticate a user.
+    from app.utils.authz import user_from_token
+    user = user_from_token(body.token)
+    claims = decode(body.token)
+    if not user or not claims:
         return IntrospectAnyResponse(active=False)
-
-    sub = payload.get("sub")
-    try:
-        user_id = int(sub) if sub is not None else None
-    except Exception:
-        user_id = None
-
-    roles = payload.get("roles") or []
-    if isinstance(roles, str):
-        roles = [roles]
-    if not isinstance(roles, list):
-        roles = []
-
-    typ = payload.get("typ")
-    if typ != "access":
-        roles = []
-
-    return IntrospectAnyResponse(
-        active=bool(user_id),
-        user_id=user_id,
-        roles=[str(r) for r in roles if r is not None],
-        exp=payload.get("exp"),
-        typ=str(typ) if typ is not None else None,
-    )
+    return IntrospectAnyResponse(active=True, user_id=user.user_id, roles=user.roles,
+                                 exp=claims["exp"], typ="access")
 
 
 @router.get("/me")
@@ -955,9 +827,9 @@ def update_profile(req: UpdateProfileRequest, user: AuthUser = Depends(get_curre
         raise HTTPException(404, "User not found")
 
     # IIN is an immutable identifier and must never be updated via profile edits.
-    for field, value in req.dict(exclude_unset=True).items():
-        if field == "iin":
-            continue
+    for field, value in req.model_dump(exclude_unset=True).items():
+        if field not in {"first_name", "last_name", "phone", "avatar_url"}:
+            raise HTTPException(422, "Profile field is not editable")
         setattr(u, field, value)
 
     db.commit()
@@ -1079,7 +951,8 @@ def twofa_verify(body: TwoFAVerifyRequest, request: Request, db: Session = Depen
     )
     audit_event("auth.2fa_verify_attempt", request, extra={"ip": ip, "challenge_id": body.challenge_id})
     try:
-        user_id = verify_code(challenge_id=body.challenge_id, code=body.code)
+        verified = verify_code(challenge_id=body.challenge_id, code=body.code, with_context=True)
+        user_id = verified["uid"]
     except ValueError as e:
         msg = str(e) or "Invalid code"
         if msg in {"Too many attempts"}:
@@ -1089,15 +962,17 @@ def twofa_verify(body: TwoFAVerifyRequest, request: Request, db: Session = Depen
         raise HTTPException(status_code=400, detail=msg)
     except Exception as e:
         audit_event("auth.2fa_verify_failed", request, success=False, reason="unavailable", extra={"ip": ip, "error": str(e)})
-        raise HTTPException(status_code=503, detail=f"2FA unavailable: {e}")
+        raise HTTPException(status_code=503, detail="Authentication service temporarily unavailable")
 
     u = db.get(User, int(user_id))
     if not u or not u.is_active:
         audit_event("auth.2fa_verify_failed", request, success=False, reason="invalid_user", extra={"ip": ip, "user_id": int(user_id or 0)})
         raise HTTPException(401, "Invalid credentials")
 
-    access, exp = create_access(u.id, u.role or "")
-    refresh, _ = create_refresh(u.id)
+    if verified["credential"] is not None and verified["credential"] != credential_fingerprint(u.hashed_password):
+        raise HTTPException(401, "Authentication changed; sign in again")
+    access, exp = create_access(u.id, u.role or "", session_version=verified["ver"], credential=verified["credential"])
+    refresh, _ = create_refresh(u.id, session_version=verified["ver"], credential=verified["credential"])
     mark_known_ip(user_id=int(u.id), ip=ip)
     audit_event("auth.2fa_verify_success", request, target_user_id=u.id, target_email=u.email, success=True, extra={"ip": ip})
     return TokenPair(
@@ -1132,7 +1007,7 @@ def twofa_resend(body: TwoFAResendRequest, request: Request, db: Session = Depen
         raise HTTPException(status_code=400, detail=str(e) or "Invalid challenge")
     except Exception as e:
         audit_event("auth.2fa_resend_failed", request, success=False, reason="unavailable", extra={"ip": ip, "error": str(e)})
-        raise HTTPException(status_code=503, detail=f"2FA unavailable: {e}")
+        raise HTTPException(status_code=503, detail="Authentication service temporarily unavailable")
 
     u = db.get(User, int(user_id))
     if not u:
@@ -1143,7 +1018,7 @@ def twofa_resend(body: TwoFAResendRequest, request: Request, db: Session = Depen
         send_2fa_code_email(to_email=u.email, code=code, ttl_seconds=int(ttl))
     except Exception as e:
         audit_event("auth.2fa_resend_failed", request, success=False, reason="email_send_failed", extra={"ip": ip, "error": str(e)})
-        raise HTTPException(status_code=503, detail=f"Failed to send 2FA email: {e}")
+        raise HTTPException(status_code=503, detail="Authentication service temporarily unavailable")
 
     audit_event("auth.2fa_resend_success", request, target_user_id=u.id, target_email=u.email, success=True, extra={"ip": ip, "expires_in": int(ttl)})
     return {"ok": True, "expires_in": int(ttl)}
@@ -1183,3 +1058,42 @@ def get_user_admin(
         created_at=u.created_at if hasattr(u, "created_at") else None,
         updated_at=u.updated_at if hasattr(u, "updated_at") else None,
     )
+
+
+@router.post("/logout", status_code=204)
+def logout(request: Request, body: IntrospectRequest | None = None,
+           user: AuthUser = Depends(get_current_user)):
+    from app.utils.tokens import revoke_access, consume_refresh
+    access = request.headers["authorization"].split(" ", 1)[1].strip()
+    revoke_access(decode(access))
+    if body:
+        claims = decode(body.token)
+        if not claims or claims["typ"] != "refresh" or int(claims["sub"]) != user.user_id:
+            raise HTTPException(401, "Invalid refresh token")
+        try:
+            consume_refresh(claims)
+        except HTTPException as exc:
+            if exc.status_code != 401:
+                raise
+
+
+@router.patch("/users/{user_id}/access")
+def update_user_access(user_id: int, payload: UserAccessUpdate, request: Request,
+                       actor: AuthUser = Depends(require_roles("admin")), db: Session = Depends(get_db)):
+    user = db.get(User, user_id)
+    if not user:
+        raise HTTPException(404, "User not found")
+    if user_id == actor.user_id and (payload.is_active is False or payload.role not in (None, "admin")):
+        raise HTTPException(409, "Cannot remove your own administrative access")
+    if (payload.role is not None and payload.role != user.role) or (payload.is_active is not None and payload.is_active != user.is_active):
+        from app.utils.tokens import invalidate_user_sessions
+        invalidate_user_sessions(user_id)
+    if payload.role is not None:
+        user.role = payload.role
+    if payload.is_active is not None:
+        user.is_active = payload.is_active
+    db.commit()
+    audit_event("auth.access_updated", request, actor_user_id=actor.user_id,
+                target_user_id=user_id, success=True,
+                extra={"role": user.role, "is_active": user.is_active})
+    return {"user_id": user.id, "role": user.role, "is_active": user.is_active}

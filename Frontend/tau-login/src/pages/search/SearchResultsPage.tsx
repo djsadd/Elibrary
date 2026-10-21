@@ -1,10 +1,12 @@
+import BookCard from "@/components/common/BookCard";
+import CatalogSearch from "@/components/common/CatalogSearch";
+import { t } from "@/shared/i18n";
+import { designCopy } from "@/shared/designCopy";
 import { Link, useSearchParams } from "react-router-dom";
 import { useEffect, useRef, useState } from "react";
 import DashboardHeader from "@/components/layout/DashboardHeader";
 import { api } from "@/shared/api/client";
-import { namesFrom } from "@/shared/ui/text";
 import { searchBooks, type SearchResponse } from "@/shared/api/search";
-import bookImg from "@/assets/images/Image.png";
 
 type FilterId = "all" | "books" | "ebooks" | "audio" | "articles";
 const FILTER_TO_FORMAT: Record<FilterId, string | null> = {
@@ -157,35 +159,13 @@ export default function SearchResultsPage() {
   return (
     <div>
       <DashboardHeader />
-      <h1 className="text-2xl font-semibold text-[#7b0f2b] mb-4">Search</h1>
+      <div className="page-heading"><h1>{t("header.search.ariaLabel")}</h1><p>{q || designCopy().searchHint}</p></div>
       {error && <div className="text-red-600 mb-2">{error}</div>}
-      {!q && initialFetched.current && <div className="text-slate-500">Type a query to search.</div>}
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-7 gap-3 sm:gap-4">
+      <CatalogSearch key={q} initialValue={q}/>
+      <div className="book-grid">
         {loading
           ? Array.from({ length: 12 }).map((_, idx) => <SkeletonCard key={`sk-${idx}`} />)
-          : items.map((book) => (
-              <Link
-                to={`/catalog/${book.id}?from=vector-search&q=${encodeURIComponent(q)}`}
-                key={String(book.id)}
-                className="group relative block bg-white border border-gray-100 rounded-lg p-2 sm:p-3 text-center shadow-sm hover:shadow-md transition-shadow"
-              >
-                <div className="relative mb-3">
-                  <img
-                    src={book.cover || bookImg}
-                    onError={(event) => {
-                      event.currentTarget.onerror = null;
-                      event.currentTarget.src = bookImg;
-                    }}
-                    alt={`book-${book.id}`}
-                    className="w-full h-44 sm:h-56 object-contain rounded-md bg-slate-100 p-2"
-                  />
-                </div>
-                <div className="text-sm font-medium text-slate-800 truncate">{book.title}</div>
-                {namesFrom((book as any).authors).length ? (
-                  <div className="text-xs text-slate-400 truncate">{namesFrom((book as any).authors).join(", ")}</div>
-                ) : null}
-              </Link>
-            ))}
+          : items.map(book=><BookCard key={book.id} book={book} to={`/catalog/${book.id}?from=vector-search&q=${encodeURIComponent(q)}`}/>)}
       </div>
       {!loading && !error && q && items.length > 0 && totalPages > 1 && (
         <div className="flex flex-wrap items-center justify-center gap-2 mt-6">
@@ -195,7 +175,7 @@ export default function SearchResultsPage() {
             disabled={page <= 1}
             className="px-3 py-1 rounded border text-sm disabled:opacity-50"
           >
-            Prev
+            {designCopy().previous}
           </button>
           {pageNumbers.map((n, idx) => {
             const prev = pageNumbers[idx - 1];
@@ -207,7 +187,7 @@ export default function SearchResultsPage() {
                   type="button"
                   onClick={() => goToPage(n)}
                   className={n === page
-                    ? "px-3 py-1 rounded bg-[#7b0f2b] text-white text-sm"
+                    ? "px-3 py-1 rounded bg-[#b51e3e] text-white text-sm"
                     : "px-3 py-1 rounded border text-sm"}
                 >
                   {n}
@@ -221,12 +201,12 @@ export default function SearchResultsPage() {
             disabled={page >= totalPages}
             className="px-3 py-1 rounded border text-sm disabled:opacity-50"
           >
-            Next
+            {designCopy().next}
           </button>
         </div>
       )}
       {!loading && !error && q && items.length === 0 && (
-        <div className="text-slate-500 mt-4">No results</div>
+        <div className="text-slate-500 mt-4">{designCopy().noResults}</div>
       )}
     </div>
   );

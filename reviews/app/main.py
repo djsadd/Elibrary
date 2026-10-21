@@ -1,3 +1,4 @@
+from app.utils.request_limits import RequestLimitsMiddleware
 from fastapi import FastAPI
 from app.api.v1 import reviews
 from app.core.db import Base, engine
@@ -15,7 +16,7 @@ app = FastAPI(title="Reviews Service")
 # CORS для фронтенда
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # или конкретный фронтенд
+    allow_origins=[],  # или конкретный фронтенд
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -24,3 +25,6 @@ app.add_middleware(
 app.include_router(reviews.router)
 
 Instrumentator().instrument(app).expose(app, endpoint="/metrics")
+
+
+app.add_middleware(RequestLimitsMiddleware)

@@ -1,0 +1,38 @@
+[
+  {
+    "family": "inter",
+    "subset": "latin",
+    "file": "inter-latin-wght-normal.woff2",
+    "version": "5.3.0"
+  },
+  {
+    "family": "inter",
+    "subset": "cyrillic",
+    "file": "inter-cyrillic-wght-normal.woff2",
+    "version": "5.3.0"
+  },
+  {
+    "family": "inter",
+    "subset": "cyrillic-ext",
+    "file": "inter-cyrillic-ext-wght-normal.woff2",
+    "version": "5.3.0"
+  },
+  {
+    "family": "montserrat",
+    "subset": "latin",
+    "file": "montserrat-latin-wght-normal.woff2",
+    "version": "5.3.0"
+  },
+  {
+    "family": "montserrat",
+    "subset": "cyrillic",
+    "file": "montserrat-cyrillic-wght-normal.woff2",
+    "version": "5.3.0"
+  },
+  {
+    "family": "montserrat",
+    "subset": "cyrillic-ext",
+    "file": "montserrat-cyrillic-ext-wght-normal.woff2",
+    "version": "5.3.0"
+  }
+]

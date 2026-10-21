@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import StreamingResponse
 
 from app.core.config import settings
+from app.utils.authz import get_current_user, AuthUser
 from app.core.es import create_es
 from app.core.security import require_admin_token
 from app.schemas.books import (
@@ -39,20 +40,23 @@ def _es_fields(prefix_boost: bool) -> list[str]:
     return ["title^4", "authors^2", "subjects"]
 
 
-@router.get("/search", response_model=SearchResponse)
-@router.get("/api/search", response_model=SearchResponse)
+@router.get("/search", response_model=SearchResponse, dependencies=[Depends(get_current_user)])
+@router.get("/api/search", response_model=SearchResponse, dependencies=[Depends(get_current_user)])
 async def search(
     request: Request,
     q: str | None = None,
     lang: str | None = None,
     year: str | None = None,
     limit: int = Query(default=settings.SEARCH_DEFAULT_LIMIT, ge=1, le=settings.SEARCH_MAX_LIMIT),
-    offset: int = Query(default=0, ge=0),
+    offset: int = Query(default=0, ge=0, le=10000),
+    user: AuthUser = Depends(get_current_user),
 ):
     es = create_es()
     try:
         must: list[dict] = []
         filters: list[dict] = []
+        if not {"admin", "librarian", "editor"}.intersection(user.roles):
+            filters.append({"term": {"is_public": True}})
 
         if q and q.strip():
             must.append(
@@ -95,26 +99,13 @@ async def search(
             except Exception:
                 continue
 
-        items: list[BookDoc] = []
+        # The live catalogue is authoritative, including while the search index is stale.
         try:
-            enriched = await fetch_books_batch(
-                ids=hit_ids,
-                authorization=request.headers.get("authorization"),
-            )
-            by_id = {int(b.get("id")): b for b in (enriched or []) if isinstance(b, dict) and b.get("id") is not None}
-            for d in hit_docs:
-                try:
-                    bid = int(d.get("id"))
-                except Exception:
-                    items.append(BookDoc(**d))
-                    continue
-                payload = by_id.get(bid)
-                if payload is None:
-                    items.append(BookDoc(**d))
-                else:
-                    items.append(BookDoc.from_catalog(payload))
-        except Exception:
-            items = [BookDoc(**d) for d in hit_docs]
+            enriched = await fetch_books_batch(ids=hit_ids, authorization=request.headers.get("authorization"))
+        except Exception as exc:
+            raise HTTPException(503, "Catalogue authorization unavailable") from exc
+        by_id = {int(b["id"]): b for b in enriched if isinstance(b, dict) and b.get("id") is not None}
+        items = [BookDoc.from_catalog(by_id[bid]) for bid in hit_ids if bid in by_id]
 
         return SearchResponse(items=items, page={"limit": limit, "offset": offset, "total": total})
     except NotFoundError:
@@ -123,16 +114,20 @@ async def search(
         await es.close()
 
 
-@router.get("/search/suggest", response_model=SuggestResponse)
-@router.get("/api/search/suggest", response_model=SuggestResponse)
+@router.get("/search/suggest", response_model=SuggestResponse, dependencies=[Depends(get_current_user)])
+@router.get("/api/search/suggest", response_model=SuggestResponse, dependencies=[Depends(get_current_user)])
 async def suggest(
-    q: str = Query(..., min_length=1),
+    request: Request,
+    q: str = Query(..., min_length=1, max_length=4000),
     lang: str | None = None,
     limit: int = Query(default=settings.SUGGEST_DEFAULT_LIMIT, ge=1, le=settings.SUGGEST_MAX_LIMIT),
+    user: AuthUser = Depends(get_current_user),
 ):
     es = create_es()
     try:
         filters: list[dict] = []
+        if not {"admin", "librarian", "editor"}.intersection(user.roles):
+            filters.append({"term": {"is_public": True}})
         if lang:
             filters.append({"term": {"lang": lang}})
 
@@ -156,14 +151,15 @@ async def suggest(
             size=limit,
             _source=["id", "title", "authors"],
         )
-        items = [
-            SuggestItem(
-                id=int(h["_source"]["id"]),
-                title=str(h["_source"].get("title") or ""),
-                authors=list(h["_source"].get("authors") or []),
-            )
-            for h in resp["hits"]["hits"]
-        ]
+        ids = [int(h["_source"]["id"]) for h in resp["hits"]["hits"]]
+        try:
+            allowed = await fetch_books_batch(ids=ids, authorization=request.headers.get("authorization"))
+        except Exception as exc:
+            raise HTTPException(503, "Catalogue authorization unavailable") from exc
+        items = []
+        for book in allowed:
+            doc = BookDoc.from_catalog(book)
+            items.append(SuggestItem(id=doc.id, title=doc.title, authors=doc.authors))
         return SuggestResponse(q=q, items=items)
     except NotFoundError:
         raise HTTPException(status_code=503, detail="Search index not initialized")
@@ -171,8 +167,8 @@ async def suggest(
         await es.close()
 
 
-@router.post("/search/book-recommendation-explanation", response_model=BookRecommendationExplanationResponse)
-@router.post("/api/search/book-recommendation-explanation", response_model=BookRecommendationExplanationResponse)
+@router.post("/search/book-recommendation-explanation", response_model=BookRecommendationExplanationResponse, dependencies=[Depends(get_current_user)])
+@router.post("/api/search/book-recommendation-explanation", response_model=BookRecommendationExplanationResponse, dependencies=[Depends(get_current_user)])
 async def book_recommendation_explanation(request: Request, payload: BookRecommendationExplanationRequest):
     ui_language = None
     try:
@@ -195,8 +191,8 @@ async def book_recommendation_explanation(request: Request, payload: BookRecomme
         )
 
 
-@router.post("/search/book-recommendation-explanation/stream")
-@router.post("/api/search/book-recommendation-explanation/stream")
+@router.post("/search/book-recommendation-explanation/stream", dependencies=[Depends(get_current_user)])
+@router.post("/api/search/book-recommendation-explanation/stream", dependencies=[Depends(get_current_user)])
 async def book_recommendation_explanation_stream(request: Request, payload: BookRecommendationExplanationRequest):
     ui_language = None
     try:

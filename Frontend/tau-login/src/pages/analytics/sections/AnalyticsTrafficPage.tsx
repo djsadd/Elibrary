@@ -597,7 +597,7 @@ export default function AnalyticsTrafficPage() {
                   {daily.map((row) => (
                     <tr key={row.day} className={selectedDay === row.day ? "bg-slate-50" : ""}>
                       <td className="py-2">
-                        <button type="button" className="text-[#7b0f2b] hover:underline" onClick={() => setSelectedDay(row.day)}>
+                        <button type="button" className="text-[#b51e3e] hover:underline" onClick={() => setSelectedDay(row.day)}>
                           {row.day}
                         </button>
                       </td>
@@ -737,7 +737,7 @@ export default function AnalyticsTrafficPage() {
                 {(selectedVisitor || selectedRequestId) && (
                   <button
                     type="button"
-                    className="text-xs text-[#7b0f2b] hover:underline whitespace-nowrap"
+                    className="text-xs text-[#b51e3e] hover:underline whitespace-nowrap"
                     onClick={clearAllFilters}
                   >
                     {t("analytics.traffic.clearAll")}

@@ -1,89 +1,65 @@
-from typing import List
-
 from fastapi import Depends, HTTPException, Request
-from pydantic import BaseModel
-
-from app.utils.tokens import decode
+import hmac
+from pydantic import BaseModel, Field
+from app.core.db import SessionLocal
+from app.models.user import User
 from app.schemas.auth import IntrospectRequest
+from app.utils.tokens import consume_refresh, credential_fingerprint, decode, access_is_revoked, session_is_current
 
 
 class AuthUser(BaseModel):
     user_id: int
-    roles: List[str] = []
+    roles: list[str] = Field(default_factory=list)
+    session_version: str | None = None
+    credential: str | None = None
 
 
-def _extract_bearer(request: Request) -> str | None:
-    auth = request.headers.get("authorization", "")
-    if not auth.lower().startswith("bearer "):
+def user_from_token(token: str, token_type: str = "access") -> AuthUser | None:
+    claims = decode(token)
+    if not claims or claims["typ"] != token_type:
         return None
-    return auth.split(" ", 1)[1]
+    if not session_is_current(claims):
+        return None
+    if token_type == "access" and access_is_revoked(claims):
+        return None
+    with SessionLocal() as db:
+        user = db.get(User, int(claims["sub"]))
+        if not user or not user.is_active:
+            return None
+        credential = claims.get("pwd")
+        if credential is not None and not hmac.compare_digest(
+                str(credential).encode(), credential_fingerprint(user.hashed_password).encode()):
+            return None
+        # Use current database privileges, never stale roles from a JWT.
+        return AuthUser(user_id=user.id, roles=[r.strip() for r in (user.role or "").split(",") if r.strip()],
+                        session_version=claims["ver"], credential=credential)
 
 
 def get_current_user(request: Request) -> AuthUser:
-    token = _extract_bearer(request)
-    if not token:
-        raise HTTPException(status_code=401, detail="Missing bearer token")
-
-    data = decode(token)
-    if not data or data.get("typ") != "access":
-        raise HTTPException(status_code=401, detail="Invalid token")
-
-    sub = data.get("sub")
-    if sub is None:
-        raise HTTPException(status_code=401, detail="Invalid token")
-
-    roles = data.get("roles") or []
-    if isinstance(roles, str):
-        roles = [roles]
-
-    try:
-        user_id = int(sub)
-    except (TypeError, ValueError):
-        raise HTTPException(status_code=401, detail="Invalid token")
-
-    return AuthUser(user_id=user_id, roles=[str(r) for r in roles if r is not None])
+    auth = request.headers.get("authorization", "")
+    token = auth.split(" ", 1)[1].strip() if auth.lower().startswith("bearer ") else ""
+    user = user_from_token(token)
+    if not user:
+        raise HTTPException(401, "Invalid access token", headers={"WWW-Authenticate": "Bearer"})
+    return user
 
 
 def require_roles(*required: str):
-    required_set = {r.strip().lower() for r in required if r and r.strip()}
-
-    def _checker(user: AuthUser = Depends(get_current_user)) -> AuthUser:
-        if not required_set:
-            return user
-        user_roles = {str(r).strip().lower() for r in (user.roles or []) if r}
-        if user_roles.intersection(required_set):
-            return user
-        raise HTTPException(status_code=403, detail="Forbidden")
-
-    return _checker
+    allowed = {r.lower() for r in required}
+    def checker(user: AuthUser = Depends(get_current_user)) -> AuthUser:
+        if allowed and not allowed.intersection(r.lower() for r in user.roles):
+            raise HTTPException(403, "Forbidden")
+        return user
+    return checker
 
 
 def get_current_user_from_refresh_body(body: IntrospectRequest) -> AuthUser:
-    data = decode(body.token)
-    if not data or data.get("typ") != "refresh":
-        raise HTTPException(status_code=401, detail="Invalid refresh")
-    sub = data.get("sub")
-    if sub is None:
-        raise HTTPException(status_code=401, detail="Invalid refresh")
-    try:
-        user_id = int(sub)
-    except (TypeError, ValueError):
-        raise HTTPException(status_code=401, detail="Invalid refresh")
-    return AuthUser(user_id=user_id, roles=[])
+    user = user_from_token(body.token, "refresh")
+    if not user:
+        raise HTTPException(401, "Invalid refresh token")
+    consume_refresh(decode(body.token))
+    return user
 
 
 def get_current_user_from_access_body_optional(body: IntrospectRequest) -> AuthUser | None:
-    data = decode(body.token)
-    if not data or data.get("typ") != "access":
-        return None
-    sub = data.get("sub")
-    if sub is None:
-        return None
-    try:
-        user_id = int(sub)
-    except (TypeError, ValueError):
-        return None
-    roles = data.get("roles") or []
-    if isinstance(roles, str):
-        roles = [roles]
-    return AuthUser(user_id=user_id, roles=[str(r) for r in roles if r is not None])
+    return user_from_token(body.token)

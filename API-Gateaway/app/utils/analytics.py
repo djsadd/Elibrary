@@ -7,7 +7,8 @@ from typing import Any, Iterable
 from urllib.parse import urljoin
 
 import httpx
-from jose import jwt, JWTError
+import jwt
+from jwt import PyJWTError as JWTError
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import Response
@@ -77,7 +78,7 @@ class AnalyticsMiddleware(BaseHTTPMiddleware):
             return None
         token = auth_header.split(" ", 1)[1]
         try:
-            payload = jwt.decode(token, settings.JWT_SECRET, algorithms=["HS256"])
+            payload = jwt.decode(token, settings.JWT_SECRET, algorithms=["HS256"], issuer="elibrary-auth", audience="elibrary")
             sub = payload.get("sub")
             if sub is None:
                 return None
@@ -108,7 +109,7 @@ class AnalyticsMiddleware(BaseHTTPMiddleware):
                     token,
                     settings.JWT_SECRET,
                     algorithms=["HS256"],
-                    options={"verify_exp": False},
+                    issuer="elibrary-auth", audience="elibrary",
                 )
                 sub = payload.get("sub")
                 if sub is None:
@@ -128,19 +129,14 @@ class AnalyticsMiddleware(BaseHTTPMiddleware):
         return auth_header.split(" ", 1)[1]
 
     async def _introspect_user_id(self, token: str) -> int | None:
-        cached = self._token_cache.get(token)
-        now = time.time()
-        if cached and cached.get("expires", 0) > now:
-            return cached.get("user_id")
-
         base = str(settings.AUTH_SERVICE_URL).rstrip("/") + "/"
         # Use 'introspect_any' so analytics can attribute even for expired tokens and refresh tokens.
-        url = urljoin(base, "auth/introspect_any")
+        url = urljoin(base, "auth/introspect")
         try:
             timeout = max(float(self.timeout_s), 1.0)
             async with httpx.AsyncClient(timeout=timeout) as client:
                 resp = await client.post(url, json={"token": token})
-            if not resp.ok:
+            if not resp.is_success:
                 return None
             data = resp.json()
             if not data or not data.get("active"):
@@ -149,7 +145,6 @@ class AnalyticsMiddleware(BaseHTTPMiddleware):
             if user_id is None:
                 return None
             uid = int(user_id)
-            self._token_cache[token] = {"user_id": uid, "expires": now + self._token_cache_ttl_s}
             return uid
         except Exception:
             return None
@@ -193,12 +188,12 @@ class AnalyticsMiddleware(BaseHTTPMiddleware):
             values = request.query_params.getlist(key)
             if not values:
                 continue
-            out[key] = values[0] if len(values) == 1 else values
+            out[key] = "***redacted***" if key.lower() in {k.lower() for k in settings.ANALYTICS_REDACT_KEYS} else (values[0] if len(values) == 1 else values)
         return out
 
     def _redact_obj(self, obj: Any, redact_keys: set[str], depth: int = 0) -> Any:
         if depth > 6:
-            return obj
+            return "***redacted-depth***"
         if isinstance(obj, dict):
             redacted: dict[str, Any] = {}
             for k, v in obj.items():
@@ -237,16 +232,18 @@ class AnalyticsMiddleware(BaseHTTPMiddleware):
                 meta["json"] = self._redact_obj(parsed, redact_keys)
             except Exception as e:
                 meta["json_error"] = str(e)
-                meta["body_preview"] = text_preview
+                meta["body_skipped"] = True
         elif text_preview is not None and (
             content_type.startswith("text/") or "application/x-www-form-urlencoded" in content_type
         ):
-            meta["body_preview"] = text_preview
+            meta["body_skipped"] = True
 
         return meta
 
     async def _capture_request_meta(self, request: Request) -> dict[str, Any] | None:
-        if not getattr(settings, "ANALYTICS_CAPTURE_BODY", True):
+        if request.url.path.startswith(("/api/auth", "/auth")):
+            return None
+        if not getattr(settings, "ANALYTICS_CAPTURE_BODY", False):
             return None
 
         # Avoid reading potentially huge uploads (reading Request.body() buffers entire request).
@@ -314,7 +311,7 @@ class AnalyticsMiddleware(BaseHTTPMiddleware):
         url = f"{self.endpoint}/analytics/events"
         try:
             async with httpx.AsyncClient(timeout=self.timeout_s) as client:
-                await client.post(url, json=payload)
+                await client.post(url, json=payload, headers={"X-Service-Token": settings.INTERNAL_API_TOKEN})
         except Exception:
             return
 
@@ -356,6 +353,7 @@ class AnalyticsMiddleware(BaseHTTPMiddleware):
                 max_age=settings.ANALYTICS_COOKIE_MAX_AGE_DAYS * 86400,
                 samesite="lax",
                 httponly=True,
+                secure=request.url.scheme == "https",
             )
         if self.session_cookie not in request.cookies:
             response.set_cookie(
@@ -364,6 +362,7 @@ class AnalyticsMiddleware(BaseHTTPMiddleware):
                 max_age=settings.ANALYTICS_SESSION_MAX_AGE_HOURS * 3600,
                 samesite="lax",
                 httponly=True,
+                secure=request.url.scheme == "https",
             )
 
         payload = {

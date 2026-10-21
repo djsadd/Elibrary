@@ -95,7 +95,8 @@ ipython_config.py
 #Pipfile.lock
 
 # dependencies
-/node_modules
+node_modules/
+.local/
 /.pnp
 .pnp.js
 .expo/
@@ -183,3 +184,22 @@ cython_debug/
 #  and can be added to the global gitignore or merged into this file.  For a more nuclear
 #  option (not recommended) you can uncomment the following to ignore the entire idea folder.
 #.idea/
+
+# Deployment configuration and runtime data stay on their host.
+.env.*
+!.env.example
+!.env.*.example
+*.db
+*.db-*
+*.sqlite
+*.sqlite-*
+*.sqlite3
+*.sqlite3-*
+storage/
+uploads/
+*.dump
+*.bak
+*.pem
+*.key
+.taste-skill/
+.research/

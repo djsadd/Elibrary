@@ -229,18 +229,18 @@ export default function QuickArticlePage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-6">
+    <div className="article-editor">
       <div className="max-w-4xl mx-auto">
         {/* Header */}
         <div className="mb-8">
           <button
             type="button"
             onClick={() => navigate("/admin")}
-            className="text-sm text-[#7b0f2b] hover:text-rose-700 font-medium mb-4 flex items-center gap-2"
+            className="text-sm text-[#b51e3e] hover:text-rose-700 font-medium mb-4 flex items-center gap-2"
           >
             ← Back to Admin
           </button>
-          <div className="rounded-lg p-6 bg-gradient-to-r from-[#7b0f2b] via-rose-600 to-pink-500 text-white shadow-lg">
+          <div className="admin-editor-banner">
             <div className="flex items-center gap-3 mb-2">
               <span className="text-3xl">⚡</span>
               <h1 className="text-3xl font-bold">Quick Article Upload</h1>
@@ -263,7 +263,7 @@ export default function QuickArticlePage() {
           {/* Required Fields Section */}
           <div className="bg-white rounded-lg p-6 shadow-sm border border-slate-200">
             <div className="flex items-center gap-2 mb-5">
-              <span className="text-xl font-bold text-[#7b0f2b]">1</span>
+              <span className="text-xl font-bold text-[#b51e3e]">1</span>
               <h2 className="text-lg font-semibold text-slate-800">Essential Information</h2>
               <span className="text-xs bg-red-100 text-red-700 px-2 py-1 rounded">Required</span>
             </div>
@@ -280,7 +280,7 @@ export default function QuickArticlePage() {
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
                   placeholder="Enter article title..."
-                  className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#7b0f2b] focus:border-transparent transition"
+                  className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#b51e3e] focus:border-transparent transition"
                 />
               </div>
 
@@ -338,7 +338,7 @@ export default function QuickArticlePage() {
                               setFormats(formats.filter((f) => f !== fmt));
                             }
                           }}
-                          className="w-4 h-4 text-[#7b0f2b] rounded border-slate-300 focus:ring-2 focus:ring-[#7b0f2b]"
+                          className="w-4 h-4 text-[#b51e3e] rounded border-slate-300 focus:ring-2 focus:ring-[#b51e3e]"
                         />
                         <span className="text-sm text-slate-700">{fmt}</span>
                       </label>
@@ -355,7 +355,7 @@ export default function QuickArticlePage() {
                   value={fileId}
                   onChange={(e) => setFileId(e.target.value)}
                   placeholder="Enter file ID (if already uploaded)..."
-                  className="w-full px-4 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#7b0f2b]"
+                  className="w-full px-4 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#b51e3e]"
                 />
               </div>
             </div>
@@ -378,7 +378,7 @@ export default function QuickArticlePage() {
                   value={year}
                   onChange={(e) => setYear(e.target.value)}
                   placeholder="2024"
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#7b0f2b]/30"
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#b51e3e]/30"
                 />
               </div>
 
@@ -389,7 +389,7 @@ export default function QuickArticlePage() {
                   <select
                     value={lang}
                     onChange={(e) => setLang(e.target.value)}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#7b0f2b]/30"
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#b51e3e]/30"
                   >
                     <option value="">Select language</option>
                     {langs.map((l) => (
@@ -404,7 +404,7 @@ export default function QuickArticlePage() {
                     value={lang}
                     onChange={(e) => setLang(e.target.value)}
                     placeholder="ru, en..."
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#7b0f2b]/30"
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#b51e3e]/30"
                   />
                 )}
               </div>
@@ -417,7 +417,7 @@ export default function QuickArticlePage() {
                   value={isbn}
                   onChange={(e) => setIsbn(e.target.value)}
                   placeholder="978-..."
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#7b0f2b]/30"
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#b51e3e]/30"
                 />
               </div>
 
@@ -429,7 +429,7 @@ export default function QuickArticlePage() {
                   value={edition}
                   onChange={(e) => setEdition(e.target.value)}
                   placeholder="1st edition..."
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#7b0f2b]/30"
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#b51e3e]/30"
                 />
               </div>
 
@@ -442,7 +442,7 @@ export default function QuickArticlePage() {
                   value={pageCount}
                   onChange={(e) => setPageCount(e.target.value)}
                   placeholder="150"
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#7b0f2b]/30"
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#b51e3e]/30"
                 />
               </div>
 
@@ -454,7 +454,7 @@ export default function QuickArticlePage() {
                   min="0"
                   value={availableCopies}
                   onChange={(e) => setAvailableCopies(e.target.value)}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#7b0f2b]/30"
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#b51e3e]/30"
                 />
               </div>
             </div>
@@ -467,7 +467,7 @@ export default function QuickArticlePage() {
                 value={pubInfo}
                 onChange={(e) => setPubInfo(e.target.value)}
                 placeholder="Publishing details..."
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#7b0f2b]/30"
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#b51e3e]/30"
               />
             </div>
 
@@ -479,7 +479,7 @@ export default function QuickArticlePage() {
                 onChange={(e) => setSummary(e.target.value)}
                 placeholder="Brief description of the article..."
                 rows={3}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#7b0f2b]/30"
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#b51e3e]/30"
               />
             </div>
           </div>
@@ -570,7 +570,7 @@ export default function QuickArticlePage() {
                   type="checkbox"
                   checked={isPublic}
                   onChange={(e) => setIsPublic(e.target.checked)}
-                  className="w-5 h-5 text-[#7b0f2b] rounded border-slate-300 focus:ring-2 focus:ring-[#7b0f2b]"
+                  className="w-5 h-5 text-[#b51e3e] rounded border-slate-300 focus:ring-2 focus:ring-[#b51e3e]"
                 />
                 <span className={`font-medium ${isPublic ? "text-emerald-700" : "text-slate-500"}`}>
                   {isPublic ? "Public" : "Private"}
@@ -591,7 +591,7 @@ export default function QuickArticlePage() {
             <button
               type="submit"
               disabled={loading}
-              className="flex-1 px-6 py-3 bg-gradient-to-r from-[#7b0f2b] to-rose-600 text-white font-semibold rounded-lg hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed transition"
+              className="flex-1 px-6 py-3 bg-[#b51e3e] text-white font-semibold rounded-lg hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed transition"
             >
               {loading ? "Creating..." : "🚀 Create Article"}
             </button>

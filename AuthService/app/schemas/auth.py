@@ -1,50 +1,56 @@
-from pydantic import BaseModel, EmailStr
-from typing import Any, Dict, List, Optional
+from pydantic import BaseModel, EmailStr, ConfigDict, Field, field_validator
+from typing import Any, Dict, List, Optional, Literal
 from datetime import datetime
 
 class RegisterRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
     email: EmailStr
-    password: str
-    iin: Optional[str] = None
-    first_name: Optional[str] = None
-    last_name: Optional[str] = None
-    phone: Optional[str] = None
-    avatar_url: Optional[str] = None
-    role: Optional[str] = "student"
-    permissions: Optional[str] = None
-    institution: Optional[str] = None
-    faculty: Optional[str] = None
-    group_name: Optional[str] = None
-    subscription_type: Optional[str] = "free"
-    subscription_expire_at: Optional[datetime] = None
-    google_id: Optional[str] = None
-    github_id: Optional[str] = None
+    password: str = Field(min_length=12, max_length=1024)
+    first_name: Optional[str] = Field(None, max_length=255)
+    last_name: Optional[str] = Field(None, max_length=255)
 
 
 class UpdateProfileRequest(BaseModel):
-    first_name: Optional[str] = None
-    last_name: Optional[str] = None
-    phone: Optional[str] = None
-    avatar_url: Optional[str] = None
-    role: Optional[str] = None
-    permissions: Optional[str] = None
-    institution: Optional[str] = None
-    faculty: Optional[str] = None
-    group_name: Optional[str] = None
-    subscription_type: Optional[str] = None
-    subscription_expire_at: Optional[datetime] = None
-    google_id: Optional[str] = None
-    github_id: Optional[str] = None
+    model_config = ConfigDict(extra="forbid")
+    first_name: Optional[str] = Field(None, max_length=255)
+    last_name: Optional[str] = Field(None, max_length=255)
+    phone: Optional[str] = Field(None, max_length=50)
+    avatar_url: Optional[str] = Field(None, max_length=500)
 
 
 class LoginRequest(BaseModel):
     email: EmailStr
-    password: str
+    password: str = Field(min_length=1, max_length=1024)
+
+
+class PasswordResetRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    email: EmailStr
+
+
+class PasswordResetConfirmRequest(PasswordResetRequest):
+    code: str = Field(pattern=r"^[0-9]{6}$")
+    new_password: str = Field(min_length=12, max_length=1024)
+
+    @field_validator("new_password")
+    @classmethod
+    def strong_password(cls, value: str) -> str:
+        if not (any(c.islower() for c in value) and any(c.isupper() for c in value)
+                and any(c.isdigit() for c in value)
+                and any(not c.isalnum() and not c.isspace() for c in value)):
+            raise ValueError("Password must include lowercase, uppercase, a number and a symbol")
+        return value
+
+
+class UserAccessUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    role: Literal["student", "teacher", "editor", "librarian", "admin"] | None = None
+    is_active: bool | None = None
 
 
 class PlatonusLoginRequest(BaseModel):
     login: str
-    password: str
+    password: str = Field(min_length=1, max_length=1024)
     iin: Optional[str] = None
     icNumber: Optional[str] = None
     authForDeductedStudentsAndGraduates: Optional[bool] = False
@@ -52,7 +58,7 @@ class PlatonusLoginRequest(BaseModel):
 
 class VerifyCodeRequest(BaseModel):
     email: EmailStr
-    code: str
+    code: str = Field(pattern=r"^\d{6}$")
 
 
 class TokenPair(BaseModel):
@@ -95,7 +101,7 @@ class PlatonusEmailVerifyRequest(BaseModel):
 
 
 class IntrospectRequest(BaseModel):
-    token: str
+    token: str = Field(min_length=1, max_length=8192)
 
 
 class IntrospectResponse(BaseModel):

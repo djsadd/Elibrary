@@ -1,420 +1,139 @@
-import { useState, useEffect } from "react";
-import { Link, useLocation } from "react-router-dom";
-import LanguageSwitcher from "@/components/common/LanguageSwitcher";
-import { NavDropdown } from "@/components/common/NavDropdown";
-import { UsefulLinksDropdown } from "@/components/common/UsefulLinksDropdown";
-import { getLang, t } from "@/shared/i18n";
-import logoUrl from "@/assets/images/Logo.svg";
-import logoWhiteUrl from "@/assets/images/LogoWhite.png";
+import { useEffect, useRef, useState } from 'react';
+import { Link, useLocation } from 'react-router-dom';
+import LibraryBrand from '@/components/common/LibraryBrand';
+import LanguageSwitcher from '@/components/common/LanguageSwitcher';
+import { getLang, t } from '@/shared/i18n';
+import { designCopy } from '@/shared/designCopy';
+import { USEFUL_LINK_CATEGORIES } from '@/shared/usefulLinks';
 
-const PUBLIC_A11Y_STORAGE_KEY = "public_a11y_mode";
-
-type ContentMenuItem = {
-  id: number;
-  title: string;
-  title_ru?: string | null;
-  title_kk?: string | null;
-  title_en?: string | null;
-  path?: string | null;
-  children: ContentMenuItem[];
+type ContentMenuItem = { id: number; title: string; title_ru?: string | null; title_kk?: string | null; title_en?: string | null; path?: string | null; children?: ContentMenuItem[] };
+type MenuLink = { title: string; to: string };
+type MenuGroup = { id: string; title: string; to?: string; links?: MenuLink[]; description?: string };
+const NAV_COPY = {
+  ru: {menu:'Меню', close:'Закрыть меню', browse:'Открывайте новые знания', intro:'Всё, что нужно для учёбы, исследований и вдохновения.', all:'Все материалы', catalog:'Каталог', login:'Войти', library:'Электронная библиотека', students:['Инструкции по базам данных','Библиографический список','Индекс УДК / ББК','Утрата библиотечной книги','Цифровые копии книг','Читальный зал'], teachers:['Индекс цитирования','Оформление научных публикаций','Заявка на приобретение литературы']},
+  en: {menu:'Menu', close:'Close menu', browse:'Discover your next idea', intro:'Everything you need to learn, research and find inspiration.', all:'All materials', catalog:'Catalogue', login:'Sign in', library:'Digital library', students:['Database guides','Bibliographic references','UDC / LBC index','Lost library book','Digital book copies','Reading room'], teachers:['Citation index','Publication guidelines','Request new literature']},
+  kk: {menu:'Мәзір', close:'Мәзірді жабу', browse:'Жаңа білімді ашыңыз', intro:'Оқу, зерттеу және шабыт алу үшін қажеттінің бәрі.', all:'Барлық материалдар', catalog:'Каталог', login:'Кіру', library:'Электрондық кітапхана', students:['Дерекқор нұсқаулықтары','Библиографиялық тізім','ӘОЖ / КБЖ индексі','Жоғалған кітап','Кітаптардың цифрлық көшірмелері','Оқу залы'], teachers:['Дәйексөз индексі','Ғылыми жарияланымды рәсімдеу','Әдебиет сатып алу өтінімі']},
 };
-
-function resolveMenuTitle(item: Pick<ContentMenuItem, "title" | "title_ru" | "title_kk" | "title_en">): string {
-  const lang = getLang();
-  if (lang === "ru" && item.title_ru?.trim()) return item.title_ru;
-  if (lang === "kk" && item.title_kk?.trim()) return item.title_kk;
-  if (lang === "en" && item.title_en?.trim()) return item.title_en;
-  return item.title?.trim() || item.title_ru?.trim() || item.title_kk?.trim() || item.title_en?.trim() || "";
-}
-
-function readA11yModeFromStorage(): boolean {
-  if (typeof window === "undefined") return false;
-  try {
-    return localStorage.getItem(PUBLIC_A11Y_STORAGE_KEY) === "1";
-  } catch {
-    return false;
-  }
-}
-
-function readHasTokenFromStorage(): boolean {
-  if (typeof window === "undefined") return false;
-  try {
-    return Boolean(localStorage.getItem("token") || sessionStorage.getItem("token"));
-  } catch {
-    return false;
-  }
-}
+const external = (to: string) => /^https?:\/\//i.test(to);
+const readStored = (key: string) => { try { return localStorage.getItem(key); } catch { return null; } };
+const tokenPresent = () => { try { return Boolean(localStorage.getItem('token') || sessionStorage.getItem('token')); } catch { return false; } };
 
 export function PublicHeader() {
   const location = useLocation();
-  const [mobileMenuMounted, setMobileMenuMounted] = useState(false);
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [a11yMode, setA11yMode] = useState(readA11yModeFromStorage);
-  const [hasToken, setHasToken] = useState(readHasTokenFromStorage);
+  const lang = getLang();
+  const copy = NAV_COPY[lang];
   const [contentMenu, setContentMenu] = useState<ContentMenuItem[]>([]);
-
-  const openMobileMenu = () => {
-    setMobileMenuMounted(true);
-    requestAnimationFrame(() => setMobileMenuOpen(true));
+  const [activeGroup, setActiveGroup] = useState<string | null>(null);
+  const [mobileMounted, setMobileMounted] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const [a11y, setA11y] = useState(() => readStored('public_a11y_mode') === '1');
+  const [hasToken, setHasToken] = useState(tokenPresent);
+  const [scrolled, setScrolled] = useState(false);
+  const headerRef = useRef<HTMLElement>(null);
+  const drawerRef = useRef<HTMLDivElement>(null);
+  const toggleRef = useRef<HTMLButtonElement>(null);
+  const activeTrigger = useRef<HTMLButtonElement | null>(null);
+  const hoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const openFrame = useRef<number | null>(null);
+  const cancelHover = () => { if (hoverTimer.current) clearTimeout(hoverTimer.current); };
+  const closeMobile = () => {
+    if (openFrame.current !== null) cancelAnimationFrame(openFrame.current);
+    setMobileOpen(false);
+    if (closeTimer.current) clearTimeout(closeTimer.current);
+    closeTimer.current = setTimeout(() => { setMobileMounted(false); toggleRef.current?.focus(); }, 260);
   };
-
-  const closeMobileMenu = () => {
-    setMobileMenuOpen(false);
-    window.setTimeout(() => setMobileMenuMounted(false), 220);
+  const openMobile = () => {
+    if (closeTimer.current) clearTimeout(closeTimer.current);
+    setActiveGroup(null); setMobileMounted(true);
+    openFrame.current = requestAnimationFrame(() => {
+      openFrame.current = requestAnimationFrame(() => setMobileOpen(true));
+    });
   };
-
   useEffect(() => {
-    if (!mobileMenuMounted) return;
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") closeMobileMenu();
-    };
-    document.addEventListener("keydown", onKeyDown);
-    return () => {
-      document.body.style.overflow = prev;
-      document.removeEventListener("keydown", onKeyDown);
-    };
-  }, [mobileMenuMounted]);
-
+    const controller = new AbortController();
+    fetch('/api/catalog/public/content/menu', {signal:controller.signal}).then(r => r.ok ? r.json() : []).then(data => { if (!controller.signal.aborted) setContentMenu(Array.isArray(data) ? data : []); }).catch(() => {});
+    return () => controller.abort();
+  }, []);
   useEffect(() => {
     const root = document.documentElement;
-    root.classList.add("public-theme");
-    root.classList.toggle("public-a11y", a11yMode);
-    try {
-      localStorage.setItem(PUBLIC_A11Y_STORAGE_KEY, a11yMode ? "1" : "0");
-    } catch {
-      // ignore
-    }
-    return () => {
-      root.classList.remove("public-theme");
-      root.classList.remove("public-a11y");
-    };
-  }, [a11yMode]);
-
+    root.classList.add('public-theme'); root.classList.toggle('public-a11y',a11y);
+    try { localStorage.setItem('public_a11y_mode',a11y ? '1' : '0'); } catch {}
+    return () => { root.classList.remove('public-theme','public-a11y'); };
+  }, [a11y]);
   useEffect(() => {
-    const update = () => setHasToken(readHasTokenFromStorage());
-    update();
-    window.addEventListener("storage", update);
-    window.addEventListener("auth:changed", update as EventListener);
-    return () => {
-      window.removeEventListener("storage", update);
-      window.removeEventListener("auth:changed", update as EventListener);
+    const sync = () => setHasToken(tokenPresent());
+    const scroll = () => setScrolled(window.scrollY > 16);
+    scroll();
+    window.addEventListener('storage',sync); window.addEventListener('auth:changed',sync); window.addEventListener('auth:logout',sync); window.addEventListener('scroll',scroll,{passive:true});
+    return () => { window.removeEventListener('storage',sync); window.removeEventListener('auth:changed',sync); window.removeEventListener('auth:logout',sync); window.removeEventListener('scroll',scroll); cancelHover(); if (closeTimer.current) clearTimeout(closeTimer.current); if (openFrame.current !== null) cancelAnimationFrame(openFrame.current); };
+  }, []);
+  useEffect(() => {
+    cancelHover();
+    if (openFrame.current !== null) cancelAnimationFrame(openFrame.current);
+    if (closeTimer.current) clearTimeout(closeTimer.current);
+    setActiveGroup(null); setMobileOpen(false); setMobileMounted(false);
+  }, [location.pathname]);
+  useEffect(() => {
+    const onPointer = (event: PointerEvent) => { if (!headerRef.current?.contains(event.target as Node)) setActiveGroup(null); };
+    const onKey = (event: KeyboardEvent) => { if (event.key === 'Escape') { setActiveGroup(null); activeTrigger.current?.focus(); } };
+    document.addEventListener('pointerdown',onPointer); document.addEventListener('keydown',onKey);
+    return () => { document.removeEventListener('pointerdown',onPointer); document.removeEventListener('keydown',onKey); };
+  }, []);
+  useEffect(() => {
+    if (!mobileMounted) return;
+    const previous = document.body.style.overflow;
+    const previousFocus = document.activeElement as HTMLElement | null;
+    document.body.style.overflow = 'hidden';
+    const frame = requestAnimationFrame(() => drawerRef.current?.querySelector<HTMLButtonElement>('button')?.focus());
+    const keydown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') { event.preventDefault(); closeMobile(); }
+      if (event.key !== 'Tab') return;
+      const focusable = [...(drawerRef.current?.querySelectorAll<HTMLElement>('a[href],button:not([disabled]),select,summary') || [])].filter(el => el.getClientRects().length);
+      const first = focusable[0], last = focusable[focusable.length-1];
+      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
+      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
     };
+    document.addEventListener('keydown',keydown);
+    return () => { cancelAnimationFrame(frame); document.body.style.overflow = previous; document.removeEventListener('keydown',keydown); previousFocus?.focus(); };
+  }, [mobileMounted]);
+  useEffect(() => {
+    const query = window.matchMedia('(min-width: 1180px)');
+    const resize = () => { if (query.matches) { if (openFrame.current !== null) cancelAnimationFrame(openFrame.current); setMobileMounted(false); setMobileOpen(false); } };
+    query.addEventListener('change',resize);
+    return () => query.removeEventListener('change',resize);
   }, []);
 
-  useEffect(() => {
-    const loadMenu = async () => {
-      try {
-        const response = await fetch("/api/catalog/public/content/menu");
-        if (!response.ok) return;
-        const data = await response.json();
-        setContentMenu(Array.isArray(data) ? data : []);
-      } catch {
-        setContentMenu([]);
-      }
-    };
-    void loadMenu();
-  }, []);
-
-  const teachersItems = [
-    { label: "Все материалы", to: "/public/teachers" },
-    { label: "Индекс цитирования", to: "/public/teachers/citation-index" },
-    { label: "ГОСТы на оформление научных публикаций", to: "/public/teachers/gost-publications" },
-    { label: "Порядок подачи заявок на приобретение литературы", to: "/public/teachers/acquisition-requests" },
+  const studentsPaths = ['database-instructions','bibliographic-list','udc-bbk','lost-book','digital-copies','reading-room'];
+  const teachersPaths = ['citation-index','gost-publications','acquisition-requests'];
+  const resolveTitle = (item: ContentMenuItem) => item[`title_${lang}`]?.trim() || item.title?.trim() || '';
+  const groups: MenuGroup[] = contentMenu.length ? contentMenu.map(item => ({id:`cms-${item.id}`,title:resolveTitle(item),to:item.path || undefined,links:item.children?.length ? item.children.map(child => ({title:resolveTitle(child),to:child.path || '/public'})) : undefined})) : [
+    {id:'catalog',title:copy.catalog,to:'/catalog'},
+    {id:'students',title:t('publicHome.nav.students'),description:designCopy().studentDesc,links:[{title:copy.all,to:'/public/students'},...studentsPaths.map((path,i)=>({title:copy.students[i],to:'/public/students/'+path}))]},
+    {id:'teachers',title:t('publicHome.nav.teachers'),description:designCopy().teacherDesc,links:[{title:copy.all,to:'/public/teachers'},...teachersPaths.map((path,i)=>({title:copy.teachers[i],to:'/public/teachers/'+path}))]},
+    {id:'resources',title:t('publicHome.nav.resources'),description:designCopy().researchBody,links:[{title:t('publicHome.nav.resources'),to:'/public/resources'},...USEFUL_LINK_CATEGORIES.map(cat=>({title:t(cat.labelKey),to:'/public/links/'+cat.id}))]},
+    {id:'about',title:t('publicHome.nav.about'),to:'/public/about'},
   ];
+  const active = (to?: string) => Boolean(to && (to === '/public' ? location.pathname === '/public' || location.pathname === '/' : location.pathname.startsWith(to)));
+  const selected = groups.find(group => group.id === activeGroup);
+  const ctaTo = hasToken ? '/' : '/auth/login';
+  const ctaText = hasToken ? t('publicHome.actions.cabinet') : copy.login;
+  const eye = <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg>;
+  const a11yLabel = a11y ? t('publicHome.a11y.disable') : t('publicHome.a11y.enable');
+  const renderLink = (item: MenuLink, className: string, onClick?: () => void) => external(item.to) ? <a key={item.to} href={item.to} className={className} target="_blank" rel="noreferrer" onClick={onClick}>{item.title}<span aria-hidden="true">↗</span></a> : <Link key={item.to} to={item.to} className={className} aria-current={active(item.to) ? 'page' : undefined} onClick={onClick}>{item.title}<span aria-hidden="true">→</span></Link>;
+  return <>
+    <header ref={headerRef} className={`tau-nav ${scrolled ? 'tau-nav--scrolled' : ''}`} onMouseLeave={() => { cancelHover(); hoverTimer.current = setTimeout(()=>setActiveGroup(null),180); }} onMouseEnter={cancelHover}>
 
-  const studentsItems = [
-    { label: "Все материалы", to: "/public/students" },
-    { label: "Инструкции по базам данных", to: "/public/students/database-instructions" },
-    { label: "Библиографический список литературы", to: "/public/students/bibliographic-list" },
-    { label: "Индекс УДК/ББК", to: "/public/students/udc-bbk" },
-    { label: "Утрата библиотечной книги", to: "/public/students/lost-book" },
-    { label: "Цифровые копии книг", to: "/public/students/digital-copies" },
-    { label: "Читальный зал", to: "/public/students/reading-room" },
-  ];
+      <div className="tau-nav-container tau-nav-main"><Link className="tau-nav-brand" to="/public" aria-label={designCopy().back}><LibraryBrand/></Link>
+        <nav className="tau-nav-links" aria-label={copy.menu}>
 
-  const tone = a11yMode ? "default" : "inverse";
-  const headerClassName = [
-    "sticky top-0 z-40",
-    a11yMode
-      ? "bg-white shadow-[0_1px_0_rgba(17,24,39,0.12)]"
-      : "bg-[color:var(--public-accent)] shadow-[0_1px_0_rgba(0,0,0,0.18)]",
-  ].join(" ");
-
-  const brandTextClassName = a11yMode ? "text-slate-900" : "text-white";
-  const subtitleClassName = a11yMode ? "text-slate-500" : "text-white/70";
-  const navLinkClassName = a11yMode
-    ? "rounded-xl px-4 py-2 text-base font-medium text-slate-700 hover:bg-slate-100 hover:text-slate-900 transition"
-    : "rounded-xl px-4 py-2 text-base font-medium text-white/90 hover:bg-white/10 hover:text-white transition";
-  const mobileButtonClassName = a11yMode
-    ? "inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-800 hover:bg-slate-50"
-    : "inline-flex items-center gap-2 rounded-xl border border-white/25 bg-white/10 px-4 py-2.5 text-sm font-semibold text-white hover:bg-white/15";
-
-  const a11yButtonClassName = a11yMode
-    ? "rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-semibold text-slate-800 hover:bg-slate-50"
-    : "rounded-xl border border-white/25 bg-white/10 px-3 py-2.5 text-sm font-semibold text-white hover:bg-white/15";
-
-  const loginButtonClassName = a11yMode
-    ? "inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-5 py-2.5 text-sm font-semibold text-slate-800 hover:bg-slate-50"
-    : "inline-flex items-center gap-2 rounded-xl bg-white px-5 py-2.5 text-sm font-semibold text-[color:var(--public-accent)] hover:bg-white/90";
-
-  const registerButtonClassName = a11yMode
-    ? "inline-flex items-center gap-2 rounded-xl bg-[color:var(--public-accent)] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[color:var(--public-accent-hover)]"
-    : "inline-flex items-center gap-2 rounded-xl border border-white/25 bg-white/10 px-5 py-2.5 text-sm font-semibold text-white hover:bg-white/15";
-
-  const ctaTo = hasToken ? "/" : "/auth/login";
-  const ctaLabel = hasToken ? t("publicHome.actions.cabinet") : t("publicHome.actions.loginSystem");
-  const ctaClassName = a11yMode ? registerButtonClassName : loginButtonClassName;
-  const isPublicHome = location.pathname === "/public";
-  const activeNavClassName = a11yMode ? "bg-slate-100 text-slate-900" : "bg-white/15 text-white";
-  const hasDynamicMenu = contentMenu.length > 0;
-
-  const isExternal = (href?: string | null) => Boolean(href && /^https?:\/\//i.test(href));
-
-  return (
-    <>
-      <header className={headerClassName}>
-        <div className="mx-auto grid w-full max-w-7xl xl:max-w-screen-2xl grid-cols-[auto_1fr_auto] items-center gap-6 px-4 py-4 sm:py-5">
-          <Link to="/public" className="flex items-center gap-3">
-            <img
-              src={a11yMode ? logoUrl : logoWhiteUrl}
-              alt={t("publicHome.logoAlt")}
-              className="shrink-0 h-10 sm:h-11 w-auto max-w-none object-contain"
-            />
-            <div className="hidden sm:block leading-tight">
-              <div className={["text-sm font-semibold", brandTextClassName].join(" ")}>{t("publicHome.brand")}</div>
-              <div className={["text-[11px]", subtitleClassName].join(" ")}>{t("publicHome.subtitle")}</div>
-            </div>
-          </Link>
-
-          <div className="lg:hidden flex items-center justify-center">
-            <button type="button" onClick={openMobileMenu} className={mobileButtonClassName} aria-label="Open menu">
-              <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                <path d="M4 7h16M4 12h16M4 17h16" strokeLinecap="round" />
-              </svg>
-              <span className="hidden sm:inline">{t("publicHome.nav.home")}</span>
-            </button>
-          </div>
-
-          <nav className={["hidden lg:flex items-center justify-center gap-1 text-sm"].join(" ")}>
-            <Link to="/public" className={[navLinkClassName, isPublicHome ? activeNavClassName : ""].join(" ")}>
-              {t("publicHome.nav.home")}
-            </Link>
-            {hasDynamicMenu ? (
-              contentMenu.map((item) =>
-                item.children?.length ? (
-                  <NavDropdown
-                    key={item.id}
-                    label={resolveMenuTitle(item)}
-                    items={item.children.map((child) => ({
-                      label: resolveMenuTitle(child),
-                      to: !isExternal(child.path) ? child.path || "#" : undefined,
-                      href: child.path || undefined,
-                      external: isExternal(child.path),
-                    }))}
-                    variant={a11yMode ? "default" : "inverse"}
-                  />
-                ) : isExternal(item.path) ? (
-                  <a
-                    key={item.id}
-                    href={item.path || "#"}
-                    target="_blank"
-                    rel="noreferrer"
-                    className={navLinkClassName}
-                  >
-                    {resolveMenuTitle(item)}
-                  </a>
-                ) : (
-                  <Link key={item.id} to={item.path || "#"} className={navLinkClassName}>
-                    {resolveMenuTitle(item)}
-                  </Link>
-                ),
-              )
-            ) : (
-              <>
-                <NavDropdown
-                  label={t("publicHome.nav.teachers")}
-                  items={teachersItems}
-                  variant={a11yMode ? "default" : "inverse"}
-                />
-                <NavDropdown
-                  label={t("publicHome.nav.students")}
-                  items={studentsItems}
-                  variant={a11yMode ? "default" : "inverse"}
-                />
-                <div>
-                  <UsefulLinksDropdown variant="header" basePath="/public/links" tone={tone} />
-                </div>
-                <Link to="/public/about" className={navLinkClassName}>
-                  {t("publicHome.nav.about")}
-                </Link>
-                <Link to="/public/resources" className={navLinkClassName}>
-                  {t("publicHome.nav.resources")}
-                </Link>
-              </>
-            )}
-          </nav>
-
-          <div className="flex items-center justify-end gap-3">
-            <button
-              type="button"
-              onClick={() => setA11yMode((v) => !v)}
-              aria-pressed={a11yMode}
-              aria-label={a11yMode ? t("publicHome.a11y.disable") : t("publicHome.a11y.enable")}
-              className={a11yButtonClassName}
-              title={a11yMode ? t("publicHome.a11y.disable") : t("publicHome.a11y.enable")}
-            >
-              <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
-                <path d="M1.5 12s3.8-7 10.5-7 10.5 7 10.5 7-3.8 7-10.5 7S1.5 12 1.5 12Z" />
-                <path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z" />
-              </svg>
-            </button>
-            <LanguageSwitcher className="hidden sm:flex" tone={tone} />
-            <Link to={ctaTo} className={ctaClassName}>
-              <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                <path d="M15 7a4 4 0 1 1-6 0 4 4 0 0 1 6 0Z" />
-                <path d="M4 20a8 8 0 0 1 16 0" strokeLinecap="round" />
-              </svg>
-              {ctaLabel}
-            </Link>
-          </div>
-        </div>
-      </header>
-
-      {mobileMenuMounted && (
-        <div className="lg:hidden fixed inset-0 z-[60] isolate">
-          <div
-            className={[
-              "absolute inset-0 bg-black/70 transition-opacity duration-200 ease-out",
-              mobileMenuOpen ? "opacity-100" : "opacity-0",
-            ].join(" ")}
-            onClick={closeMobileMenu}
-          />
-          <div
-            className={[
-              "absolute left-0 top-0 bottom-0 w-80 max-w-[88vw] bg-white border-r shadow-2xl backdrop-blur-none",
-              "transition-transform duration-200 ease-out will-change-transform",
-              mobileMenuOpen ? "translate-x-0" : "-translate-x-full",
-            ].join(" ")}
-          >
-            <div className="flex items-center justify-between gap-3 p-4 border-b bg-white">
-              <img src={logoUrl} alt={t("publicHome.logoAlt")} className="h-9 w-auto object-contain" />
-              <button type="button" onClick={closeMobileMenu} className="rounded-full p-2 hover:bg-slate-100" aria-label="Close menu">
-                <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                  <path d="M6 6l12 12M18 6L6 18" strokeLinecap="round" />
-                </svg>
-              </button>
-            </div>
-
-            <div className="p-4 bg-white">
-              <LanguageSwitcher className="mb-4" />
-              <button
-                type="button"
-                onClick={() => setA11yMode((v) => !v)}
-                aria-pressed={a11yMode}
-                className="mb-3 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-left text-sm font-semibold text-slate-800 hover:bg-slate-50"
-              >
-                {a11yMode ? t("publicHome.a11y.disable") : t("publicHome.a11y.enable")}
-              </button>
-              <nav className="space-y-1">
-                <Link to="/public" onClick={closeMobileMenu} className="block rounded-xl px-3 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-50">
-                  {t("publicHome.nav.home")}
-                </Link>
-
-                {hasDynamicMenu ? (
-                  contentMenu.map((item) => (
-                    <div key={item.id} className="pt-2">
-                      {item.children?.length ? (
-                        <>
-                          <div className="px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500">{resolveMenuTitle(item)}</div>
-                          <div className="space-y-1">
-                            {item.children.map((child) =>
-                              isExternal(child.path) ? (
-                                <a
-                                  key={child.id}
-                                  href={child.path || "#"}
-                                  target="_blank"
-                                  rel="noreferrer"
-                                  onClick={closeMobileMenu}
-                                  className="block rounded-xl px-3 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-50"
-                                >
-                                  {resolveMenuTitle(child)}
-                                </a>
-                              ) : (
-                                <Link
-                                  key={child.id}
-                                  to={child.path || "#"}
-                                  onClick={closeMobileMenu}
-                                  className="block rounded-xl px-3 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-50"
-                                >
-                                  {resolveMenuTitle(child)}
-                                </Link>
-                              ),
-                            )}
-                          </div>
-                        </>
-                      ) : isExternal(item.path) ? (
-                        <a
-                          href={item.path || "#"}
-                          target="_blank"
-                          rel="noreferrer"
-                          onClick={closeMobileMenu}
-                          className="block rounded-xl px-3 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-50"
-                        >
-                          {resolveMenuTitle(item)}
-                        </a>
-                      ) : (
-                        <Link
-                          to={item.path || "#"}
-                          onClick={closeMobileMenu}
-                          className="block rounded-xl px-3 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-50"
-                        >
-                          {resolveMenuTitle(item)}
-                        </Link>
-                      )}
-                    </div>
-                  ))
-                ) : (
-                  <>
-                    <div className="pt-2">
-                      <div className="px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500">{t("publicHome.nav.teachers")}</div>
-                      <div className="space-y-1">
-                        {teachersItems.map((item) => (
-                          <Link key={item.to} to={item.to} onClick={closeMobileMenu} className="block rounded-xl px-3 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-50">
-                            {item.label}
-                          </Link>
-                        ))}
-                      </div>
-                    </div>
-
-                    <div className="pt-2">
-                      <div className="px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500">{t("publicHome.nav.students")}</div>
-                      <div className="space-y-1">
-                        {studentsItems.map((item) => (
-                          <Link key={item.to} to={item.to} onClick={closeMobileMenu} className="block rounded-xl px-3 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-50">
-                            {item.label}
-                          </Link>
-                        ))}
-                      </div>
-                    </div>
-
-                    <Link to="/public/links" onClick={closeMobileMenu} className="block rounded-xl px-3 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-50">
-                      {t("publicHome.nav.links")}
-                    </Link>
-                    <Link to="/public/about" onClick={closeMobileMenu} className="block rounded-xl px-3 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-50">
-                      {t("publicHome.nav.about")}
-                    </Link>
-                    <Link to="/public/resources" onClick={closeMobileMenu} className="block rounded-xl px-3 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-50">
-                      {t("publicHome.nav.resources")}
-                    </Link>
-                  </>
-                )}
-              </nav>
-            </div>
-          </div>
-        </div>
-      )}
-    </>
-  );
+          {groups.map(group=>group.links?.length ? <button key={group.id} type="button" className={`tau-nav-item ${activeGroup === group.id ? 'is-open' : ''} ${group.links.some(link=>active(link.to)) ? 'is-current' : ''}`} aria-expanded={activeGroup===group.id} aria-controls="tau-mega-menu" onClick={event=>{activeTrigger.current=event.currentTarget;setActiveGroup(value=>value===group.id ? null : group.id);}} onPointerEnter={event=>{if(event.pointerType==='mouse'){cancelHover();setActiveGroup(group.id);}}} onKeyDown={event=>{if(event.key==='ArrowDown'){event.preventDefault();setActiveGroup(group.id);requestAnimationFrame(()=>headerRef.current?.querySelector<HTMLAnchorElement>('.nav-mega-links a')?.focus());}}}>{group.title}<svg width="12" height="12" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="m4 6 4 4 4-4" stroke="currentColor" strokeWidth="1.5"/></svg></button> : renderLink({title:group.title,to:group.to || '/public'},'tau-nav-item'))}
+        </nav>
+        <div className="tau-nav-end"><LanguageSwitcher variant="buttons"/><button type="button" className="nav-accessibility" onClick={()=>setA11y(value=>!value)} aria-pressed={a11y} aria-label={a11yLabel} title={a11yLabel}>{eye}</button><Link className="nav-signin" to={ctaTo}>{ctaText}<span aria-hidden="true">→</span></Link><button ref={toggleRef} type="button" className="nav-menu-toggle" aria-label={copy.menu} aria-expanded={mobileOpen} aria-controls="tau-mobile-menu" onClick={openMobile}><span/><span/></button></div>
+      </div>
+      {selected?.links && <div key={selected.id} className="nav-mega-menu" id="tau-mega-menu" role="region" aria-label={selected.title}><div className="nav-mega-inner"><div className="nav-mega-intro"><h2>{selected.title}</h2><p>{selected.description || copy.library}</p></div><div className="nav-mega-links">{selected.links.map((item,i)=><div key={item.to} style={{'--menu-delay':`${i*35}ms`} as React.CSSProperties}>{renderLink(item,'nav-mega-link',()=>setActiveGroup(null))}</div>)}</div></div></div>}
+    </header>
+    {activeGroup && <div className="nav-dropdown-scrim" aria-hidden="true" onClick={()=>setActiveGroup(null)}/>}
+    {mobileMounted && <div className="nav-mobile-overlay" data-open={mobileOpen}><div className="nav-mobile-backdrop" onClick={closeMobile}/><div ref={drawerRef} id="tau-mobile-menu" className="nav-mobile-drawer" role="dialog" aria-modal="true" aria-label={copy.menu}><div className="nav-mobile-top"><LibraryBrand/><button className="nav-close" type="button" onClick={closeMobile} aria-label={copy.close}>×</button></div><span className="nav-mobile-caption">{designCopy().library}</span><nav aria-label={copy.menu}>{renderLink({title:t('publicHome.nav.home'),to:'/public'},'nav-mobile-link',closeMobile)}{groups.map(group=>group.links?.length ? <details key={group.id} className="nav-mobile-group"><summary>{group.title}<span>+</span></summary><div>{group.links.map(item=>renderLink(item,'nav-mobile-sublink',closeMobile))}</div></details> : renderLink({title:group.title,to:group.to || '/public'},'nav-mobile-link',closeMobile))}</nav><div className="nav-mobile-bottom"><Link to={ctaTo} onClick={closeMobile} className="nav-signin">{ctaText}<span>↗</span></Link><button className="nav-mobile-accessibility" onClick={()=>setA11y(value=>!value)} aria-pressed={a11y}>{eye}{a11yLabel}</button><LanguageSwitcher variant="buttons"/></div></div></div>}
+  </>;
 }

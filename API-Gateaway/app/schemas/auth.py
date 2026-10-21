@@ -1,13 +1,6 @@
-from pydantic import BaseModel, field_validator
-
+from pydantic import BaseModel, Field
 
 class IntrospectResponse(BaseModel):
-    user_id: str
+    user_id: int | None = Field(None, gt=0)
     active: bool
-    roles: list[str] = []
-
-    # Валидатор, который преобразует int в str
-    @field_validator("user_id", mode="before")
-    @classmethod
-    def str_user_id(cls, v):
-        return str(v)
+    roles: list[str] = Field(default_factory=list)

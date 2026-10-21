@@ -24,12 +24,13 @@ class Settings(BaseSettings):
     AI_SERVICE_URL: AnyHttpUrl = "http://ai:8010"
     ANALYTICS_SERVICE_URL: AnyHttpUrl = "http://localhost:8011"
 
-    CORS_ALLOW_ORIGINS: List[str] = ["*"]
+    CORS_ALLOW_ORIGINS: List[str] = []
 
     PROXY_TIMEOUT_S: float = 500.0
     PROXY_RETRIES: int = 2
     PROXY_RETRY_BACKOFF_S: float = 0.3
-    JWT_SECRET: str = "some-super-secret-key"
+    JWT_SECRET: str = ""
+    INTERNAL_API_TOKEN: str = ""
 
     ANALYTICS_ENABLED: bool = True
     ANALYTICS_TIMEOUT_S: float = 0.2
@@ -45,8 +46,8 @@ class Settings(BaseSettings):
     ]
     ANALYTICS_COOKIE_MAX_AGE_DAYS: int = 365
     ANALYTICS_SESSION_MAX_AGE_HOURS: int = 24
-    ANALYTICS_IP_HASH_SECRET: str = "change-me"
-    ANALYTICS_CAPTURE_BODY: bool = True
+    ANALYTICS_IP_HASH_SECRET: str = ""
+    ANALYTICS_CAPTURE_BODY: bool = False
     ANALYTICS_MAX_BODY_BYTES: int = 8192
     ANALYTICS_REDACT_KEYS: List[str] = [
         "password",
@@ -64,7 +65,9 @@ class Settings(BaseSettings):
     @classmethod
     def split_origins(cls, v):
         if isinstance(v, str):
-            return [o.strip() for o in v.split(",") if o.strip()]
+            v = [o.strip() for o in v.split(",") if o.strip()]
+        if "*" in v:
+            raise ValueError("Use explicit CORS origins when credentials are enabled")
         return v
 
     @field_validator("ANALYTICS_SERVICE_URL")

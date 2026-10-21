@@ -11,6 +11,13 @@ import type {
   TwoFAVerifyDto,
 } from "./types";
 
+export function requestPasswordReset(email:string){
+  return api<{message:string;expires_in:number}>('/api/auth/password-reset/request',{method:'POST',body:JSON.stringify({email})});
+}
+export function confirmPasswordReset(email:string,code:string,new_password:string){
+  return api<{message:string}>('/api/auth/password-reset/confirm',{method:'POST',body:JSON.stringify({email,code,new_password})});
+}
+
 // Use only the canonical login endpoint
 export async function login(body: LoginDto) {
   return api<LoginResp>("/api/auth/login", {

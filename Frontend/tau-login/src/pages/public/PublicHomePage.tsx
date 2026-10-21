@@ -1,114 +1,69 @@
-import { useEffect } from "react";
-import { Link } from "react-router-dom";
-import { PublicPageLayout } from "@/components/layout/PublicPageLayout";
-import { t } from "@/shared/i18n";
+import { lazy, Suspense, useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
+import { PublicPageLayout } from '@/components/layout/PublicPageLayout';
+import CatalogSearch from '@/components/common/CatalogSearch';
+import ReaderIndex from '@/components/common/ReaderIndex';
+import BookPreviewDialog from '@/components/common/BookPreviewDialog';
+import { designCopy } from '@/shared/designCopy';
+import { getLang } from '@/shared/i18n';
+import editions from '@/shared/libraryPreview.json';
 
-function FeatureCard({
-  title,
-  body,
-  to,
-  icon,
-}: {
-  title: string;
-  body: string;
-  to: string;
-  icon: React.ReactNode;
-}) {
-  return (
-    <Link
-      to={to}
-      className="group rounded-3xl border border-slate-200 bg-white p-8 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
-    >
-      <div className="flex items-start gap-4">
-        <div className="rounded-2xl bg-[color:var(--public-surface-muted)] p-4 text-[color:var(--public-accent)]">
-          {icon}
-        </div>
-        <div className="min-w-0">
-          <div className="text-xl font-semibold text-slate-900">{title}</div>
-          <div className="mt-2 text-base leading-7 text-slate-700">{body}</div>
-          <div className="mt-4 text-sm font-semibold text-[color:var(--public-accent)] group-hover:underline">
-            {t("publicHome.common.go")} →
-          </div>
-        </div>
-      </div>
-    </Link>
-  );
-}
+const BookSculpture = lazy(() => import('@/components/common/BookSculpture'));
+const sculptureLabels = {
+  ru:{pause:'Остановить движение книги',play:'Включить движение книги',description:'Раскрытая объёмная книга'},
+  en:{pause:'Pause book motion',play:'Resume book motion',description:'Open three-dimensional book'},
+  kk:{pause:'Кітап қозғалысын тоқтату',play:'Кітап қозғалысын қосу',description:'Ашық көлемді кітап'},
+};
+
+const translations = {
+  ru: { open:'Открыть издание', choose:'Выбрать издание', collection:'Откройте новую главу', collectionBody:'От первой идеи до научной работы. Начните с темы, которая интересна вам.', demo:'Демонстрационная коллекция', subjects:['Программирование','Анализ данных','Data Science','Дизайн продуктов'], all:'Весь каталог', start:'Всё начинается с книги', startBody:'Ваша личная библиотека: читайте в браузере, сохраняйте важное и возвращайтесь к своим заметкам.', login:'Войти в библиотеку', research:'Для ваших открытий', researchBody:'Научные базы данных, электронные библиотеки и периодические издания. Продолжайте поиск за пределами каталога.', resources:'Изучить ресурсы', about:'О библиотеке', languages:'На русском, қазақша и English', caption:'Выберите книгу на развороте' },
+  en: { open:'Open publication', choose:'Choose a publication', collection:'Open a new chapter', collectionBody:'From a first idea to your next research paper. Start with a subject that interests you.', demo:'Demonstration collection', subjects:['Programming','Data analysis','Data Science','Product design'], all:'Full catalogue', start:'It starts with a book', startBody:'Your personal library: read in your browser, save what matters and return to your notes.', login:'Sign in to the library', research:'For your next discovery', researchBody:'Research databases, digital libraries and journals. Take your search beyond the catalogue.', resources:'Explore resources', about:'About the library', languages:'In Russian, Kazakh and English', caption:'Choose a book in the spread' },
+  kk: { open:'Басылымды ашу', choose:'Басылымды таңдау', collection:'Жаңа тарауды ашыңыз', collectionBody:'Алғашқы идеядан ғылыми жұмысқа дейін. Өзіңізге қызықты тақырыптан бастаңыз.', demo:'Демонстрациялық жинақ', subjects:['Бағдарламалау','Деректерді талдау','Data Science','Өнім дизайны'], all:'Толық каталог', start:'Бәрі кітаптан басталады', startBody:'Жеке кітапханаңыз: браузерде оқыңыз, маңыздысын сақтаңыз және жазбаларыңызға оралыңыз.', login:'Кітапханаға кіру', research:'Жаңа ізденістер үшін', researchBody:'Ғылыми дерекқорлар, электрондық кітапханалар және мерзімді басылымдар. Каталогтан тыс ізденіңіз.', resources:'Ресурстарды қарау', about:'Кітапхана туралы', languages:'Қазақша, орысша және ағылшынша', caption:'Кітапты таңдаңыз' },
+};
+const previewCopy = {
+  ru:{details:'Об издании',collection:'Книги для знакомства',body:'Четыре демонстрационных издания на трёх языках. Посмотрите описание и выберите тему перед входом в каталог.',choose:'Сменить издание',language:{ru:'Русский',kk:'Қазақша',en:'English'}},
+  en:{details:'About this book',collection:'Meet the collection',body:'Four demonstration publications in three languages. Explore a description and choose a subject before signing in to the catalogue.',choose:'Choose a book',language:{ru:'Русский',kk:'Қазақша',en:'English'}},
+  kk:{details:'Басылым туралы',collection:'Кітаптармен танысыңыз',body:'Үш тілдегі төрт демонстрациялық басылым. Каталогқа кірмес бұрын сипаттамасын қарап, тақырыпты таңдаңыз.',choose:'Басылымды ауыстыру',language:{ru:'Русский',kk:'Қазақша',en:'English'}},
+};
 
 export default function PublicHomePage() {
-  useEffect(() => {
-    document.title = t("publicHome.title");
-  }, []);
+  const copy = designCopy();
+  const words = translations[getLang()];
+  const previewWords=previewCopy[getLang()];
+  const [selected, setSelected] = useState(0);
+  const [preview,setPreview]=useState<number|null>(null);
+  const book = editions[selected];
+  useEffect(() => { document.title = `${copy.library} — TAU`; }, [copy.library]);
 
-  const hero = (
-    <div>
-      <section className="bg-[color:var(--public-accent)] text-white">
-        <div className="mx-auto w-full max-w-7xl xl:max-w-screen-2xl px-4 py-20 sm:py-24 text-center">
-          <h1 className="text-5xl sm:text-6xl font-semibold tracking-tight">{t("publicHome.subtitle")}</h1>
-          <p className="mx-auto mt-6 max-w-4xl text-base sm:text-lg leading-8 text-white/80">
-            {t("publicHome.hero.subtitle")}
-          </p>
-          <div className="mt-10 flex flex-wrap items-center justify-center gap-4">
-            <Link
-              to="/auth/login"
-              className="w-full sm:w-auto rounded-2xl bg-white px-10 py-4 text-lg font-semibold text-[color:var(--public-accent)] hover:bg-white/90 shadow-sm"
-            >
-              {t("publicHome.hero.cta")}
-            </Link>
-            <Link
-              to="/public/resources"
-              className="w-full sm:w-auto rounded-2xl border border-white/35 bg-white/10 px-10 py-4 text-lg font-semibold text-white hover:bg-white/15"
-            >
-              {t("publicHome.hero.learnMore")}
-            </Link>
-          </div>
+  return <PublicPageLayout hero={<div className="library-folio">
+    <section className="atlas-hero" aria-labelledby="library-title">
+      <div className="atlas-cover">
+        <div className="atlas-cover-copy">
+          <h1 id="library-title"><span data-motion="title">{copy.first}</span><span data-motion="title">{copy.second}</span></h1>
+          <p className="atlas-intro" data-motion="copy">{copy.intro}</p>
+          <div className="atlas-search" data-motion="form"><CatalogSearch/></div>
+          <p className="atlas-access" data-motion="copy">{copy.searchHelp}</p>
         </div>
-      </section>
-
-      <section className="bg-white">
-        <div className="mx-auto w-full max-w-7xl xl:max-w-screen-2xl px-4 py-14">
-          <div className="grid gap-6 md:grid-cols-3">
-            <FeatureCard
-              title={t("publicHome.sections.teachers.title")}
-              body={t("publicHome.sections.teachers.body")}
-              to="/public/teachers"
-              icon={
-                <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                  <path d="M4 6.5l8-3 8 3v9l-8 3-8-3v-9z" />
-                  <path d="M12 3.5v15" />
-                </svg>
-              }
-            />
-            <FeatureCard
-              title={t("publicHome.sections.students.title")}
-              body={t("publicHome.sections.students.body")}
-              to="/public/students"
-              icon={
-                <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                  <path d="M12 3l9 5-9 5-9-5 9-5z" />
-                  <path d="M21 10v6" />
-                  <path d="M3 10v6c0 1.7 4 4 9 4s9-2.3 9-4v-6" />
-                </svg>
-              }
-            />
-            <FeatureCard
-              title={t("publicHome.sections.resources.title")}
-              body={t("publicHome.sections.resources.cards.guides.body")}
-              to="/public/resources"
-              icon={
-                <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                  <path d="M5 4h10a3 3 0 0 1 3 3v13H8a3 3 0 0 0-3 3V4z" />
-                  <path d="M8 20h11" />
-                </svg>
-              }
-            />
-          </div>
+        <div className="atlas-cover-foot" data-motion="row"><span>{copy.university}</span><a href="#collection">{words.collection}<span aria-hidden="true">↓</span></a></div>
+      </div>
+      <div className="atlas-art">
+        <div className="atlas-book-stage" data-motion="plate">
+          <Suspense fallback={null}>
+            <BookSculpture book={book} labels={sculptureLabels[getLang()]}/>
+          </Suspense>
         </div>
-      </section>
-    </div>
-  );
+        <div className="atlas-book-caption" aria-live="polite" aria-atomic="true"><div><p className="atlas-book-name" key={book.id}>{book.title}</p><p>{previewWords.language[book.lang as keyof typeof previewWords.language]} · {book.year}</p></div><button className="atlas-book-details" type="button" onClick={()=>setPreview(selected)} aria-label={`${previewWords.details}: ${book.title}`}><span>{previewWords.details}</span><span aria-hidden="true">↗</span></button></div>
+        <div className="atlas-art-bottom"><p className="atlas-art-note">{previewWords.choose}</p><div className="atlas-book-controls" role="group" aria-label={words.choose}>{editions.map((edition,index)=><button key={edition.id} type="button" aria-label={`${words.choose}: ${edition.title}`} aria-pressed={selected===index} onClick={()=>setSelected(index)}><img src={edition.cover} alt="" width="38" height="52"/></button>)}</div></div>
+      </div>
+    </section>
 
-  return (
-    <PublicPageLayout hero={hero} maxWidthClassName="max-w-7xl xl:max-w-screen-2xl" />
-  );
+    <section id="collection" className="atlas-collection" aria-labelledby="collection-title">
+      <div className="atlas-section-head"><h2 id="collection-title" data-motion="title">{previewWords.collection}</h2><div><p data-motion="copy">{previewWords.body}</p><Link to="/catalog" className="atlas-text-link" data-motion="row">{words.all}<span aria-hidden="true">↗</span></Link></div></div>
+      <div className="atlas-editions">{editions.map((edition,index) => <article className="atlas-edition" key={edition.id} data-motion="plate"><button className="atlas-edition-preview" type="button" onClick={()=>setPreview(index)} aria-label={`${previewWords.details}: ${edition.title}`}><div className="atlas-edition-media"><img src={edition.cover} alt="" width="700" height="980" loading="lazy"/><span className="atlas-edition-open" aria-hidden="true">{previewWords.details}<span>↗</span></span></div><div className="atlas-edition-meta"><p className="atlas-edition-data">{previewWords.language[edition.lang as keyof typeof previewWords.language]} · {edition.year}</p><h3>{edition.title}</h3><p>{words.subjects[index]}</p></div></button></article>)}</div>
+    </section>
+
+    <ReaderIndex/>
+    {preview!==null&&<BookPreviewDialog book={editions[preview]} onClose={()=>setPreview(null)}/>}
+
+  </div>}/>;
 }

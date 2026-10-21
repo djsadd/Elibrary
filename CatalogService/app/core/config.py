@@ -14,7 +14,7 @@ class Settings(BaseSettings):
     DB_PORT: int = 5432
     DB_NAME: str = "catalog_db"
     DB_USER: str = "postgres"
-    DB_PASS: str = "postgres"
+    DB_PASS: str = ""
     SQLITE_DB_PATH: str = "sqlite.db"
 
     FILE_SERVICE_URL: str = "http://127.0.0.1:8082/files/upload"
@@ -32,10 +32,11 @@ class Settings(BaseSettings):
         if self.USE_SQLITE:
             db_path = os.path.abspath(self.SQLITE_DB_PATH)
             return f"sqlite:///{db_path}"
-        return (
-            f"postgresql+psycopg2://{self.DB_USER}:{self.DB_PASS}"
-            f"@{self.DB_HOST}:{self.DB_PORT}/{self.DB_NAME}"
-        )
+        if not self.DB_PASS:
+            raise ValueError("Set DATABASE_URL or DB_PASS for PostgreSQL")
+        from sqlalchemy.engine import URL
+        return URL.create("postgresql+psycopg2", username=self.DB_USER, password=self.DB_PASS,
+                          host=self.DB_HOST, port=self.DB_PORT, database=self.DB_NAME).render_as_string(hide_password=False)
 
     def cors_origins_list(self) -> list[str]:
         if not self.CORS_ALLOW_ORIGINS:

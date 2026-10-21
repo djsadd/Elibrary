@@ -1,3 +1,4 @@
+from app.utils.request_limits import RequestLimitsMiddleware
 # FastAPI
 from fastapi import FastAPI, Request, Depends
 from fastapi.middleware.cors import CORSMiddleware
@@ -55,11 +56,13 @@ async def notification_proxy(path: str, request: Request, _=Depends(auth_require
 async def health():
     return {"status": "ok", "service": "api-gateway"}
 
+app.add_middleware(RequestLimitsMiddleware)
+
 if __name__ == "__main__":
     uvicorn.run(
         "app.main:app",
-        host="0.0.0.0",
+        host="127.0.0.1",
         port=8000,
         reload=True,
-        limit_max_request_size=50 * 1024 * 1024  # 50 MB
     )
+

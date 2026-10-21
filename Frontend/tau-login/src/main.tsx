@@ -1,6 +1,12 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
 import "./styles/index.css";
+import "./styles/fonts.css";
+import "./styles/redesign.css";
+import "./styles/public.css";
+import "./styles/navigation.css";
+import "./styles/motion.css";
+import "./styles/atlas.css";
 import App from "./app/index";
 
 const root = document.getElementById("root")!;

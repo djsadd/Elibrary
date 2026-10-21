@@ -1,68 +1,21 @@
-import { useEffect } from "react";
-import { Link } from "react-router-dom";
-import { PublicPageLayout } from "@/components/layout/PublicPageLayout";
-import { t } from "@/shared/i18n";
-
+import { useEffect } from 'react';
+import { Link } from 'react-router-dom';
+import { PublicPageLayout } from '@/components/layout/PublicPageLayout';
+import LibraryIcon from '@/components/common/LibraryIcon';
+import { designCopy } from '@/shared/designCopy';
+import { readerGuides } from '@/shared/readerGuides';
+import { t } from '@/shared/i18n';
 export default function PublicResourcesPage() {
-  useEffect(() => {
-    document.title = `${t("publicHome.nav.resources")} - TAU`;
-  }, []);
-
-  return (
-    <PublicPageLayout>
-        <section className="rounded-2xl border bg-gradient-to-br from-white to-slate-50 p-6 shadow-sm">
-          <h1 className="text-3xl font-semibold text-slate-900">{t("publicHome.sections.resources.title")}</h1>
-          <p className="mt-2 text-sm leading-7 text-slate-700">{t("publicHome.sections.resources.body")}</p>
-        </section>
-
-        <section className="rounded-2xl border bg-white p-6 shadow-sm">
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div className="rounded-xl border bg-slate-50 p-4">
-              <div className="text-sm font-semibold text-slate-900">
-                {t("publicHome.sections.resources.cards.guides.title")}
-              </div>
-              <div className="mt-1 text-sm text-slate-700">{t("publicHome.sections.resources.cards.guides.body")}</div>
-            </div>
-            <div className="rounded-xl border bg-slate-50 p-4">
-              <div className="text-sm font-semibold text-slate-900">
-                {t("publicHome.sections.resources.cards.databases.title")}
-              </div>
-              <div className="mt-1 text-sm text-slate-700">
-                {t("publicHome.sections.resources.cards.databases.body")}
-              </div>
-            </div>
-            <div className="rounded-xl border bg-slate-50 p-4">
-              <div className="text-sm font-semibold text-slate-900">
-                {t("publicHome.sections.resources.cards.citations.title")}
-              </div>
-              <div className="mt-1 text-sm text-slate-700">
-                {t("publicHome.sections.resources.cards.citations.body")}
-              </div>
-            </div>
-            <div className="rounded-xl border bg-slate-50 p-4">
-              <div className="text-sm font-semibold text-slate-900">
-                {t("publicHome.sections.resources.cards.contacts.title")}
-              </div>
-              <div className="mt-1 text-sm text-slate-700">
-                {t("publicHome.sections.resources.cards.contacts.body")}
-              </div>
-            </div>
-          </div>
-          <div className="mt-5 flex flex-wrap gap-3">
-            <Link
-              to="/auth/login"
-              className="rounded-full bg-[color:var(--public-accent)] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[color:var(--public-accent-hover)]"
-            >
-              {t("publicHome.actions.login")}
-            </Link>
-            <Link
-              to="/public"
-              className="rounded-full border border-slate-200 bg-white px-5 py-2.5 text-sm font-semibold text-slate-800 hover:bg-slate-50"
-            >
-              {t("publicHome.nav.home")}
-            </Link>
-          </div>
-        </section>
-    </PublicPageLayout>
-  );
+  const copy=designCopy();
+  const guides=readerGuides('students');
+  useEffect(()=>{document.title=`${copy.resources} — TAU`;},[copy.resources]);
+  const items=[
+    {to:'/public/links/e_libraries',title:t('publicHome.usefulLinks.categories.eLibraries'),body:copy.resourceDesc,icon:'globe' as const},
+    {to:guides[0].to,title:guides[0].title,body:guides[0].body,icon:'search' as const},
+    {to:guides[1].to,title:guides[1].title,body:guides[1].body,icon:'document' as const},
+    {to:'/public/links/periodicals',title:t('publicHome.usefulLinks.categories.periodicals'),body:copy.researchBody,icon:'book' as const},
+    {to:'/public/students',title:t('publicHome.nav.students'),body:copy.studentDesc,icon:'graduate' as const},
+    {to:'/public/about#contacts',title:t('publicHome.footer.contactsTitle'),body:t('publicHome.footer.address'),icon:'user' as const},
+  ];
+  return <PublicPageLayout maxWidthClassName="max-w-5xl"><section className="public-page-intro"><h1>{copy.resources}</h1><p>{copy.researchBody}</p></section><div className="reader-service-grid">{items.map(item=><Link key={item.to} to={item.to} className="reader-service-card"><LibraryIcon name={item.icon}/><div><h2>{item.title}</h2><p>{item.body}</p></div><LibraryIcon name="arrow" size={18}/></Link>)}</div></PublicPageLayout>;
 }

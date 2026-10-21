@@ -10,9 +10,11 @@ const LANGS = [
 export default function LanguageSwitcher({
   className,
   tone = "default",
+  variant = "select",
 }: {
   className?: string;
   tone?: "default" | "inverse";
+  variant?: "select" | "buttons";
 }) {
   const currentLang = getLang();
   const textClassName = tone === "inverse" ? "text-white/80" : "text-slate-500";
@@ -21,8 +23,7 @@ export default function LanguageSwitcher({
       ? "rounded-xl border border-white/25 bg-white/10 px-4 py-2 font-medium text-sm text-white shadow-sm focus:border-white focus:ring-1 focus:ring-white/50"
       : "rounded-xl border border-[color:var(--public-border)] bg-white px-4 py-2 font-medium text-sm text-slate-700 shadow-sm focus:border-[color:var(--public-accent)] focus:ring-1 focus:ring-[color:var(--public-accent)]";
 
-  const handleChange = (event: ChangeEvent<HTMLSelectElement>) => {
-    const next = event.target.value;
+  const changeLanguage = (next: string) => {
     if (typeof window === "undefined") return;
     localStorage.setItem("ui_lang", next);
     try {
@@ -33,8 +34,12 @@ export default function LanguageSwitcher({
     window.location.reload();
   };
 
+  if (variant === "buttons") return <div className={`language-buttons ${className || ''}`} role="group" aria-label={currentLang === 'ru' ? 'Язык' : currentLang === 'kk' ? 'Тіл' : 'Language'}>{[...LANGS].reverse().map(lang=><button key={lang.code} type="button" lang={lang.code} title={lang.label} aria-pressed={currentLang===lang.code} onClick={()=>{if(currentLang!==lang.code)changeLanguage(lang.code);}}>{lang.code==='kk'?'KZ':lang.code.toUpperCase()}</button>)}</div>;
+
+  const handleChange = (event: ChangeEvent<HTMLSelectElement>) => changeLanguage(event.target.value);
+
   return (
-    <div className={`flex items-center gap-2 text-sm ${textClassName} ${className || ""}`}>
+    <div className={`language-switcher flex items-center gap-2 text-sm ${textClassName} ${className || ""}`}>
       <svg
         className="h-4 w-4 opacity-80"
         viewBox="0 0 24 24"
@@ -55,7 +60,7 @@ export default function LanguageSwitcher({
       >
         {LANGS.map((lang) => (
           <option key={lang.code} value={lang.code}>
-            {lang.label}
+            {lang.code === "kk" ? "KZ" : lang.code.toUpperCase()}
           </option>
         ))}
       </select>

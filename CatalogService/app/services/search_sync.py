@@ -20,6 +20,7 @@ def _book_to_search_doc(book: dict) -> dict:
 
     return {
         "id": int(book["id"]),
+        "is_public": book.get("is_public") is True,
         "title": str(book.get("title") or ""),
         "authors": _names(book.get("authors")),
         "subjects": _names(book.get("subjects")),

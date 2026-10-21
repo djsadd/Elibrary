@@ -1,0 +1,39 @@
+/* Motion belongs to the paper, the reading order and the control under the hand. */
+@keyframes tau-enter { from { opacity:.7; transform:translateY(14px); } to { opacity:1; transform:none; } }
+@keyframes tau-fade { from { opacity:0; } to { opacity:1; } }
+@keyframes tau-slide-in { from { opacity:.7; transform:translateX(-24px); } to { opacity:1; transform:none; } }
+@keyframes edition-swap { from { opacity:.6; transform:translateX(12px); } to { opacity:1; transform:none; } }
+.page-motion-root { min-height:100dvh; }
+html { scrollbar-gutter:auto; overflow-y:scroll; }
+::view-transition { pointer-events:none; }
+.tau-button,.catalog-search button,.nav-signin { transition:background .18s,transform .18s; }
+.tau-button:active,.catalog-search button:active,.nav-signin:active { transform:scale(.98); }
+.library-book-card .book-cover-stage img { transition:transform .24s var(--ease-out); }
+.library-book-card:hover .book-cover-stage img { transform:translateY(-4px); }
+.book-favorite { transition:color .18s,transform .18s; }
+.book-favorite:active { transform:scale(.94); }
+.edition-choices > button,.edition-actions svg,.sheet-all svg,.text-action svg { transition:transform .24s var(--ease-out); }
+.edition-choices > button:active { transform:translateY(-2px) scale(.97); }
+.edition-actions a:hover svg,.sheet-all:hover svg,.text-action:hover svg { transform:translateX(5px); }
+@keyframes folio-title { from { transform:translateY(24px); opacity:.8; } to { transform:none; opacity:1; } }
+@keyframes folio-copy { from { opacity:.7; } to { opacity:1; } }
+@keyframes folio-plate { from { transform:scale(.965); opacity:.8; } to { transform:none; opacity:1; } }
+@keyframes folio-row { from { transform:translateX(14px); opacity:.7; } to { transform:none; opacity:1; } }
+@keyframes folio-curtain { from { transform:translateY(64px); opacity:.85; } to { transform:none; opacity:1; } }
+@media(prefers-reduced-motion:no-preference) {
+ [data-folio-entered] { animation:folio-title .7s var(--ease-out) var(--folio-delay,0ms) backwards; }
+ [data-folio-entered][data-motion=copy] { animation-name:folio-copy; }
+ [data-folio-entered][data-motion=plate] { animation-name:folio-plate; animation-duration:.85s; }
+ [data-folio-entered][data-motion=row] { animation-name:folio-row; }
+ [data-folio-entered][data-motion=curtain] { animation-name:folio-curtain; animation-duration:.95s; }
+ .reader-panel:not([hidden]) { animation:tau-enter .24s var(--ease-out) backwards; }
+ .edition-main img,.edition-description h3 { animation:edition-swap .36s var(--ease-out) backwards; }
+ .mobile-sidebar { animation:tau-slide-in .24s var(--ease-out) backwards; }
+ .catalog-filter-sheet,.nav-mega-menu { animation:tau-enter .25s var(--ease-out) backwards; }
+}
+@media(prefers-reduced-motion:reduce) {
+ html { scroll-behavior:auto; }
+ *,*::before,*::after { animation:none!important; transition:none!important; }
+ [data-motion],.edition-main img { transform:none!important; opacity:1!important; }
+ ::view-transition-old(root),::view-transition-new(root) { animation-duration:.01ms!important; animation-delay:0s!important; }
+}

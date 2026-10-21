@@ -1,3 +1,4 @@
+from app.utils.request_limits import RequestLimitsMiddleware
 from fastapi import FastAPI
 from app.api.routes import router
 from app.core.db import Base, engine
@@ -18,3 +19,6 @@ Instrumentator().instrument(app).expose(app, endpoint="/metrics")
 def create_tables() -> None:
     # Auto-create tables if they don't exist
     Base.metadata.create_all(bind=engine)
+
+
+app.add_middleware(RequestLimitsMiddleware)

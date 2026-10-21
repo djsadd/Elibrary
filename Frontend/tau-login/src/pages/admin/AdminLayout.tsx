@@ -1,3 +1,4 @@
+import { designCopy } from "@/shared/designCopy";
 import { NavLink, Outlet, useLocation } from "react-router-dom";
 
 import DashboardHeader from "../../components/layout/DashboardHeader";
@@ -46,10 +47,11 @@ export default function AdminLayout() {
   return (
     <div className="space-y-4">
       <DashboardHeader />
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-12">
-        <aside className="md:col-span-3 lg:col-span-2">
-          <nav className="divide-y rounded-md border bg-white p-2">
-            <div className="grid grid-cols-2 gap-2 md:block md:gap-0">
+      <div className="page-heading"><h1>{designCopy().admin}</h1></div>
+      <div className="admin-workspace grid grid-cols-1 gap-4 lg:grid-cols-12">
+        <aside className="lg:col-span-3">
+          <nav className="admin-navigation rounded-md border bg-white p-2">
+            <div className="grid grid-cols-2 gap-2 lg:block lg:gap-0">
               {visibleNav.map((item) => (
                 <NavLink
                   key={item.to}
@@ -57,7 +59,7 @@ export default function AdminLayout() {
                   end={"end" in item ? item.end : undefined}
                   className={({ isActive }) =>
                     `block rounded-md px-3 py-2 text-sm hover:bg-slate-50 ${
-                      isActive || location.pathname.startsWith(item.to)
+                      isActive
                         ? "bg-slate-100 font-medium text-slate-900"
                         : "text-slate-600"
                     }`
@@ -70,7 +72,7 @@ export default function AdminLayout() {
           </nav>
         </aside>
 
-        <main className="md:col-span-9 lg:col-span-10">
+        <main className="lg:col-span-9">
           <div className="rounded-md border bg-white p-4">
             <Outlet />
           </div>

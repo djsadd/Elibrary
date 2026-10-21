@@ -30,14 +30,14 @@ def _strip_hop_by_hop(headers: Mapping[str, str]) -> dict:
 
 
 def _filtered_headers(request: Request) -> dict:
-    excluded = {"host", "content-length"}
+    excluded = {"host", "content-length", "x-user-id", "x-user-roles", "x-service-token", "x-admin-token", "x-forwarded-for", "x-forwarded-host", "x-forwarded-proto", "x-real-ip"}
     h = {k: v for k, v in request.headers.items() if k.lower() not in excluded}
 
     # Проверяем Authorization
     auth = request.headers.get("authorization")
     if auth:
         h["Authorization"] = auth
-        log.debug("Authorization token present: %s", auth[:10] + "…")  # показываем только начало токена
+
     else:
         log.warning("Authorization token missing in incoming request!")
 
@@ -54,9 +54,9 @@ def _filtered_headers(request: Request) -> dict:
             h["X-User-Roles"] = ",".join(map(str, roles))
 
     client_host = request.client.host if request.client else ""
-    proto = request.headers.get("x-forwarded-proto") or request.url.scheme
-    host = request.headers.get("x-forwarded-host") or request.headers.get("host") or ""
-    chain = request.headers.get("x-forwarded-for")
+    proto = request.url.scheme
+    host = request.headers.get("host") or ""
+    chain = None
     h["X-Forwarded-For"] = f"{chain}, {client_host}" if chain else client_host
     h["X-Forwarded-Proto"] = proto
     h["X-Forwarded-Host"] = host
@@ -69,6 +69,8 @@ async def _retry(call, retries: int, backoff: float, method: str):
     Ретрии: только на сетевые ошибки/таймауты.
     Для небезопасных методов (POST/PUT/...), ретраим только при сетевых исключениях (и то аккуратно).
     """
+    # Never replay writes after a read timeout: the upstream may have committed them.
+    retries = retries if method.upper() in {"GET", "HEAD", "OPTIONS"} else 0
     attempt = 0
     while True:
         try:
@@ -97,21 +99,6 @@ async def forward(request: Request, base_url: str, path_suffix: str = "") -> Res
     """
     Прокси в апстрим. Логирует всё от фронтенда и форвардит запрос.
     """
-    # --- Логируем запрос от фронтенда ---
-    try:
-        body_bytes = await request.body()
-        body_text = body_bytes.decode("utf-8") if body_bytes else "(empty)"
-    except Exception as e:
-        body_text = f"(error reading body: {e})"
-
-    log.debug("=== Incoming request from frontend ===")
-    log.debug(f"Method: {request.method}")
-    log.debug(f"URL: {request.url}")
-    log.debug(f"Query params: {dict(request.query_params)}")
-    log.debug(f"Headers: {dict(request.headers)}")
-    log.debug(f"Body: {body_text}")
-    log.debug("======================================")
-
     # --- Формируем upstream URL и заголовки ---
     upstream_path = path_suffix or request.url.path
     if not path_suffix:
@@ -123,40 +110,24 @@ async def forward(request: Request, base_url: str, path_suffix: str = "") -> Res
     target = _join_url(str(base_url).strip(), upstream_path, request.url.query)
     headers = _filtered_headers(request)
 
-    # Логируем, что уйдёт в апстрим
-    log.debug("=== Forwarding to upstream ===")
-    log.debug(f"Target URL: {target}")
-    log.debug(f"Method: {request.method}")
-    log.debug(f"Headers: {headers}")
-    log.debug(f"Body length: {len(body_bytes)} bytes")
-    log.debug("=================================")
-
-    async def call():
-        return await _CLIENT.request(
-            method=request.method,
-            url=target,
-            headers=headers,
-            content=body_bytes
-        )
-
     try:
-        resp = await _retry(call, settings.PROXY_RETRIES, settings.PROXY_RETRY_BACKOFF_S, request.method)
-
-        response_headers = _strip_hop_by_hop(resp.headers)
-
-        async def _aiter():
-            async for chunk in resp.aiter_bytes():
-                yield chunk
-
-        return StreamingResponse(
-            _aiter(),
-            status_code=resp.status_code,
-            headers=response_headers,
-            media_type=resp.headers.get("content-type")
+        upstream_request = _CLIENT.build_request(
+            method=request.method, url=target, headers=headers, content=request.stream()
         )
+        # Stream in both directions and never automatically replay a mutation.
+        resp = await _CLIENT.send(upstream_request, stream=True)
+        response_headers = _strip_hop_by_hop(resp.headers)
+        async def chunks():
+            try:
+                async for chunk in resp.aiter_raw():
+                    yield chunk
+            finally:
+                await resp.aclose()
+        return StreamingResponse(chunks(), status_code=resp.status_code,
+                                 headers=response_headers, media_type=resp.headers.get("content-type"))
 
     except Exception as e:
-        log.error("Proxy error to %s: %s", target, e)
+        log.error("Upstream request failed (%s)", type(e).__name__)
         return Response(
             content=b'{"detail":"Upstream error"}',
             status_code=502,

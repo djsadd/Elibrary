@@ -6,6 +6,7 @@ class Settings(BaseSettings):
     DATABASE_URL: str = ""
 
     AUTH_SERVICE_URL: str = "http://127.0.0.1:8000/api/"
+    REDIS_URL: str = "redis://redis:6379/0"
     # Email
     SMTP_HOST: str = "smtp.gmail.com"
     SMTP_PORT: int = 587

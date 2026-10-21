@@ -49,11 +49,6 @@ export default function ReaderPage() {
   const [, setLangTick] = useState(0);
 
   useEffect(() => {
-    const token = localStorage.getItem("token") || sessionStorage.getItem("token");
-    console.info("[ReaderPage] Bearer token:", token);
-  }, []);
-
-  useEffect(() => {
     const handler = () => setLangTick((v) => v + 1);
     window.addEventListener("lang:changed", handler);
     return () => window.removeEventListener("lang:changed", handler);

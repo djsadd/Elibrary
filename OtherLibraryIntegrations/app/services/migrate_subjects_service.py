@@ -12,20 +12,26 @@ from PIL import Image
 
 from app.core.config import settings
 from app.core.db import SessionLocal
+from app.utils.download import download_pdf
 from app.models.libtau import LibraryWithSubjects
 
 logger = logging.getLogger("migrate_subjects")
 
-client = OpenAI(api_key=settings.OPENAI_API_KEY)
+client = OpenAI(api_key=settings.OPENAI_API_KEY) if settings.OPENAI_API_KEY else None
 
 
 async def extract_cover_from_pdf(pdf_bytes: bytes, max_size_kb: int = 150) -> bytes:
     """Extract a JPEG cover from the first page of a PDF and keep it under size."""
-    pdf = fitz.open(stream=pdf_bytes, filetype="pdf")
-    page = pdf.load_page(0)
-    pix = page.get_pixmap(matrix=fitz.Matrix(2, 2))
-
-    img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
+    with fitz.open(stream=pdf_bytes, filetype="pdf") as pdf:
+        if pdf.page_count < 1:
+            raise ValueError("Empty PDF")
+        page = pdf.load_page(0)
+        largest = max(page.rect.width, page.rect.height)
+        if largest <= 0:
+            raise ValueError("Invalid PDF page dimensions")
+        scale = min(2.0, 2048 / largest)
+        pix = page.get_pixmap(matrix=fitz.Matrix(scale, scale), colorspace=fitz.csRGB, alpha=False)
+        img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
 
     quality = 85
     buffer = BytesIO()
@@ -50,18 +56,15 @@ async def upload_file_to_raw_service(
     data: bytes | None = None,
 ) -> dict:
     """Upload a file to /upload/raw, either by url or raw bytes."""
-    _ = token  # Token is unused but kept for signature parity.
+    if not token:
+        raise ValueError("Access token is required")
     if data is None:
         if not file_url:
             raise Exception("file_url or data must be provided")
 
-        async with aiohttp.ClientSession() as session:
-            async with session.get(file_url) as resp:
-                if resp.status != 200:
-                    raise Exception(f"Cannot download file: {resp.status}")
-                data = await resp.read()
+        data = await download_pdf(file_url)
 
-    headers = {"x-filename": filename or "file"}
+    headers = {"x_filename": filename or "file.pdf", "Authorization": f"Bearer {token}"}
 
     async with aiohttp.ClientSession() as session:
         async with session.post(
@@ -98,6 +101,8 @@ def parse_author_title(text: str) -> dict:
     )
 
     try:
+        if client is None:
+            return {"authors": [], "title": raw}
         response = client.responses.create(
             model="gpt-4.1-mini",
             input=prompt,
@@ -196,9 +201,7 @@ async def run_subjects_migration(pending_items: list[dict], token: str) -> dict:
                 file_id = upload_result["file"]["file_id"]
                 download_url = upload_result["file"]["download_url"]
 
-                async with aiohttp.ClientSession() as session:
-                    async with session.get(row.pdf_url) as resp:
-                        pdf_bytes = await resp.read()
+                pdf_bytes = await download_pdf(row.pdf_url)
 
                 cover_bytes = await extract_cover_from_pdf(pdf_bytes)
                 cover_base64 = (

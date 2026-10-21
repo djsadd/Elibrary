@@ -18,12 +18,17 @@ def get_db():
         db.close()
 
 
-async def get_books_batch(book_ids: list[int]) -> list[dict]:
-    async with httpx.AsyncClient() as client:
+async def get_books_batch(book_ids: list[int], token: str) -> list[dict]:
+    if not book_ids:
+        return []
+    async with httpx.AsyncClient(timeout=10.0) as client:
         response = await client.get(
             f"{settings.CATALOG_SERVICE_URL}/books/batch",
-            params={"ids": ",".join(map(str, book_ids))}
+            params={"ids": ",".join(map(str, book_ids))}, headers={"Authorization": f"Bearer {token}"}
         )
+        if response.status_code == 404:
+            return []
+        response.raise_for_status()
         return response.json()
 
 
@@ -36,7 +41,7 @@ async def list_favourites(
     favourites = db.query(Favourite).filter(Favourite.user_id == user_id).all()
     book_ids = [fav.book_id for fav in favourites]
 
-    books = await get_books_batch(book_ids)
+    books = await get_books_batch(book_ids, current_user.token)
 
     # безопасное преобразование
     books_dicts = []
@@ -73,12 +78,15 @@ async def add_favourite(
     if existing:
         raise HTTPException(status_code=400, detail="Already in favourites")
 
+    book = await get_book_data(fav_data.book_id, current_user.token)
+    if book is None:
+        raise HTTPException(404, "Book not found")
     new_fav = Favourite(user_id=user_id, book_id=fav_data.book_id)
     db.add(new_fav)
     db.commit()
     db.refresh(new_fav)
 
-    book = await get_book_data(fav_data.book_id)
+    book = await get_book_data(fav_data.book_id, current_user.token)
     return FavouriteOut(**new_fav.__dict__, book_data=book)
 
 

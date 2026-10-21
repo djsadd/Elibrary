@@ -151,7 +151,7 @@ export default function ProtectionPage() {
           <button
             disabled={submitting}
             onClick={onBan}
-            className="px-3 py-2 rounded-md text-sm bg-[#7b0f2b] text-white hover:opacity-95 disabled:opacity-60"
+            className="px-3 py-2 rounded-md text-sm bg-[#b51e3e] text-white hover:opacity-95 disabled:opacity-60"
           >
             {t("admin.protection.ban")}
           </button>
@@ -198,7 +198,7 @@ export default function ProtectionPage() {
                   <td className="px-3 py-2">
                     <button
                       onClick={() => onClear(x.ident)}
-                      className="text-[#7b0f2b] hover:underline"
+                      className="text-[#b51e3e] hover:underline"
                     >
                       {t("admin.protection.unban")}
                     </button>

@@ -137,7 +137,7 @@ export default function UsersPage() {
                   <td className="px-3 py-2">{u.is_active ? "Yes" : "No"}</td>
                   <td className="px-3 py-2">{formatDate(u.created_at)}</td>
                   <td className="px-3 py-2">
-                    <Link to={`/admin/users/${encodeURIComponent(String(u.id))}`} className="text-[#7b0f2b] hover:underline">
+                    <Link to={`/admin/users/${encodeURIComponent(String(u.id))}`} className="text-[#b51e3e] hover:underline">
                       {t("admin.users.details")}
                     </Link>
                   </td>

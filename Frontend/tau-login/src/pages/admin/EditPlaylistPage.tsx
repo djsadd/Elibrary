@@ -127,7 +127,7 @@ export default function EditPlaylistPage() {
 
   return (
     <div className="space-y-4">
-      <div className="rounded-lg p-5 bg-gradient-to-r from-[#7b0f2b] to-rose-600 text-white shadow">
+      <div className="admin-editor-banner">
         <div className="text-xl font-semibold">Edit Playlist</div>
         <div className="text-sm opacity-90">ID: {id}</div>
       </div>
@@ -159,7 +159,7 @@ export default function EditPlaylistPage() {
               </button>
               <div className="flex gap-2">
                 <button onClick={() => navigate(-1)} type="button" className="px-3 py-2 border rounded hover:bg-slate-50">Cancel</button>
-                <button onClick={onSave} disabled={saving} className="px-4 py-2 bg-[#7b0f2b] text-white rounded hover:bg-rose-800 disabled:opacity-60">{saving ? 'Saving…' : 'Save'}</button>
+                <button onClick={onSave} disabled={saving} className="px-4 py-2 bg-[#b51e3e] text-white rounded hover:bg-rose-800 disabled:opacity-60">{saving ? 'Saving…' : 'Save'}</button>
               </div>
             </div>
           </div>
@@ -171,7 +171,7 @@ export default function EditPlaylistPage() {
                 value={query}
                 onChange={(e)=>setQuery(e.target.value)}
                 disabled={bLoading}
-                className="w-full border rounded-md px-3 py-2 pr-10 focus:outline-none focus:ring-2 focus:ring-[#7b0f2b]/30"
+                className="w-full border rounded-md px-3 py-2 pr-10 focus:outline-none focus:ring-2 focus:ring-[#b51e3e]/30"
               />
               <svg className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"><circle cx="11" cy="11" r="7"/><path d="M21 21l-3.5-3.5"/></svg>
             </div>

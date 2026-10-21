@@ -9,6 +9,19 @@ type AuthState = {
 
 const Ctx = createContext<AuthState | null>(null);
 
+function revokeSession(fallbackToken: string | null) {
+  const token = localStorage.getItem("token") || sessionStorage.getItem("token") || fallbackToken;
+  const refresh = localStorage.getItem("refresh_token") || sessionStorage.getItem("refresh_token");
+  if (!token) return;
+  const base = (import.meta.env.VITE_API_URL || "").replace(/\/$/, "");
+  void fetch(`${base}/api/auth/logout`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+    body: refresh ? JSON.stringify({ token: refresh }) : undefined,
+    keepalive: true,
+  }).catch(() => {});
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [tokenState, setTokenState] = useState<string | null>(
     localStorage.getItem("token") || sessionStorage.getItem("token")
@@ -29,6 +42,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // auto-logout when external auth:logout event dispatched
   useEffect(() => {
     const onAuthLogout = () => {
+      revokeSession(tokenState);
       setTokenState(null);
       try { localStorage.removeItem("token"); localStorage.removeItem("token_exp"); localStorage.removeItem("refresh_token"); } catch {}
       try { sessionStorage.removeItem("token"); sessionStorage.removeItem("token_exp"); sessionStorage.removeItem("refresh_token"); } catch {}
@@ -36,7 +50,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     window.addEventListener("auth:logout", onAuthLogout as EventListener);
     return () => { window.removeEventListener("auth:logout", onAuthLogout as EventListener); };
-  }, []);
+  }, [tokenState]);
 
   const value = useMemo<AuthState>(
     () => ({
@@ -64,6 +78,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
       },
       logout: () => {
+        revokeSession(tokenState);
         setTokenState(null);
         localStorage.removeItem("token"); localStorage.removeItem("token_exp"); localStorage.removeItem("refresh_token");
         sessionStorage.removeItem("token"); sessionStorage.removeItem("token_exp"); sessionStorage.removeItem("refresh_token");

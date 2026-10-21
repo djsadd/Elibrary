@@ -14,6 +14,7 @@ class BookDoc(BaseModel):
     summary: str | None = None
     cover: str | None = None
     popularity: int = 0
+    is_public: bool = False
 
     @classmethod
     def from_catalog(cls, payload: dict[str, Any]) -> "BookDoc":
@@ -42,6 +43,7 @@ class BookDoc(BaseModel):
             summary=payload.get("summary"),
             cover=payload.get("cover"),
             popularity=int(payload.get("popularity") or 0),
+            is_public=payload.get("is_public") is True,
         )
 
 
@@ -78,7 +80,7 @@ class StudentProfile(BaseModel):
 
 class BookRecommendationExplanationRequest(BaseModel):
     book: BookDoc
-    student_query: str | None = None
+    student_query: str | None = Field(None, max_length=8000)
     student_profile: StudentProfile | None = None
 
 

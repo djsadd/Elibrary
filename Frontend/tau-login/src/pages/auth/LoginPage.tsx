@@ -1,10 +1,13 @@
+import { returnPath } from "@/shared/auth/returnPath";
+import { designCopy } from "@/shared/designCopy";
+import AuthShell from "@/components/layout/AuthShell";
 import React, { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 
 import { login, platonusEmailRequest, platonusEmailVerify, platonusLogin as platonusLoginApi, resend2fa, verify, verify2fa } from "@/features/auth/api";
 import LanguageSwitcher from "@/components/common/LanguageSwitcher";
 import { useAuth } from "@/shared/auth/AuthContext";
-import { t } from "@/shared/i18n";
+import { getLang, t } from "@/shared/i18n";
 
 function EyeIcon({ className }: { className?: string }) {
   return (
@@ -63,7 +66,7 @@ export default function LoginPage() {
   const [twofaCode, setTwofaCode] = useState("");
   const [twofaResendCooldown, setTwofaResendCooldown] = useState<number>(0);
 
-  const [isPlatonusMode, setIsPlatonusMode] = useState(true);
+  const [isPlatonusMode, setIsPlatonusMode] = useState(()=>new URLSearchParams(loc.search).get('method')!=='email');
   const [platonusLogin, setPlatonusLogin] = useState("");
   const [platonusPassword, setPlatonusPassword] = useState("");
   const [platonusEmailChallengeId, setPlatonusEmailChallengeId] = useState<string | null>(null);
@@ -176,7 +179,7 @@ export default function LoginPage() {
       if (!token) return tokenMissingError(resp);
 
       storeTokens(token, refreshToken);
-      const to = loc?.state?.from?.pathname || "/";
+      const to = returnPath(loc.state);
       nav(to, { replace: true });
     } catch (err: any) {
       setError(err?.message || JSON.stringify(err) || t("auth.login.errorGeneric"));
@@ -198,7 +201,7 @@ export default function LoginPage() {
       if (!token) return tokenMissingError(resp);
 
       storeTokens(token, refreshToken);
-      const to = loc?.state?.from?.pathname || "/";
+      const to = returnPath(loc.state);
       nav(to, { replace: true });
     } catch (err: any) {
       setError(err?.message || JSON.stringify(err) || t("auth.login.errorGeneric"));
@@ -224,7 +227,7 @@ export default function LoginPage() {
       setTwofaChallengeId(null);
       setTwofaCode("");
 
-      const to = loc?.state?.from?.pathname || "/";
+      const to = returnPath(loc.state);
       nav(to, { replace: true });
     } catch (err: any) {
       setError(err?.message || JSON.stringify(err) || t("auth.login.errorGeneric"));
@@ -292,7 +295,7 @@ export default function LoginPage() {
       if (!token) return tokenMissingError(resp);
 
       storeTokens(token, refreshToken);
-      const to = loc?.state?.from?.pathname || "/";
+      const to = returnPath(loc.state);
       nav(to, { replace: true });
     } catch (err: any) {
       setError(err?.message || JSON.stringify(err) || t("auth.login.errorGeneric"));
@@ -331,7 +334,7 @@ export default function LoginPage() {
       const refreshToken = extractRefresh(resp);
       if (!token) return tokenMissingError(resp);
       storeTokens(token, refreshToken);
-      const to = loc?.state?.from?.pathname || "/";
+      const to = returnPath(loc.state);
       nav(to, { replace: true });
     } catch (err: any) {
       setError(err?.message || JSON.stringify(err) || t("auth.login.errorGeneric"));
@@ -341,30 +344,32 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen w-full bg-gradient-to-br from-[#7b0f2b] via-[#8d1837] to-[#f2f2f5] flex items-center justify-center p-4">
-      <div className="w-full max-w-md rounded-2xl shadow-2xl bg-white/95 backdrop-blur border border-white/70 px-8 py-8">
+    <AuthShell>
+      <div className="auth-form-content">
         <div className="flex justify-end mb-4">
           <LanguageSwitcher />
         </div>
 
         <div className="text-center mb-6">
-          <h1 className="text-xl font-semibold text-[#7b0f2b]">
-            {isPlatonusMode ? t("auth.login.platonusTitle") : t("auth.login.title")}
+          <h1 className="text-xl font-semibold text-[#b51e3e]">
+            {designCopy().loginHeading}
           </h1>
           <p className="text-slate-500 text-sm">
-            {isPlatonusMode ? t("auth.login.platonusSubtitle") : t("auth.login.subtitle")}
+            {designCopy().loginSubtitle}
           </p>
         </div>
+
+        {!twofaChallengeId && !platonusEmailChallengeId && step === 1 && <div className="auth-methods" role="group" aria-label={designCopy().loginSubtitle}><button type="button" aria-pressed={isPlatonusMode} onClick={()=>{setIsPlatonusMode(true);setError(null);}}>Platonus</button><button type="button" aria-pressed={!isPlatonusMode} onClick={()=>{setIsPlatonusMode(false);setError(null);}}>Email</button></div>}
 
         {twofaChallengeId ? (
           <form onSubmit={handleTwofaSubmit} className="space-y-4">
             <div className="text-slate-600 text-sm">{t("auth.login.twofaPrompt")}</div>
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">{t("auth.login.twofaCodeLabel")}</label>
-              <input
+              <label htmlFor="login-field-1" className="block text-sm font-medium text-slate-700 mb-1">{t("auth.login.twofaCodeLabel")}</label>
+              <input id="login-field-1"
                 type="text"
                 inputMode="numeric"
-                className="w-full rounded-lg border border-slate-200 focus:border-[#7b0f2b] focus:ring-[#7b0f2b] px-3 py-2 outline-none"
+                className="w-full rounded-lg border border-slate-200 focus:border-[#b51e3e] focus:ring-[#b51e3e] px-3 py-2 outline-none"
                 value={twofaCode}
                 onChange={(e) => setTwofaCode(e.target.value)}
                 placeholder="000000"
@@ -378,7 +383,7 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={isSubmitting}
-              className="w-full rounded-lg bg-[#7b0f2b] text-white py-2 font-medium disabled:opacity-60"
+              className="w-full rounded-lg bg-[#b51e3e] text-white py-2 font-medium disabled:opacity-60"
             >
               {isSubmitting ? t("auth.login.loading") : t("auth.common.verify")}
             </button>
@@ -408,10 +413,10 @@ export default function LoginPage() {
               </div>
             ) : (
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">{t("auth.login.emailLabel")}</label>
-                <input
+                <label htmlFor="login-field-2" className="block text-sm font-medium text-slate-700 mb-1">{t("auth.login.emailLabel")}</label>
+                <input id="login-field-2"
                   type="email"
-                  className="w-full rounded-lg border border-slate-200 focus:border-[#7b0f2b] focus:ring-[#7b0f2b] px-3 py-2 outline-none"
+                  className="w-full rounded-lg border border-slate-200 focus:border-[#b51e3e] focus:ring-[#b51e3e] px-3 py-2 outline-none"
                   value={platonusNewEmail}
                   onChange={(e) => setPlatonusNewEmail(e.target.value)}
                   placeholder={t("auth.login.emailPlaceholder")}
@@ -423,11 +428,11 @@ export default function LoginPage() {
 
             {platonusEmailCodeSent && (
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">{t("auth.login.verifyCodeLabel")}</label>
-                <input
+                <label htmlFor="login-field-3" className="block text-sm font-medium text-slate-700 mb-1">{t("auth.login.verifyCodeLabel")}</label>
+                <input id="login-field-3"
                   type="text"
                   inputMode="numeric"
-                  className="w-full rounded-lg border border-slate-200 focus:border-[#7b0f2b] focus:ring-[#7b0f2b] px-3 py-2 outline-none"
+                  className="w-full rounded-lg border border-slate-200 focus:border-[#b51e3e] focus:ring-[#b51e3e] px-3 py-2 outline-none"
                   value={platonusEmailCode}
                   onChange={(e) => setPlatonusEmailCode(e.target.value)}
                   placeholder="000000"
@@ -444,7 +449,7 @@ export default function LoginPage() {
                 type="button"
                 disabled={isSubmitting}
                 onClick={handlePlatonusEmailSend}
-                className="w-full rounded-lg bg-[#7b0f2b] text-white py-2 font-medium disabled:opacity-60"
+                className="w-full rounded-lg bg-[#b51e3e] text-white py-2 font-medium disabled:opacity-60"
               >
                 {isSubmitting ? t("auth.login.loading") : t("auth.common.sendCode")}
               </button>
@@ -453,7 +458,7 @@ export default function LoginPage() {
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="w-full rounded-lg bg-[#7b0f2b] text-white py-2 font-medium disabled:opacity-60"
+                  className="w-full rounded-lg bg-[#b51e3e] text-white py-2 font-medium disabled:opacity-60"
                 >
                   {isSubmitting ? t("auth.login.loading") : t("auth.common.verify")}
                 </button>
@@ -474,10 +479,10 @@ export default function LoginPage() {
           <>
             <form onSubmit={step === 1 ? handleSubmit : handleVerifySubmit} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">{t("auth.login.emailLabel")}</label>
-                <input
+                <label htmlFor="login-field-4" className="block text-sm font-medium text-slate-700 mb-1">{t("auth.login.emailLabel")}</label>
+                <input id="login-field-4"
                   type="email"
-                  className="w-full rounded-lg border border-slate-200 focus:border-[#7b0f2b] focus:ring-[#7b0f2b] px-3 py-2 outline-none"
+                  className="w-full rounded-lg border border-slate-200 focus:border-[#b51e3e] focus:ring-[#b51e3e] px-3 py-2 outline-none"
                   placeholder={t("auth.login.emailPlaceholder")}
                   autoComplete="email"
                   value={email}
@@ -487,11 +492,11 @@ export default function LoginPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">{t("auth.login.passwordLabel")}</label>
+                <label htmlFor="login-field-5" className="block text-sm font-medium text-slate-700 mb-1">{t("auth.login.passwordLabel")}</label>
                 <div className="relative">
-                  <input
+                  <input id="login-field-5"
                     type={showPassword ? "text" : "password"}
-                    className="w-full rounded-lg border border-slate-200 focus:border-[#7b0f2b] focus:ring-[#7b0f2b] px-3 py-2 pr-10 outline-none"
+                    className="w-full rounded-lg border border-slate-200 focus:border-[#b51e3e] focus:ring-[#b51e3e] px-3 py-2 pr-10 outline-none"
                     placeholder={t("auth.login.passwordPlaceholder")}
                     autoComplete="current-password"
                     value={password}
@@ -513,22 +518,22 @@ export default function LoginPage() {
                 <label className="inline-flex items-center gap-2">
                   <input
                     type="checkbox"
-                    className="rounded border-slate-300 text-[#7b0f2b] focus:ring-[#7b0f2b]"
+                    className="rounded border-slate-300 text-[#b51e3e] focus:ring-[#b51e3e]"
                     checked={remember}
                     onChange={(e) => setRemember(e.target.checked)}
                   />
                   <span className="text-slate-600">{t("auth.login.remember")}</span>
                 </label>
-                <Link to="/auth/forgot" className="text-[#7b0f2b] hover:underline">
+                <Link to="/auth/forgot" className="text-[#b51e3e] hover:underline">
                   {t("auth.login.forgot")}
                 </Link>
               </div>
 
               {step === 2 && (
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">{t("auth.common.verificationCodeLabel")}</label>
-                  <input
-                    className="w-full rounded-lg border border-slate-200 focus:border-[#7b0f2b] focus:ring-[#7b0f2b] px-3 py-2 outline-none"
+                  <label htmlFor="login-field-6" className="block text-sm font-medium text-slate-700 mb-1">{t("auth.common.verificationCodeLabel")}</label>
+                  <input id="login-field-6"
+                    className="w-full rounded-lg border border-slate-200 focus:border-[#b51e3e] focus:ring-[#b51e3e] px-3 py-2 outline-none"
                     value={verificationCode}
                     onChange={(e) => setVerificationCode(e.target.value)}
                     autoComplete="one-time-code"
@@ -546,48 +551,36 @@ export default function LoginPage() {
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="w-full rounded-lg bg-[#7b0f2b] text-white font-semibold py-2.5 disabled:opacity-70 hover:bg-[#6b0d26] transition"
+                className="w-full rounded-lg bg-[#b51e3e] text-white font-semibold py-2.5 disabled:opacity-70 hover:bg-[#8f1630] transition"
               >
                 {isSubmitting ? t("auth.login.loading") : step === 1 ? t("auth.login.submit") : t("auth.common.verify")}
               </button>
             </form>
 
-            <div className="mt-4 flex items-center gap-2">
-              <div className="flex-1 h-px bg-slate-200" />
-              <span className="text-xs text-slate-400">{t("auth.common.or")}</span>
-              <div className="flex-1 h-px bg-slate-200" />
-            </div>
-
-            <button
-              type="button"
-              onClick={() => {
-                setIsPlatonusMode(true);
-                setError(null);
-              }}
-              className="mt-3 w-full rounded-lg border border-[#7b0f2b] text-[#7b0f2b] font-semibold py-2.5 hover:bg-[#7b0f2b]/5 transition"
-            >
-              {t("auth.login.platonusButton")}
-            </button>
           </>
         ) : (
           <>
             <form onSubmit={handlePlatonusSubmit} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">{t("auth.login.platonusLoginLabel")}</label>
-                <input
-                  className="w-full rounded-lg border border-slate-200 focus:border-[#7b0f2b] focus:ring-[#7b0f2b] px-3 py-2 outline-none"
+                <label htmlFor="login-field-7" className="block text-sm font-medium text-slate-700 mb-1">{t("auth.login.platonusLoginLabel")}</label>
+                <input id="login-field-7"
+                  className="w-full rounded-lg border border-slate-200 focus:border-[#b51e3e] focus:ring-[#b51e3e] px-3 py-2 outline-none"
                   placeholder={t("auth.login.platonusLoginPlaceholder")}
+                  autoComplete="username"
+                  required
                   value={platonusLogin}
                   onChange={(e) => setPlatonusLogin(e.target.value)}
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">{t("auth.login.platonusPasswordLabel")}</label>
-                <input
+                <label htmlFor="login-field-8" className="block text-sm font-medium text-slate-700 mb-1">{t("auth.login.platonusPasswordLabel")}</label>
+                <input id="login-field-8"
                   type="password"
-                  className="w-full rounded-lg border border-slate-200 focus:border-[#7b0f2b] focus:ring-[#7b0f2b] px-3 py-2 outline-none"
+                  className="w-full rounded-lg border border-slate-200 focus:border-[#b51e3e] focus:ring-[#b51e3e] px-3 py-2 outline-none"
                   placeholder={t("auth.login.platonusPasswordPlaceholder")}
+                  autoComplete="current-password"
+                  required
                   value={platonusPassword}
                   onChange={(e) => setPlatonusPassword(e.target.value)}
                 />
@@ -602,34 +595,24 @@ export default function LoginPage() {
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="w-full rounded-lg bg-[#7b0f2b] text-white font-semibold py-2.5 hover:bg-[#6b0d26] transition"
+                className="w-full rounded-lg bg-[#b51e3e] text-white font-semibold py-2.5 hover:bg-[#8f1630] transition"
               >
                 {isSubmitting ? t("auth.login.loading") : t("auth.login.platonusButton")}
               </button>
             </form>
 
-            <button
-              type="button"
-              onClick={() => {
-                setIsPlatonusMode(false);
-                setError(null);
-              }}
-              className="mt-4 w-full rounded-lg border border-slate-200 text-slate-600 font-medium py-2.5 hover:bg-slate-50 transition text-sm"
-            >
-              {t("auth.login.backToDefault")}
-            </button>
           </>
         )}
 
         <div className="mt-5 flex items-center justify-between text-sm text-slate-600">
           <div>
             {t("auth.login.newUserPrefix")}{" "}
-            <Link to="/auth/register" className="text-[#7b0f2b] hover:underline">
-              {t("auth.login.actionLink")}
+            <Link to="/auth/register" className="text-[#b51e3e] hover:underline">
+              {{ru:'Как получить доступ',kk:'Қолжетімділікті қалай алуға болады',en:'How to get access'}[getLang()]}
             </Link>
           </div>
         </div>
       </div>
-    </div>
+    </AuthShell>
   );
 }

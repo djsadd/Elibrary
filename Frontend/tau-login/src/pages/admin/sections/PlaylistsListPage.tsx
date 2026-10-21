@@ -50,7 +50,7 @@ export default function PlaylistsListPage() {
         <h2 className="text-lg font-semibold">{t('admin.playlists.heading')}</h2>
         <div className="flex items-center gap-2">
           <input value={q} onChange={(e)=>setQ(e.target.value)} className="px-3 py-2 rounded-md border border-slate-200 text-sm" placeholder="Search…" />
-          <button onClick={()=>setModalOpen(true)} className="px-3 py-2 rounded-md bg-[#7b0f2b] text-white text-sm">Add</button>
+          <button onClick={()=>setModalOpen(true)} className="px-3 py-2 rounded-md bg-[#b51e3e] text-white text-sm">Add</button>
         </div>
       </div>
       {loading && <div className="text-slate-500">Loading…</div>}
@@ -81,7 +81,7 @@ export default function PlaylistsListPage() {
                       title={t('admin.common.edit')}
                       aria-label={t('admin.common.edit')}
                     >
-                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#7b0f2b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#b51e3e" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                         <path d="M12 20h9"/>
                         <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/>
                       </svg>
@@ -147,7 +147,7 @@ export default function PlaylistsListPage() {
                 {createError && <div className="text-sm text-red-600">{createError}</div>}
                 <div className="flex items-center justify-end gap-2 pt-2">
                   <button type="button" onClick={()=>setModalOpen(false)} className="px-3 py-2 rounded-md border text-sm hover:bg-slate-50">Cancel</button>
-                  <button type="submit" disabled={creating} className="px-4 py-2 rounded-md bg-[#7b0f2b] text-white text-sm disabled:opacity-60">{creating ? "Adding…" : "Create"}</button>
+                  <button type="submit" disabled={creating} className="px-4 py-2 rounded-md bg-[#b51e3e] text-white text-sm disabled:opacity-60">{creating ? "Adding…" : "Create"}</button>
                 </div>
               </form>
             </div>

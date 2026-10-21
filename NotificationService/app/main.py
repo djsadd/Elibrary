@@ -1,3 +1,4 @@
+from app.utils.request_limits import RequestLimitsMiddleware
 from fastapi import FastAPI
 from app.api.routes import router as notification_router
 from app.core.db import Base, engine
@@ -17,3 +18,6 @@ Instrumentator().instrument(app).expose(app, endpoint="/metrics")
 @app.on_event("startup")
 def on_startup() -> None:
     Base.metadata.create_all(bind=engine)
+
+
+app.add_middleware(RequestLimitsMiddleware)

@@ -6,6 +6,8 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func, case, literal, select, union_all
 
 from core.db import SessionLocal
+from core.security import require_internal_token
+from utils.authz import require_roles
 from core.config import settings
 from models.event import Event
 from schemas.event import EventIn, EventOut
@@ -37,12 +39,14 @@ async def health():
     return {"status": "ok", "service": "analytics"}
 
 
-@router.post("/events", response_model=List[EventOut])
+@router.post("/events", response_model=List[EventOut], dependencies=[Depends(require_internal_token)])
 def ingest_events(
     payload: Union[EventIn, List[EventIn]],
     db: Session = Depends(get_db),
 ):
     events = payload if isinstance(payload, list) else [payload]
+    if len(events) > 1000:
+        raise HTTPException(413, "Too many events")
     created: List[EventOut] = []
     for ev in events:
         event = add_event(db, ev.model_dump())
@@ -51,7 +55,7 @@ def ingest_events(
     return created
 
 
-@router.get("/stats/summary", response_model=SummaryStats)
+@router.get("/stats/summary", response_model=SummaryStats, dependencies=[Depends(require_roles("admin", "librarian"))])
 def summary_stats(
     from_date: Optional[date] = Query(None, alias="from"),
     to_date: Optional[date] = Query(None, alias="to"),
@@ -80,7 +84,7 @@ def summary_stats(
     return SummaryStats(total=int(total), users=int(users), guests=int(guests))
 
 
-@router.get("/stats/daily", response_model=List[DailyStatsRow])
+@router.get("/stats/daily", response_model=List[DailyStatsRow], dependencies=[Depends(require_roles("admin", "librarian"))])
 def daily_stats(
     from_date: Optional[date] = Query(None, alias="from"),
     to_date: Optional[date] = Query(None, alias="to"),
@@ -126,7 +130,7 @@ def daily_stats(
     return rows
 
 
-@router.get("/stats/top-paths", response_model=List[TopPathRow])
+@router.get("/stats/top-paths", response_model=List[TopPathRow], dependencies=[Depends(require_roles("admin", "librarian"))])
 def top_paths(
     from_date: Optional[date] = Query(None, alias="from"),
     to_date: Optional[date] = Query(None, alias="to"),
@@ -148,7 +152,7 @@ def top_paths(
     return [TopPathRow(path=row.path, count=int(row.count)) for row in query.all() if row.path]
 
 
-@router.get("/stats/events", response_model=EventsPage)
+@router.get("/stats/events", response_model=EventsPage, dependencies=[Depends(require_roles("admin", "librarian"))])
 def list_events(
     day: Optional[date] = None,
     from_date: Optional[date] = Query(None, alias="from"),
@@ -207,7 +211,7 @@ def list_events(
     return EventsPage(total=total, items=items)
 
 
-@router.get("/traffic", response_model=EventsPage)
+@router.get("/traffic", response_model=EventsPage, dependencies=[Depends(require_roles("admin", "librarian"))])
 def traffic(
     day: Optional[date] = None,
     from_date: Optional[date] = Query(None, alias="from"),
@@ -245,7 +249,7 @@ def traffic(
     )
 
 
-@router.get("/public-traffic", response_model=EventsPage)
+@router.get("/public-traffic", response_model=EventsPage, dependencies=[Depends(require_roles("admin", "librarian"))])
 def public_traffic(
     day: Optional[date] = None,
     from_date: Optional[date] = Query(None, alias="from"),
@@ -270,7 +274,7 @@ def public_traffic(
     )
 
 
-@router.get("/traffic/{event_id}", response_model=EventOut)
+@router.get("/traffic/{event_id}", response_model=EventOut, dependencies=[Depends(require_roles("admin", "librarian"))])
 def traffic_event(event_id: int, db: Session = Depends(get_db)):
     ev = db.query(Event).filter(Event.id == event_id, Event.event_type == "api_request").first()
     if not ev:
@@ -278,7 +282,7 @@ def traffic_event(event_id: int, db: Session = Depends(get_db)):
     return ev
 
 
-@router.get("/stats/visitors", response_model=VisitorsPage)
+@router.get("/stats/visitors", response_model=VisitorsPage, dependencies=[Depends(require_roles("admin", "librarian"))])
 def visitors_stats(
     day: Optional[date] = None,
     from_date: Optional[date] = Query(None, alias="from"),

@@ -1,4 +1,5 @@
 from __future__ import annotations
+from app.utils.request_limits import RequestLimitsMiddleware
 
 import asyncio
 import logging
@@ -22,7 +23,7 @@ app.state.es_ready = False
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -52,6 +53,8 @@ async def _init_index_if_needed() -> None:
             exists = await es.indices.exists(index=idx)
             if not exists:
                 await es.indices.create(index=idx, **books_index_body())
+            else:
+                await es.indices.put_mapping(index=idx, properties={"is_public": {"type": "boolean"}})
             app.state.es_ready = True
             return
         except Exception as e:
@@ -85,3 +88,6 @@ async def _startup():
     except Exception as e:
         app.state.es_ready = False
         log.warning("Startup completed with degraded search (Elasticsearch unavailable): %s", e)
+
+
+app.add_middleware(RequestLimitsMiddleware)

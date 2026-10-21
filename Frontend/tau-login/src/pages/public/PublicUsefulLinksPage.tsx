@@ -18,7 +18,7 @@ export default function PublicUsefulLinksPage() {
 
   return (
     <PublicPageLayout maxWidthClassName="max-w-7xl xl:max-w-screen-2xl">
-      <section className="rounded-2xl border bg-gradient-to-br from-white to-slate-50 p-6 shadow-sm">
+      <section className="public-page-intro">
         <h1 className="text-3xl font-semibold text-slate-900">{t("publicHome.nav.links")}</h1>
         <p className="mt-2 text-sm leading-6 text-slate-700">{currentCategoryLabel}</p>
       </section>

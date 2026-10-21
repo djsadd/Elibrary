@@ -112,7 +112,7 @@ export default function CreatePlaylistPage() {
 
   return (
     <div className="space-y-4">
-      <div className="rounded-lg p-5 bg-gradient-to-r from-[#7b0f2b] to-rose-600 text-white shadow">
+      <div className="admin-editor-banner">
         <div className="text-xl font-semibold">Create Playlist</div>
         <div className="text-sm opacity-90">Name your playlist and quickly search books to add.</div>
       </div>
@@ -124,7 +124,7 @@ export default function CreatePlaylistPage() {
             <input
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              className="mt-1 w-full border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#7b0f2b]/30"
+              className="mt-1 w-full border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#b51e3e]/30"
               required
             />
           </div>
@@ -133,7 +133,7 @@ export default function CreatePlaylistPage() {
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              className="mt-1 w-full border rounded-md px-3 py-2 h-28 focus:outline-none focus:ring-2 focus:ring-[#7b0f2b]/30"
+              className="mt-1 w-full border rounded-md px-3 py-2 h-28 focus:outline-none focus:ring-2 focus:ring-[#b51e3e]/30"
             />
           </div>
           {error ? (
@@ -156,7 +156,7 @@ export default function CreatePlaylistPage() {
               <button
                 type="submit"
                 disabled={submitting}
-                className="px-4 py-2 bg-[#7b0f2b] hover:bg-rose-800 disabled:opacity-60 text-white rounded-md shadow-sm transition-colors"
+                className="px-4 py-2 bg-[#b51e3e] hover:bg-rose-800 disabled:opacity-60 text-white rounded-md shadow-sm transition-colors"
               >
                 {submitting ? "Creating…" : "Create"}
               </button>
@@ -172,7 +172,7 @@ export default function CreatePlaylistPage() {
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               disabled={loading}
-              className="w-full border rounded-md px-3 py-2 pr-10 focus:outline-none focus:ring-2 focus:ring-[#7b0f2b]/30"
+              className="w-full border rounded-md px-3 py-2 pr-10 focus:outline-none focus:ring-2 focus:ring-[#b51e3e]/30"
             />
             <svg
               className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400"
@@ -203,7 +203,7 @@ export default function CreatePlaylistPage() {
                       >
                         <span
                           className={`inline-block w-4 h-4 rounded border ${
-                            active ? "bg-[#7b0f2b] border-[#7b0f2b]" : "border-slate-300"
+                            active ? "bg-[#b51e3e] border-[#b51e3e]" : "border-slate-300"
                           }`}
                         />
                         <span className="flex-1 truncate">{b.title}</span>

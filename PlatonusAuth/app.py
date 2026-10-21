@@ -1,13 +1,15 @@
+from request_limits import RequestLimitsMiddleware
 import os
 import logging
 import sys
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Depends
 from pydantic import BaseModel
 from prometheus_fastapi_instrumentator import Instrumentator
 from pythonjsonlogger import jsonlogger
 
 from register import auth
+from security import require_roles
 
 
 def setup_logging() -> None:
@@ -40,7 +42,7 @@ class Credentials(BaseModel):
     password: str | None = None
 
 
-@app.post("/auth_platonus")
+@app.post("/auth_platonus", dependencies=[Depends(require_roles("admin", "librarian"))])
 def auth_platonus(credentials: Credentials):
     # Логин и пароль берём только из переменных окружения (.env)
     username = credentials.username
@@ -59,11 +61,14 @@ def auth_platonus(credentials: Credentials):
         response = auth(username, password)
     except RuntimeError as exc:
         raise HTTPException(
-            status_code=401, detail=str(exc)
+            status_code=401, detail="External authentication failed"
         ) from exc
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(
-            status_code=500, detail=f"Failed to fetch notifications: {exc}"
+            status_code=500, detail="External authentication service failed"
         ) from exc
 
     return {"role": response["role"], "info": response["info"]}
+
+
+app.add_middleware(RequestLimitsMiddleware)

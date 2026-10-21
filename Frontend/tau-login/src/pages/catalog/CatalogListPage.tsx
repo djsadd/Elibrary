@@ -1,10 +1,12 @@
+import BookCard from "@/components/common/BookCard";
+import CatalogSearch from "@/components/common/CatalogSearch";
+import LibraryIcon from "@/components/common/LibraryIcon";
+import { designCopy } from "@/shared/designCopy";
 import { Link, useSearchParams } from "react-router-dom";
 import { useEffect, useRef, useState } from "react";
 import DashboardHeader from "../../components/layout/DashboardHeader";
 import { t } from "@/shared/i18n";
 import { api } from "@/shared/api/client";
-import { namesFrom } from "@/shared/ui/text";
-import bookImg from "@/assets/images/Image.png";
 
 type Book = {
   id: number | string;
@@ -65,8 +67,10 @@ const FilterDropdown = ({
         setOpen(false);
       }
     };
+    const onKey = (event: KeyboardEvent) => { if (event.key === "Escape") setOpen(false); };
+    document.addEventListener("keydown", onKey);
     document.addEventListener("mousedown", onDocClick);
-    return () => document.removeEventListener("mousedown", onDocClick);
+    return () => { document.removeEventListener("mousedown", onDocClick); document.removeEventListener("keydown", onKey); };
   }, [open]);
 
   const filtered = query
@@ -74,11 +78,13 @@ const FilterDropdown = ({
     : options;
 
   return (
-    <label className="text-sm text-slate-700">
+    <div className="filter-field">
       <div className="text-xs font-medium text-slate-600">{label}</div>
       <div ref={ref} className="relative mt-1">
         <button
           type="button"
+          aria-label={label}
+          aria-expanded={open}
           onClick={() => {
             setOpen((prev) => {
               const next = !prev;
@@ -86,7 +92,7 @@ const FilterDropdown = ({
               return next;
             });
           }}
-          className="w-full border border-slate-200 rounded-full px-3 py-2 text-sm text-left bg-white flex items-center justify-between gap-2 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#7b0f2b]"
+          className="w-full border border-slate-200 rounded-full px-3 py-2 text-sm text-left bg-white flex items-center justify-between gap-2 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#b51e3e]"
         >
           <span className={value ? "text-slate-900" : "text-slate-400"}>
             {value || placeholder}
@@ -100,8 +106,10 @@ const FilterDropdown = ({
             <input
               value={query}
               onChange={(e) => setQuery(e.target.value)}
+              aria-label={searchPlaceholder}
+              autoFocus
               placeholder={searchPlaceholder}
-              className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm mb-2 focus:outline-none focus:ring-2 focus:ring-[#7b0f2b]"
+              className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm mb-2 focus:outline-none focus:ring-2 focus:ring-[#b51e3e]"
             />
             <div className="max-h-56 overflow-auto">
               <button
@@ -147,7 +155,7 @@ const FilterDropdown = ({
           </div>
         )}
       </div>
-    </label>
+    </div>
   );
 };
 
@@ -167,19 +175,13 @@ export default function CatalogListPage() {
   const [filtersOpen, setFiltersOpen] = useState(false);
   const DEFAULT_LIMIT = 15;
   const [pageInfo, setPageInfo] = useState<{ limit: number; offset: number; total: number }>({ limit: DEFAULT_LIMIT, offset: 0, total: 0 });
-  const showError = !q && !!error;
+  const showError = !!error;
+  const [attempt, setAttempt] = useState(0);
+  const sheetRef = useRef<HTMLDivElement>(null);
   const offset = (page - 1) * DEFAULT_LIMIT;
   const [filtersData, setFiltersData] = useState<FiltersResponse>({ authors: [], subjects: [], langs: [], years: [] });
 
   
-
-  const SkeletonCard = ({ imageHeight }: { imageHeight: string }) => (
-    <div className="bg-white border border-gray-100 rounded-lg p-3 text-center shadow-sm">
-      <div className={`w-full ${imageHeight} rounded-md mb-3 bg-slate-200 animate-pulse`} />
-      <div className="h-4 bg-slate-200 rounded mb-1 animate-pulse" />
-      <div className="h-3 bg-slate-200 rounded w-2/3 mx-auto animate-pulse" />
-    </div>
-  );
 
   // initial fetch and when search query changes
   useEffect(() => {
@@ -267,7 +269,7 @@ export default function CatalogListPage() {
     })();
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [q, page, author, subject, lang, year]);
+  }, [q, page, author, subject, lang, year, attempt]);
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -286,15 +288,30 @@ export default function CatalogListPage() {
     return () => { cancelled = true; };
   }, []);
 
-  // load favorites from localStorage
   useEffect(() => {
-    try {
-      const favs: string[] = JSON.parse(localStorage.getItem("favorites") || "[]");
-      setFavorites(new Set((Array.isArray(favs) ? favs : []).map(String)));
-    } catch {
-      setFavorites(new Set());
-    }
-  }, []);
+    const controller=new AbortController();
+    api<Array<{book_id:number}>>("/api/favourites/",{signal:controller.signal}).then(data=>{
+      if(!controller.signal.aborted)setFavorites(new Set((Array.isArray(data)?data:[]).map(item=>String(item.book_id))));
+    }).catch(()=>{});
+    return ()=>controller.abort();
+  },[]);
+  useEffect(()=>{
+    if(!filtersOpen)return;
+    const previous=document.body.style.overflow;
+    const previousFocus=document.activeElement as HTMLElement | null;
+    document.body.style.overflow='hidden';
+    sheetRef.current?.querySelector<HTMLButtonElement>('button')?.focus();
+    const handle=(event:KeyboardEvent)=>{
+      if(event.key==='Escape')setFiltersOpen(false);
+      if(event.key!=='Tab')return;
+      const elements=[...(sheetRef.current?.querySelectorAll<HTMLElement>('button,input')||[])].filter(el=>el.getClientRects().length);
+      const first=elements[0],last=elements[elements.length-1];
+      if(event.shiftKey&&document.activeElement===first){event.preventDefault();last?.focus();}
+      else if(!event.shiftKey&&document.activeElement===last){event.preventDefault();first?.focus();}
+    };
+    document.addEventListener('keydown',handle);
+    return ()=>{document.body.style.overflow=previous;document.removeEventListener('keydown',handle);previousFocus?.focus();};
+  },[filtersOpen]);
 
   const toggleFavorite = async (id: string | number, e?: React.MouseEvent) => {
     if (e) { e.preventDefault(); e.stopPropagation(); }
@@ -391,222 +408,26 @@ export default function CatalogListPage() {
   const yearAllLabel = t("catalog.filters.year.all");
   const noMatchesLabel = t("catalog.filters.noMatches");
 
-  return (
-    <div>
-      <DashboardHeader />
-      <h1 className="text-2xl font-semibold text-[#7b0f2b] mb-4">{t('catalog.title')}</h1>
-      <div className="sm:hidden mb-3">
-        <button
-          type="button"
-          onClick={() => setFiltersOpen(true)}
-          className="w-full border border-slate-200 rounded-full px-4 py-2 text-sm bg-white shadow-sm text-slate-800 flex items-center justify-center gap-2 hover:bg-slate-50"
-        >
-          <svg className="w-4 h-4 text-[#7b0f2b]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
-            <path d="M4 6h16M7 12h10M10 18h4" strokeLinecap="round" />
-          </svg>
-          {filtersBtnLabel}
-        </button>
+  const copy=designCopy();
+  const activeFilters=([
+    ['author',author,authorLabel],['subject',subject,categoryLabel],['lang',lang,langLabel],['year',year,yearLabel],
+  ] as const).filter(([,value])=>Boolean(value));
+  const filterControls=()=> <>
+    <FilterDropdown label={authorLabel} value={author} options={filtersData.authors} placeholder={authorPlaceholder} searchPlaceholder={authorSearchPlaceholder} allLabel={authorAllLabel} noMatchesLabel={noMatchesLabel} onChange={value=>updateFilter('author',value)}/>
+    <FilterDropdown label={categoryLabel} value={subject} options={filtersData.subjects} placeholder={categoryPlaceholder} searchPlaceholder={categorySearchPlaceholder} allLabel={categoryAllLabel} noMatchesLabel={noMatchesLabel} onChange={value=>updateFilter('subject',value)}/>
+    <FilterDropdown label={langLabel} value={lang} options={filtersData.langs} placeholder={langPlaceholder} searchPlaceholder={langSearchPlaceholder} allLabel={langAllLabel} noMatchesLabel={noMatchesLabel} onChange={value=>updateFilter('lang',value)}/>
+    <FilterDropdown label={yearLabel} value={year} options={filtersData.years.map(String)} placeholder={yearPlaceholder} searchPlaceholder={yearSearchPlaceholder} allLabel={yearAllLabel} noMatchesLabel={noMatchesLabel} onChange={value=>updateFilter('year',value)}/>
+  </>;
+  return <div className="catalog-page"><DashboardHeader/>
+    <div className="workspace-heading"><div><h1>{t('catalog.title')}</h1><p>{copy.catalogIntro}</p></div></div>
+    <div className="catalog-layout"><aside className="catalog-filter-sidebar"><div className="filter-sidebar-heading"><h2><LibraryIcon name="filter" size={18}/>{copy.filters}</h2>{activeFilters.length>0&&<button type="button" onClick={clearFilters}>{copy.clear}</button>}</div>{filterControls()}</aside>
+      <div className="catalog-main"><div className="catalog-toolbar"><CatalogSearch key={q} initialValue={q}/><button type="button" className="catalog-mobile-filters" onClick={()=>setFiltersOpen(true)}><LibraryIcon name="filter" size={18}/>{copy.filters}{activeFilters.length>0&&<span>{activeFilters.length}</span>}</button></div>
+        {activeFilters.length>0&&<div className="active-filter-list">{activeFilters.map(([key,value,label])=><button type="button" key={key} onClick={()=>updateFilter(key,'')} aria-label={`${clearFiltersLabel}: ${label} ${value}`}>{label}: {value}<LibraryIcon name="close" size={14}/></button>)}<button type="button" onClick={clearFilters}>{clearFiltersLabel}</button></div>}
+        <div className="catalog-results-line" aria-live="polite"><span>{copy.results}: <strong>{loading?'…':pageInfo.total}</strong></span>{q&&<span>«{q}»</span>}</div>
+        {showError ? <div className="empty-state" role="alert"><div><h3>{t('publicHome.common.error')}</h3><p>{copy.noResults}</p></div><button className="text-action" onClick={()=>setAttempt(value=>value+1)}>{copy.retry}</button></div> : loading ? <div className="book-grid">{Array.from({length:6},(_,i)=><div className="book-skeleton animate-pulse" key={i}/>)}</div> : items.length ? <div className="book-grid">{items.map(book=><BookCard key={book.id} book={book} favorite={favorites.has(String(book.id))} onFavorite={event=>toggleFavorite(book.id,event)}/>)}</div> : <div className="empty-state"><LibraryIcon name="search" size={30}/><div><h3>{t('common.noBooks')}</h3><p>{copy.noResults}</p></div></div>}
+        {!loading&&!showError&&items.length>0&&totalPages>1&&<nav className="catalog-pagination" aria-label={t('catalog.title')}><button onClick={()=>goToPage(page-1)} disabled={page<=1}>{copy.previous}</button>{pageNumbers.map((n,i)=><span key={n}>{pageNumbers[i-1]&&n-pageNumbers[i-1]>1&&<span>…</span>}<button onClick={()=>goToPage(n)} aria-current={n===page?'page':undefined}>{n}</button></span>)}<button onClick={()=>goToPage(page+1)} disabled={page>=totalPages}>{copy.next}</button></nav>}
       </div>
-      {filtersOpen && (
-        <div className="fixed inset-0 z-50 sm:hidden">
-          <div
-            className="absolute inset-0 bg-black/40"
-            onClick={() => setFiltersOpen(false)}
-          />
-          <div className="absolute inset-x-0 bottom-0 bg-white rounded-t-2xl p-4 shadow-xl max-h-[85vh] overflow-auto">
-            <div className="flex items-center justify-between mb-3">
-              <div className="text-sm font-semibold text-slate-800">{filtersTitle}</div>
-              <button
-                type="button"
-                onClick={() => setFiltersOpen(false)}
-                className="text-sm text-slate-500"
-              >
-                {closeLabel}
-              </button>
-            </div>
-            <div className="grid grid-cols-1 gap-3">
-              <FilterDropdown
-                label={authorLabel}
-                value={author}
-                options={filtersData.authors}
-                placeholder={authorPlaceholder}
-                searchPlaceholder={authorSearchPlaceholder}
-                allLabel={authorAllLabel}
-                noMatchesLabel={noMatchesLabel}
-                onChange={(value) => updateFilter("author", value)}
-              />
-              <FilterDropdown
-                label={categoryLabel}
-                value={subject}
-                options={filtersData.subjects}
-                placeholder={categoryPlaceholder}
-                searchPlaceholder={categorySearchPlaceholder}
-                allLabel={categoryAllLabel}
-                noMatchesLabel={noMatchesLabel}
-                onChange={(value) => updateFilter("subject", value)}
-              />
-              <FilterDropdown
-                label={langLabel}
-                value={lang}
-                options={filtersData.langs}
-                placeholder={langPlaceholder}
-                searchPlaceholder={langSearchPlaceholder}
-                allLabel={langAllLabel}
-                noMatchesLabel={noMatchesLabel}
-                onChange={(value) => updateFilter("lang", value)}
-              />
-              <FilterDropdown
-                label={yearLabel}
-                value={year}
-                options={filtersData.years.map((y) => String(y))}
-                placeholder={yearPlaceholder}
-                searchPlaceholder={yearSearchPlaceholder}
-                allLabel={yearAllLabel}
-                noMatchesLabel={noMatchesLabel}
-                onChange={(value) => updateFilter("year", value)}
-              />
-              <button
-                type="button"
-                onClick={() => {
-                  clearFilters();
-                }}
-                className="w-full border border-slate-200 rounded-full px-4 py-2 text-sm bg-white shadow-sm hover:bg-slate-50"
-              >
-                {clearFiltersLabel}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-      <div className="bg-white border border-gray-100 rounded-lg p-3 sm:p-4 mb-4">
-        <div className="hidden sm:grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
-          <FilterDropdown
-            label={authorLabel}
-            value={author}
-            options={filtersData.authors}
-            placeholder={authorPlaceholder}
-            searchPlaceholder={authorSearchPlaceholder}
-            allLabel={authorAllLabel}
-            noMatchesLabel={noMatchesLabel}
-            onChange={(value) => updateFilter("author", value)}
-          />
-          <FilterDropdown
-            label={categoryLabel}
-            value={subject}
-            options={filtersData.subjects}
-            placeholder={categoryPlaceholder}
-            searchPlaceholder={categorySearchPlaceholder}
-            allLabel={categoryAllLabel}
-            noMatchesLabel={noMatchesLabel}
-            onChange={(value) => updateFilter("subject", value)}
-          />
-          <FilterDropdown
-            label={langLabel}
-            value={lang}
-            options={filtersData.langs}
-            placeholder={langPlaceholder}
-            searchPlaceholder={langSearchPlaceholder}
-            allLabel={langAllLabel}
-            noMatchesLabel={noMatchesLabel}
-            onChange={(value) => updateFilter("lang", value)}
-          />
-          <FilterDropdown
-            label={yearLabel}
-            value={year}
-            options={filtersData.years.map((y) => String(y))}
-            placeholder={yearPlaceholder}
-            searchPlaceholder={yearSearchPlaceholder}
-            allLabel={yearAllLabel}
-            noMatchesLabel={noMatchesLabel}
-            onChange={(value) => updateFilter("year", value)}
-          />
-          <div className="flex items-end">
-            <button
-              type="button"
-              onClick={clearFilters}
-              className="w-full border border-slate-200 rounded-full px-4 py-2 text-sm bg-white shadow-sm hover:bg-slate-50"
-            >
-              {clearFiltersLabel}
-            </button>
-          </div>
-        </div>
-      </div>
-      {showError && <div className="text-red-600">Failed to load: {error}</div>}
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-7 gap-3 sm:gap-4">
-        {loading
-          ? Array.from({ length: 12 }).map((_, idx) => (
-              <SkeletonCard key={`skeleton-${idx}`} imageHeight="h-44 sm:h-56" />
-            ))
-          : items.map((book) => {
-              const fav = favorites.has(String(book.id));
-              return (
-                <Link
-                  to={`/catalog/${book.id}`}
-                  key={String(book.id)}
-                  className="group relative block bg-white border border-gray-100 rounded-lg p-2 sm:p-3 text-center shadow-sm hover:shadow-md transition-shadow"
-                >
-                  <div className="relative mb-3">
-                    <img src={book.cover || bookImg} alt={`book-${book.id}`} className="w-full h-44 sm:h-56 object-contain rounded-md bg-slate-100 p-2" />
-                    <button
-                      aria-label={fav ? "Remove from favorites" : "Add to favorites"}
-                      onClick={(e) => toggleFavorite(book.id, e)}
-                      aria-pressed={fav}
-                      className="absolute top-2 right-2 z-10 p-2 rounded-full bg-white/95 border shadow-sm opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
-                    >
-                      <svg viewBox="0 0 24 24" className={fav ? "w-6 h-6 text-rose-600 fill-rose-600" : "w-6 h-6 text-slate-400"} fill={fav ? "currentColor" : "none"} stroke="currentColor" strokeWidth={1.8}>
-                        <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.41 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.41 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
-                      </svg>
-                    </button>
-                  </div>
-                  <div className="text-sm font-medium text-slate-800 truncate">{book.title}</div>
-                  {namesFrom((book as any).authors).length ? (
-                    <div className="text-xs text-slate-400 truncate">{namesFrom((book as any).authors).join(", ")}</div>
-                  ) : null}
-                </Link>
-              );
-            })}
-      </div>
-      {!loading && !showError && items.length > 0 && totalPages > 1 && (
-        <div className="flex flex-wrap items-center justify-center gap-2 mt-6">
-          <button
-            type="button"
-            onClick={() => goToPage(page - 1)}
-            disabled={page <= 1}
-            className="px-3 py-1 rounded border text-sm disabled:opacity-50"
-          >
-            Prev
-          </button>
-          {pageNumbers.map((n, idx) => {
-            const prev = pageNumbers[idx - 1];
-            const gap = prev && n - prev > 1;
-            return (
-              <span key={`p-${n}`} className="flex items-center gap-2">
-                {gap && <span className="text-slate-400">...</span>}
-                <button
-                  type="button"
-                  onClick={() => goToPage(n)}
-                  className={n === page
-                    ? "px-3 py-1 rounded bg-[#7b0f2b] text-white text-sm"
-                    : "px-3 py-1 rounded border text-sm"}
-                >
-                  {n}
-                </button>
-              </span>
-            );
-          })}
-          <button
-            type="button"
-            onClick={() => goToPage(page + 1)}
-            disabled={page >= totalPages}
-            className="px-3 py-1 rounded border text-sm disabled:opacity-50"
-          >
-            Next
-          </button>
-        </div>
-      )}
-      {!loading && !showError && items.length === 0 && (
-        <div className="text-slate-500 mt-4">{t('common.noBooks')}</div>
-      )}
     </div>
-  );
+    {filtersOpen&&<div className="catalog-filter-overlay"><div className="catalog-filter-backdrop" onClick={()=>setFiltersOpen(false)}/><div ref={sheetRef} className="catalog-filter-sheet" role="dialog" aria-modal="true" aria-label={copy.filters}><div className="filter-sidebar-heading"><h2>{copy.filters}</h2><button type="button" onClick={()=>setFiltersOpen(false)} aria-label={closeLabel}><LibraryIcon name="close"/></button></div>{filterControls()}<div className="filter-sheet-actions"><button className="tau-button tau-button--dark" onClick={clearFilters}>{copy.clear}</button><button className="tau-button tau-button--red" onClick={()=>setFiltersOpen(false)}>{closeLabel}</button></div></div></div>}
+  </div>;
 }

@@ -5,9 +5,9 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.api.catalog_common import get_db
-from app.models.book import UserBook
+from app.models.book import Book, UserBook
 from app.schemas.userbook import BookMinimal, UserBookCreate, UserBookOut, UserBookUpdate, UserBookWithBookOut
-from app.utils.authz import AuthUser, get_current_user
+from app.utils.authz import AuthUser, get_current_user, is_staff
 
 router = APIRouter()
 
@@ -18,6 +18,9 @@ def create_userbook(
     user: AuthUser = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    book = db.get(Book, payload.book_id)
+    if not book or (not book.is_public and not is_staff(user)):
+        raise HTTPException(404, "Book not found")
     existing = db.query(UserBook).filter_by(user_id=user.user_id, book_id=payload.book_id).first()
     if existing:
         raise HTTPException(400, "UserBook already exists")
@@ -94,6 +97,8 @@ def list_userbooks_with_books(
     result = []
     for ub in userbooks:
         book = ub.book
+        if not book or (not book.is_public and not is_staff(user)):
+            continue
         book_data = BookMinimal(
             id=book.id,
             title=book.title,

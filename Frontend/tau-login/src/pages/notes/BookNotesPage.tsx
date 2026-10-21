@@ -77,8 +77,8 @@ export default function BookNotesPage() {
     <div>
       <DashboardHeader />
       <div className="flex items-center justify-between mb-4">
-        <h1 className="text-2xl font-semibold text-[#7b0f2b]">My Notes</h1>
-        <Link to={`/catalog/${id}`} className="text-slate-600 hover:text-[#7b0f2b] text-sm">Back to book</Link>
+        <h1 className="text-2xl font-semibold text-[#b51e3e]">My Notes</h1>
+        <Link to={`/catalog/${id}`} className="text-slate-600 hover:text-[#b51e3e] text-sm">Back to book</Link>
       </div>
 
       <div className="bg-white border rounded-md p-3 mb-4 flex items-center gap-3">

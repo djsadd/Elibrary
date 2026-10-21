@@ -4,12 +4,12 @@ from app.core.db import get_db
 from app.schemas.notification import NotificationCreate, NotificationOut
 from app.models.notification import Notification
 from app.tasks import send_notification_task
-from app.utils.authz import get_current_user
+from app.utils.authz import get_current_user, require_roles
 
 router = APIRouter(prefix="/notification")
 
 
-@router.post("/", response_model=NotificationOut)
+@router.post("/", response_model=NotificationOut, dependencies=[Depends(require_roles("admin", "librarian"))])
 async def create_notification(data: NotificationCreate, db: Session = Depends(get_db),
                               current_user=Depends(get_current_user)):
     notif = Notification(user_id=current_user.user_id, type=data.type, message=data.message)

@@ -1,3 +1,4 @@
+from app.utils.request_limits import RequestLimitsMiddleware
 from fastapi import FastAPI
 from app.routers.external import router as external_router
 from app.utils.logging_config import setup_logging
@@ -14,3 +15,6 @@ Instrumentator().instrument(app).expose(app, endpoint="/metrics")
 @app.get("/")
 def root():
     return {"status": "ok"}
+
+
+app.add_middleware(RequestLimitsMiddleware)

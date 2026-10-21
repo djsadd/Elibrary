@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Request, Depends
 from app.core.config import settings
 from app.services.proxy import forward
-from app.services.auth_guard import auth_required
+from app.services.auth_guard import auth_required, admin_required, staff_required
 
 router = APIRouter(tags=["secure"])
 
@@ -10,25 +10,25 @@ router = APIRouter(tags=["secure"])
 
 @router.api_route("/analytics", methods=["GET", "POST", "PUT", "PATCH", "DELETE"])
 @router.api_route("/analytics/", methods=["GET", "POST", "PUT", "PATCH", "DELETE"])
-async def analytics_root_proxy(request: Request, _=Depends(auth_required)):
+async def analytics_root_proxy(request: Request, _=Depends(admin_required)):
     return await forward(request, settings.ANALYTICS_SERVICE_URL, path_suffix="analytics")
 
 
 @router.api_route("/analytics/{path:path}", methods=["GET", "POST", "PUT", "PATCH", "DELETE"])
 @router.api_route("/analytics/{path:path}/", methods=["GET", "POST", "PUT", "PATCH", "DELETE"])
-async def analytics_proxy(path: str, request: Request, _=Depends(auth_required)):
+async def analytics_proxy(path: str, request: Request, _=Depends(admin_required)):
     return await forward(request, settings.ANALYTICS_SERVICE_URL, path_suffix=f"analytics/{path}")
 
 # ======== AI ========
 
 
 @router.api_route("/ai", methods=["GET", "POST", "PUT", "PATCH", "DELETE"])
-async def ai_root(request: Request):
+async def ai_root(request: Request, _=Depends(auth_required)):
     return await forward(request, settings.AI_SERVICE_URL, path_suffix="api")
 
 
 @router.api_route("/ai/{path:path}", methods=["GET", "POST", "PUT", "PATCH", "DELETE"])
-async def ai_proxy(path: str, request: Request):
+async def ai_proxy(path: str, request: Request, _=Depends(auth_required)):
     return await forward(request, settings.AI_SERVICE_URL, path_suffix=f"api/{path}")
 
 
@@ -63,13 +63,13 @@ async def reviews_proxy(path: str, request: Request, _=Depends(auth_required)):
 # =========== Libtau integration ==========
 @router.api_route("/libtau", methods=["GET", "POST", "PUT", "PATCH", "DELETE"])
 @router.api_route("/libtau/", methods=["GET", "POST", "PUT", "PATCH", "DELETE"])
-async def libtau_root_proxy(request: Request, _=Depends(auth_required)):
+async def libtau_root_proxy(request: Request, _=Depends(admin_required)):
     return await forward(request, settings.LIBTAU_INTEGRATE_SERVICE, path_suffix="libtau")
 
 
 @router.api_route("/libtau/{path:path}", methods=["GET", "POST", "PUT", "PATCH", "DELETE"])
 @router.api_route("/libtau/{path:path}/", methods=["GET", "POST", "PUT", "PATCH", "DELETE"])
-async def libtau_proxy(path: str, request: Request, _=Depends(auth_required)):
+async def libtau_proxy(path: str, request: Request, _=Depends(admin_required)):
     return await forward(request, settings.LIBTAU_INTEGRATE_SERVICE, path_suffix=f"libtau/{path}")
 
 
@@ -107,7 +107,7 @@ async def profile_me(request: Request, _=Depends(auth_required)):
 
 # ====== File storage ======
 @router.post("/files/upload")
-async def upload_file(request: Request, _=Depends(auth_required)):
+async def upload_file(request: Request, _=Depends(staff_required)):
     return await forward(request, settings.FILE_SERVICE_URL)
 
 

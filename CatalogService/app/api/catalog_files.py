@@ -1,3 +1,4 @@
+from app.utils.authz import require_roles, get_current_user
 import os
 import uuid
 from typing import Optional
@@ -10,40 +11,53 @@ from app.api.catalog_common import get_db
 from app.models.book import Book
 from app.schemas.files import FileWithBooksOut, FilesList
 from app.schemas.userbook import BookMinimal
+from pathlib import Path
+from app.utils.storage import media_root
 from app.utils.pagination import clamp_limit, clamp_offset
 
 router = APIRouter()
 
-MEDIA_ROOT = os.path.abspath(os.getenv("MEDIA_ROOT", "./storage"))
+MEDIA_ROOT = str(media_root())
 os.makedirs(MEDIA_ROOT, exist_ok=True)
 
 MAX_RAW_SIZE = 50 * 1024 * 1024
 
 
 def _public_download_url(file_id: str) -> str:
-    return f"/files/{file_id}"
+    return f"/api/catalog/files/{file_id}"
 
 
-@router.post("/upload/raw")
+@router.post("/upload/raw", dependencies=[Depends(require_roles("editor", "admin", "librarian"))])
 async def upload_raw(
     request: Request,
     x_filename: Optional[str] = Header(default=None, convert_underscores=False),
     content_type: Optional[str] = Header(default=None),
 ):
     cl = request.headers.get("content-length")
-    if cl and int(cl) > MAX_RAW_SIZE:
-        raise HTTPException(status_code=413, detail="File too large")
+    if cl:
+        try:
+            if int(cl) < 0:
+                raise ValueError()
+            if int(cl) > MAX_RAW_SIZE:
+                raise HTTPException(413, "File too large")
+        except ValueError:
+            raise HTTPException(400, "Invalid Content-Length")
 
+    x_filename = x_filename or request.headers.get("x-filename")
     ext = ""
     if x_filename and "." in x_filename:
         base = x_filename.split("/")[-1].split("\\")[-1]
         _, ext = os.path.splitext(base)
-    file_id = f"{uuid.uuid4().hex}{ext or '.bin'}"
+    if ext.lower() not in {".pdf", ".epub", ".djvu", ".txt", ".png", ".jpg", ".jpeg", ".webp"}:
+        raise HTTPException(415, "Unsupported file extension")
+    file_id = f"{uuid.uuid4().hex}{ext.lower()}"
 
     try:
         await _save_raw_stream(request, file_id)
-    except Exception as exc:
-        raise HTTPException(status_code=500, detail=f"Save failed: {exc}")
+    except HTTPException:
+        raise
+    except OSError as exc:
+        raise HTTPException(status_code=500, detail="File operation failed") from exc
 
     return {
         "file": {
@@ -54,16 +68,22 @@ async def upload_raw(
 
 
 async def _save_raw_stream(request: Request, file_id: str) -> str:
-    abs_path = os.path.join(MEDIA_ROOT, file_id)
-    with open(abs_path, "wb") as out:
-        async for chunk in request.stream():
-            if not chunk:
-                continue
-            out.write(chunk)
-    return abs_path
+    path = Path(MEDIA_ROOT) / file_id
+    size = 0
+    try:
+        with path.open("xb") as out:
+            async for chunk in request.stream():
+                size += len(chunk)
+                if size > MAX_RAW_SIZE:
+                    raise HTTPException(413, "File too large")
+                out.write(chunk)
+    except BaseException:
+        path.unlink(missing_ok=True)
+        raise
+    return str(path)
 
 
-@router.get("/files", response_model=FilesList)
+@router.get("/files", response_model=FilesList, dependencies=[Depends(require_roles("editor", "admin", "librarian"))])
 def list_files_with_books(
     db: Session = Depends(get_db),
     q: Optional[str] = None,
@@ -140,3 +160,17 @@ if _raw_override_mb:
         MAX_RAW_SIZE = int(_raw_override_mb) * 1024 * 1024
     except ValueError:
         pass
+
+
+@router.get("/files/{file_id:path}")
+def download_catalog_file(file_id: str, user=Depends(get_current_user), db: Session = Depends(get_db)):
+    from fastapi.responses import FileResponse
+    from app.utils.storage import resolve_file
+    staff = bool({"admin", "librarian", "editor"}.intersection(r.lower() for r in user.roles))
+    query = db.query(Book).filter(Book.file_id == file_id)
+    if not staff:
+        query = query.filter(Book.is_public.is_(True))
+    if not staff and query.first() is None:
+        raise HTTPException(404, "File not found")
+    path = resolve_file(file_id)
+    return FileResponse(path, filename=path.name, content_disposition_type="attachment")

@@ -1,3 +1,4 @@
+import DashboardHeader from "@/components/layout/DashboardHeader";
 import { NavLink, Outlet } from "react-router-dom";
 import { t } from "@/shared/i18n";
 
@@ -10,12 +11,11 @@ const tabs = [
 
 export default function AnalyticsLayout() {
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between gap-3">
-        <h2 className="text-lg font-semibold">{t("nav.analytics")}</h2>
-      </div>
+    <div className="workspace-section space-y-4">
+      <DashboardHeader/>
+      <div className="page-heading"><h1>{t("nav.analytics")}</h1></div>
 
-      <nav className="border-b">
+      <nav className="workspace-tabs border-b">
         <div className="flex flex-wrap gap-2 pb-3">
           {tabs.map((tab) => (
             <NavLink
@@ -24,7 +24,7 @@ export default function AnalyticsLayout() {
               end={"end" in tab ? tab.end : undefined}
               className={({ isActive }) =>
                 `px-3 py-1.5 rounded-md text-sm border ${
-                  isActive ? "bg-slate-900 text-white border-slate-900" : "bg-white text-slate-700 hover:bg-slate-50"
+                  isActive ? "bg-[#b51e3e] text-white border-[#b51e3e]" : "bg-white text-slate-700 hover:bg-slate-50"
                 }`
               }
             >

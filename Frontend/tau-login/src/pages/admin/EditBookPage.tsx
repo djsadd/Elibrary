@@ -206,7 +206,7 @@ export default function EditBookPage() {
 
   return (
     <div className="space-y-4">
-      <div className="rounded-lg p-5 bg-gradient-to-r from-[#7b0f2b] to-rose-600 text-white shadow">
+      <div className="admin-editor-banner">
         <div className="text-xl font-semibold">Edit Book</div>
         <div className="text-sm opacity-90">ID: {id}</div>
       </div>
@@ -306,7 +306,7 @@ export default function EditBookPage() {
           <div className="bg-white rounded-md p-4 border shadow-sm">
             <div className="text-sm font-semibold text-slate-700 mb-3">Files</div>
             <label className="block text-sm font-medium">Cover image (optional)</label>
-            <input type="file" accept="image/*" onChange={(e)=> setCoverFile(e.target.files?.[0] || null)} className="mt-1 block w-full text-sm file:mr-3 file:py-2 file:px-3 file:rounded-md file:border-0 file:bg-[#7b0f2b]/10 file:text-[#7b0f2b] hover:file:bg-[#7b0f2b]/20" />
+            <input type="file" accept="image/*" onChange={(e)=> setCoverFile(e.target.files?.[0] || null)} className="mt-1 block w-full text-sm file:mr-3 file:py-2 file:px-3 file:rounded-md file:border-0 file:bg-[#b51e3e]/10 file:text-[#b51e3e] hover:file:bg-[#b51e3e]/20" />
 
             <label className="block text-sm font-medium mt-4">Replace Book file (PDF, optional)</label>
             <input type="file" accept="application/pdf" onChange={(e)=> setPdfFile(e.target.files?.[0] || null)} className="mt-1 block w-full text-sm file:mr-3 file:py-2 file:px-3 file:rounded-md file:border-0 file:bg-emerald-600/10 file:text-emerald-700 hover:file:bg-emerald-600/20" />
@@ -317,7 +317,7 @@ export default function EditBookPage() {
             <div className="text-sm text-slate-500">Update only fields you need; file/cover are optional.</div>
             <div className="flex gap-2">
               <button type="button" onClick={() => navigate(-1)} className="px-3 py-2 border rounded hover:bg-slate-50">Cancel</button>
-              <button type="submit" disabled={!canSubmit} className="px-4 py-2 bg-[#7b0f2b] hover:bg-rose-800 text-white rounded-md shadow-sm transition-colors disabled:opacity-60">Save Changes</button>
+              <button type="submit" disabled={!canSubmit} className="px-4 py-2 bg-[#b51e3e] hover:bg-rose-800 text-white rounded-md shadow-sm transition-colors disabled:opacity-60">Save Changes</button>
             </div>
           </div>
         </form>

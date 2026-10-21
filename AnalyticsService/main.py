@@ -1,3 +1,4 @@
+from utils.request_limits import RequestLimitsMiddleware
 from fastapi import FastAPI
 from api import router as api_router
 from core.clickhouse import ensure_schema
@@ -23,3 +24,6 @@ def startup() -> None:
         pass
 
 app.include_router(api_router)
+
+
+app.add_middleware(RequestLimitsMiddleware)

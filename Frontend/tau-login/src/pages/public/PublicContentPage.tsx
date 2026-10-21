@@ -182,7 +182,7 @@ export default function PublicContentPage() {
           const localizedContentHtml = pickLocalizedValue(page, "content_html");
           return (
         <>
-          <section className="rounded-2xl border bg-gradient-to-br from-white to-slate-50 p-6 shadow-sm">
+          <section className="public-page-intro">
             <h1 className="text-3xl font-semibold text-slate-900">{localizedTitle}</h1>
             {localizedSummary && <p className="mt-2 text-sm leading-7 text-slate-700">{localizedSummary}</p>}
           </section>

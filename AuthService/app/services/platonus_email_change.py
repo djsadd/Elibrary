@@ -9,6 +9,7 @@ from typing import Any
 
 from app.core.config import settings
 from app.core.redis import r
+from app.services.challenge_store import update_challenge
 
 
 def _secret() -> bytes:
@@ -44,83 +45,35 @@ def create_challenge(*, payload: dict[str, Any], ttl_seconds: int | None = None)
 
 
 def request_code(*, challenge_id: str, email: str) -> tuple[str, int]:
-    raw = r.get(_key(challenge_id))
-    if not raw:
-        raise ValueError("Challenge not found")
-
-    try:
-        state = json.loads(raw)
-    except Exception:
-        r.delete(_key(challenge_id))
-        raise ValueError("Challenge invalid")
-
-    now = int(time.time())
-    exp = int(state.get("exp") or 0)
-    if exp and now >= exp:
-        r.delete(_key(challenge_id))
-        raise ValueError("Challenge expired")
-
-    resend_after = int(state.get("resend_after") or 0)
-    if resend_after and now < resend_after:
-        raise PermissionError(str(resend_after - now))
-
-    length = int(settings.TWOFA_CODE_LENGTH)
-    if length < 4 or length > 10:
-        length = 6
-    code_int = secrets.randbelow(10**length)
-    code = f"{code_int:0{length}d}"
-
-    state["email"] = str(email or "").strip().lower()
-    state["hash"] = _hash_code(code)
-    state["attempts"] = 0
-    state["resend_after"] = now + int(settings.TWOFA_RESEND_COOLDOWN_SECONDS)
-
-    ttl = max(exp - now, 1) if exp else int(settings.TWOFA_TTL_SECONDS)
-    r.setex(_key(challenge_id), int(ttl), json.dumps(state, ensure_ascii=False, separators=(",", ":")))
-    return code, int(ttl)
+    def transition(state):
+        now = int(time.time())
+        if now < int(state.get("resend_after", 0)):
+            return None, PermissionError(str(state["resend_after"] - now)), False
+        # Resending or changing email must never reset the attempt budget.
+        if int(state.get("attempts", 0)) >= int(settings.TWOFA_MAX_ATTEMPTS):
+            return None, ValueError("Too many attempts"), True
+        length = int(settings.TWOFA_CODE_LENGTH)
+        code = f"{secrets.randbelow(10**length):0{length}d}"
+        state["email"] = email.strip().lower()
+        state["hash"] = _hash_code(code)
+        state["resend_after"] = now + int(settings.TWOFA_RESEND_COOLDOWN_SECONDS)
+        return (code, max(int(state["exp"]) - now, 1)), None, False
+    return update_challenge(_key(challenge_id), transition)
 
 
 def verify_code(*, challenge_id: str, email: str, code: str) -> dict[str, Any]:
-    raw = r.get(_key(challenge_id))
-    if not raw:
-        raise ValueError("Challenge not found")
-
-    try:
-        state = json.loads(raw)
-    except Exception:
-        r.delete(_key(challenge_id))
-        raise ValueError("Challenge invalid")
-
-    now = int(time.time())
-    exp = int(state.get("exp") or 0)
-    if exp and now >= exp:
-        r.delete(_key(challenge_id))
-        raise ValueError("Challenge expired")
-
-    attempts = int(state.get("attempts") or 0)
-    if attempts >= int(settings.TWOFA_MAX_ATTEMPTS):
-        r.delete(_key(challenge_id))
-        raise ValueError("Too many attempts")
-
-    expected_email = str(state.get("email") or "").strip().lower()
-    email = str(email or "").strip().lower()
-    if not expected_email or expected_email != email:
-        raise ValueError("Email mismatch")
-
-    expected_hash = str(state.get("hash") or "")
-    got = _hash_code(str(code or "").strip())
-    if not expected_hash or not hmac.compare_digest(expected_hash, got):
-        attempts += 1
-        state["attempts"] = attempts
-        ttl = max(exp - now, 1) if exp else int(settings.TWOFA_TTL_SECONDS)
-        r.setex(_key(challenge_id), int(ttl), json.dumps(state, ensure_ascii=False, separators=(",", ":")))
-        raise ValueError("Invalid code")
-
-    payload = state.get("payload") or {}
-    if not isinstance(payload, dict):
-        payload = {}
-    r.delete(_key(challenge_id))
-    return payload
+    def transition(state):
+        attempts = int(state.get("attempts", 0))
+        if attempts >= int(settings.TWOFA_MAX_ATTEMPTS):
+            return None, ValueError("Too many attempts"), True
+        valid = (str(state.get("email") or "").lower() == email.strip().lower()
+                 and bool(state.get("hash"))
+                 and hmac.compare_digest(state["hash"], _hash_code(str(code or "").strip())))
+        if not valid:
+            state["attempts"] = attempts + 1
+            return None, ValueError("Invalid code"), False
+        return state.get("payload") or {}, None, True
+    return update_challenge(_key(challenge_id), transition)
 
 
 def peek_payload(*, challenge_id: str) -> dict[str, Any]:

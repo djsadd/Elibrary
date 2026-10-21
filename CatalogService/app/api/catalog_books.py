@@ -11,7 +11,8 @@ from app.api.catalog_common import _ensure_authors, _ensure_subjects, _to_out, g
 from app.models.book import Author, Book, Subject, UserBook, book_subjects
 from app.schemas.book import BookCreate, BookList, BookOut, BookUpdate, QuickBookCreate
 from app.services.search_sync import index_book_in_search
-from app.utils.authz import AuthUser, get_current_user, require_roles
+from app.utils.authz import AuthUser, get_current_user, require_roles, is_staff, get_catalog_reader
+from app.utils.storage import resolve_file
 from app.utils.pagination import clamp_limit, clamp_offset
 
 router = APIRouter()
@@ -19,18 +20,21 @@ router = APIRouter()
 
 @router.get("/books/batch", response_model=list[BookOut])
 def get_books_batch(
-    ids: str = Query(..., description="Comma-separated book IDs, e.g. 1,2,3"),
-    user: AuthUser = Depends(get_current_user),
+    ids: str = Query(..., max_length=2048, description="Comma-separated book IDs, e.g. 1,2,3"),
+    user: AuthUser = Depends(get_catalog_reader),
     db: Session = Depends(get_db),
 ):
     try:
         id_list = [int(x) for x in ids.split(",") if x.strip().isdigit()]
-        if not id_list:
+        if not id_list or len(id_list) > 200:
             raise HTTPException(400, "No valid IDs provided")
     except Exception:
         raise HTTPException(400, "Invalid ID list")
 
-    books = db.query(Book).filter(Book.id.in_(id_list)).all()
+    query = db.query(Book).filter(Book.id.in_(id_list))
+    if not is_staff(user):
+        query = query.filter(Book.is_public.is_(True))
+    books = query.all()
     if not books:
         raise HTTPException(404, "No books found for provided IDs")
 
@@ -40,43 +44,37 @@ def get_books_batch(
 @router.get(
     "/books/{book_id}/download",
     response_class=FileResponse,
-    dependencies=[Depends(require_roles("librarian", "admin", "student"))],
+    dependencies=[Depends(require_roles("librarian", "admin", "editor", "student", "teacher"))],
 )
-def download_book(book_id: int, db: Session = Depends(get_db)):
+def download_book(book_id: int, db: Session = Depends(get_db), user: AuthUser = Depends(get_current_user)):
     book = db.get(Book, book_id)
-    if not book:
+    if not book or (not book.is_public and not is_staff(user)):
         raise HTTPException(status_code=404, detail="Book not found")
 
-    file_path = os.path.join("storage", book.file_id)
-
-    if not os.path.exists(file_path):
-        raise HTTPException(status_code=404, detail="File not found")
+    file_path = resolve_file(book.file_id)
 
     return FileResponse(
         path=file_path,
-        filename=f"{book.title}.pdf",
+        filename=file_path.name,
         media_type="application/pdf",
     )
 
 
 @router.get(
     "/books/{book_id}/stream",
-    dependencies=[Depends(require_roles("librarian", "admin", "student", "teacher"))],
+    dependencies=[Depends(require_roles("librarian", "admin", "editor", "student", "teacher"))],
 )
-def stream_book(book_id: int, db: Session = Depends(get_db)):
+def stream_book(book_id: int, db: Session = Depends(get_db), user: AuthUser = Depends(get_current_user)):
     book = db.get(Book, book_id)
-    if not book:
+    if not book or (not book.is_public and not is_staff(user)):
         raise HTTPException(status_code=404, detail="Book not found")
 
-    file_path = os.path.join("storage", book.file_id)
-
-    if not os.path.exists(file_path):
-        raise HTTPException(status_code=404, detail="File not found")
+    file_path = resolve_file(book.file_id)
 
     return FileResponse(
         path=file_path,
         media_type="application/pdf",
-        headers={"Content-Disposition": f"inline; filename={book.title}.pdf"},
+        headers={"Content-Disposition": "inline", "X-Content-Type-Options": "nosniff"},
     )
 
 
@@ -96,6 +94,8 @@ def list_books(
     offset = clamp_offset(offset)
 
     query = db.query(Book)
+    if not is_staff(user):
+        query = query.filter(Book.is_public.is_(True))
     if q:
         like = f"%{q}%"
         query = query.filter(Book.title.ilike(like))
@@ -128,19 +128,20 @@ def list_books(
 
 @router.get("/books/search", response_model=BookList)
 def search_books(
-    user: AuthUser = Depends(get_current_user),
+    user: AuthUser = Depends(get_catalog_reader),
     db: Session = Depends(get_db),
     q: Optional[str] = None,
     lang: Optional[str] = None,
     year: Optional[str] = None,
-    limit: Optional[int] = Query(None, ge=1, le=100),
+    limit: Optional[int] = Query(20, ge=1, le=100),
     offset: int = Query(0, ge=0),
 ):
-    if limit is not None:
-        limit = clamp_limit(limit)
+    limit = clamp_limit(limit or 20)
     offset = clamp_offset(offset)
 
     query = db.query(Book)
+    if not is_staff(user):
+        query = query.filter(Book.is_public.is_(True))
 
     if q:
         like = f"%{q}%"
@@ -185,7 +186,7 @@ def get_book(
     db: Session = Depends(get_db),
 ):
     book = db.get(Book, book_id)
-    if not book:
+    if not book or (not book.is_public and not is_staff(user)):
         raise HTTPException(404, "Book not found")
     return _to_out(book)
 
@@ -198,7 +199,7 @@ def get_related_books(
     db: Session = Depends(get_db),
 ):
     book = db.get(Book, book_id)
-    if not book:
+    if not book or (not book.is_public and not is_staff(user)):
         raise HTTPException(404, "Book not found")
 
     popularity_subq = (
@@ -217,6 +218,7 @@ def get_related_books(
             db.query(Book.id)
             .join(book_subjects, Book.id == book_subjects.c.book_id)
             .filter(Book.id != book_id)
+            .filter(True if is_staff(user) else Book.is_public.is_(True))
             .filter(book_subjects.c.subject_id.in_(subject_ids))
             .outerjoin(popularity_subq, Book.id == popularity_subq.c.book_id)
             .group_by(Book.id, Book.title, popularity_subq.c.popularity)
@@ -242,6 +244,7 @@ def get_related_books(
         fallback = (
             db.query(Book)
             .filter(Book.id != book_id)
+            .filter(True if is_staff(user) else Book.is_public.is_(True))
             .outerjoin(popularity_subq, Book.id == popularity_subq.c.book_id)
             .order_by(popularity_order, Book.title.asc())
             .limit(limit)
@@ -252,7 +255,7 @@ def get_related_books(
     return [_to_out(b) for b in rows]
 
 
-@router.post("/books", response_model=BookOut, status_code=status.HTTP_201_CREATED)
+@router.post("/books", response_model=BookOut, status_code=status.HTTP_201_CREATED, dependencies=[Depends(require_roles("editor", "admin", "librarian"))])
 def create_book(payload: BookCreate, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
     book = Book(
         title=payload.title,
@@ -338,25 +341,26 @@ def quick_create_book(
         db.refresh(book)
     except IntegrityError as e:
         db.rollback()
-        raise HTTPException(status_code=400, detail=f"Failed to create book: {str(e)}")
+        raise HTTPException(status_code=400, detail="Book could not be created")
     except Exception as e:
         db.rollback()
-        raise HTTPException(status_code=500, detail=f"Internal error: {str(e)}")
+        raise HTTPException(status_code=500, detail="Book operation failed")
     
     out = _to_out(book)
     background_tasks.add_task(index_book_in_search, out.model_dump())
     return out
 
 
-@router.patch("/books/{book_id}", response_model=BookOut)
+@router.patch("/books/{book_id}", response_model=BookOut, dependencies=[Depends(require_roles("editor", "admin", "librarian"))])
 def update_book(
     book_id: int,
     payload: BookUpdate,
     background_tasks: BackgroundTasks,
+    user: AuthUser = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     book = db.get(Book, book_id)
-    if not book:
+    if not book or (not book.is_public and not is_staff(user)):
         raise HTTPException(status_code=404, detail="Book not found")
 
     data = payload.model_dump(exclude_unset=True) if hasattr(payload, "model_dump") else payload.dict(exclude_unset=True)

@@ -90,7 +90,7 @@ export default function MultiSelect({ label, options, selected, onChange, onCrea
                   onClick={() => toggle(opt)}
                   className={`w-full text-left px-3 py-2 text-sm flex items-center gap-2 hover:bg-slate-50 ${active ? 'bg-slate-50' : ''}`}
                 >
-                  <span className={`inline-block w-4 h-4 rounded border ${active ? 'bg-[#7b0f2b] border-[#7b0f2b]' : 'border-slate-300'}`} />
+                  <span className={`inline-block w-4 h-4 rounded border ${active ? 'bg-[#b51e3e] border-[#b51e3e]' : 'border-slate-300'}`} />
                   <span className="truncate">{opt}</span>
                 </button>
               );

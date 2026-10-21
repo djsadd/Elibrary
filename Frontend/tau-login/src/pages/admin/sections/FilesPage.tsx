@@ -131,7 +131,7 @@ export default function FilesPage() {
                           : "";
                         return (
                           <div key={String(b.id)} className="flex items-center gap-3">
-                            <Link to={`/admin/books/${b.id}/edit`} className="text-slate-900 hover:text-[#7b0f2b]">
+                            <Link to={`/admin/books/${b.id}/edit`} className="text-slate-900 hover:text-[#b51e3e]">
                               {b.title}
                             </Link>
                             {authors && <span className="text-xs text-slate-500">{authors}</span>}

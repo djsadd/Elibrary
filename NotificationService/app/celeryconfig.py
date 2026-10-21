@@ -3,8 +3,8 @@ from app.core.config import settings
 
 celery = Celery(
     "notification_service",
-    broker="redis://localhost:6379/0",
-    backend="redis://localhost:6379/0"
+    broker=settings.REDIS_URL,
+    backend=settings.REDIS_URL
 )
 
 celery.conf.update(

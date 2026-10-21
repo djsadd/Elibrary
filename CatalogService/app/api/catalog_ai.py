@@ -1,56 +1,30 @@
+import os
+from urllib.parse import urlparse
 import httpx
-
 from fastapi import APIRouter, Depends, HTTPException, Request
+from app.utils.authz import get_current_user
 
-from app.utils.authz import AuthUser, get_current_user
+router = APIRouter(dependencies=[Depends(get_current_user)])
 
-router = APIRouter()
-
-AI_API_BASE = "http://192.168.112.182"
-
+async def _forward(path, data, request):
+    base = os.getenv("AI_API_BASE", "").rstrip("/")
+    if not base:
+        raise HTTPException(503, "AI service is not configured")
+    if urlparse(base).scheme != "https":
+        raise HTTPException(503, "AI_API_BASE must use HTTPS")
+    try:
+        async with httpx.AsyncClient(timeout=30.0, follow_redirects=False, trust_env=False) as client:
+            response = await client.post(base + path, json=data,
+                                         headers={"Authorization": request.headers["authorization"]})
+        response.raise_for_status()
+        return response.json()
+    except (httpx.HTTPError, ValueError) as exc:
+        raise HTTPException(502, "AI service unavailable") from exc
 
 @router.post("/chat_card")
-async def chat_card(
-    data: dict,
-    request: Request,
-    user: AuthUser = Depends(get_current_user),
-):
-    authorization = request.headers.get("authorization")
-    if not authorization:
-        raise HTTPException(status_code=401, detail="Missing bearer token")
-
-    async with httpx.AsyncClient() as client:
-        r = await client.post(
-            f"{AI_API_BASE}/api/chat_card",
-            json=data,
-            headers={"Authorization": authorization},
-        )
-        return r.json()
-
+async def chat_card(data: dict, request: Request):
+    return await _forward("/api/chat_card", data, request)
 
 @router.post("/generate_llm_context")
-async def generate_llm_context(
-    data: dict,
-    request: Request,
-    user: AuthUser = Depends(get_current_user),
-):
-    try:
-        authorization = request.headers.get("authorization")
-        if not authorization:
-            raise HTTPException(status_code=401, detail="Missing bearer token")
-
-        async with httpx.AsyncClient() as client:
-            r = await client.post(
-                f"{AI_API_BASE}/api/generate_llm_context",
-                json=data,
-                headers={"Authorization": authorization},
-            )
-            try:
-                return r.json()
-            except Exception:
-                return {"text": r.text}
-
-    except httpx.HTTPStatusError as exc:
-        raise HTTPException(status_code=exc.response.status_code, detail=exc.response.text)
-    except Exception as exc:
-        raise HTTPException(status_code=500, detail=str(exc))
+async def generate_llm_context(data: dict, request: Request):
+    return await _forward("/api/generate_llm_context", data, request)

@@ -10,7 +10,7 @@ async def fetch_books_page(*, q: str | None, limit: int, offset: int) -> dict:
     if q:
         params["q"] = q
     async with httpx.AsyncClient(timeout=settings.CATALOG_TIMEOUT_S) as client:
-        r = await client.get(f"{str(settings.CATALOG_SERVICE_URL).rstrip('/')}/catalog/books/search", params=params)
+        r = await client.get(f"{str(settings.CATALOG_SERVICE_URL).rstrip('/')}/catalog/books/search", params=params, headers={"X-Admin-Token": settings.ADMIN_TOKEN})
         r.raise_for_status()
         return r.json()
 
@@ -28,6 +28,8 @@ async def fetch_books_batch(*, ids: list[int], authorization: str | None = None)
             params=params,
             headers=headers,
         )
+        if r.status_code == 404:
+            return []
         r.raise_for_status()
         payload = r.json()
         return payload if isinstance(payload, list) else []

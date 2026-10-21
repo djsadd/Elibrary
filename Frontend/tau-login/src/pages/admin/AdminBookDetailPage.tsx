@@ -117,7 +117,7 @@ export default function AdminBookDetailPage() {
           </Link>
           <Link
             to={`/catalog/${id}`}
-            className="px-3 py-2 bg-[#7b0f2b] hover:bg-rose-800 text-white rounded text-sm"
+            className="px-3 py-2 bg-[#b51e3e] hover:bg-rose-800 text-white rounded text-sm"
           >
             Open in catalog
           </Link>
@@ -184,7 +184,7 @@ export default function AdminBookDetailPage() {
                       href={book.download_url}
                       target="_blank"
                       rel="noreferrer"
-                      className="text-[#7b0f2b] hover:underline"
+                      className="text-[#b51e3e] hover:underline"
                     >
                       {book.download_url}
                     </a>

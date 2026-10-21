@@ -8,12 +8,12 @@ from app.api.catalog_common import _subject_to_detail, get_db
 from app.models.book import Subject
 from app.schemas.book import SubjectOut
 from app.schemas.subjects import SubjectCreate, SubjectDetail, SubjectUpdate
-from app.utils.authz import AuthUser, get_current_user
+from app.utils.authz import AuthUser, get_current_user, require_roles
 
 router = APIRouter()
 
 
-@router.post("/subjects", response_model=str, status_code=status.HTTP_201_CREATED)
+@router.post("/subjects", response_model=str, status_code=status.HTTP_201_CREATED, dependencies=[Depends(require_roles("editor", "admin", "librarian"))])
 def create_subject(
     payload: SubjectCreate,
     user: AuthUser = Depends(get_current_user),
@@ -35,7 +35,7 @@ def create_subject(
     return subject.name
 
 
-@router.patch("/subjects/{subject_id}", response_model=SubjectDetail)
+@router.patch("/subjects/{subject_id}", response_model=SubjectDetail, dependencies=[Depends(require_roles("editor", "admin", "librarian"))])
 def update_subject(
     subject_id: int,
     payload: SubjectUpdate,

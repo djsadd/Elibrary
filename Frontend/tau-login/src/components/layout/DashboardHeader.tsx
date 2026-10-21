@@ -1,3 +1,5 @@
+import { useAuth } from "@/shared/auth/AuthContext";
+import { designCopy } from "@/shared/designCopy";
 // Desktop header (hidden on small screens)
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -19,7 +21,7 @@ const FILTERS: Array<{ id: FilterId; icon: React.ReactNode }> = [
   {
     id: "all",
     icon: (
-      <svg className="w-4 h-4 text-[#7b0f2b]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden>
+      <svg className="w-4 h-4 text-[#b51e3e]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden>
         <path d="M4 6h16M6 12h12M8 18h8" strokeLinecap="round" />
       </svg>
     ),
@@ -27,7 +29,7 @@ const FILTERS: Array<{ id: FilterId; icon: React.ReactNode }> = [
   {
     id: "books",
     icon: (
-      <svg className="w-4 h-4 text-[#7b0f2b]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden>
+      <svg className="w-4 h-4 text-[#b51e3e]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden>
         <path d="M6 4h11a2 2 0 012 2v14a2 2 0 00-2-2H6a2 2 0 00-2 2V6a2 2 0 012-2z" strokeLinejoin="round" />
         <path d="M6 18h11" strokeLinecap="round" />
       </svg>
@@ -36,7 +38,7 @@ const FILTERS: Array<{ id: FilterId; icon: React.ReactNode }> = [
   {
     id: "ebooks",
     icon: (
-      <svg className="w-4 h-4 text-[#7b0f2b]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden>
+      <svg className="w-4 h-4 text-[#b51e3e]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden>
         <path d="M7 4h10a2 2 0 012 2v14a2 2 0 00-2-2H7a2 2 0 00-2 2V6a2 2 0 012-2z" strokeLinejoin="round" />
         <path d="M9 8h6M9 11h6" strokeLinecap="round" />
       </svg>
@@ -45,7 +47,7 @@ const FILTERS: Array<{ id: FilterId; icon: React.ReactNode }> = [
   {
     id: "audio",
     icon: (
-      <svg className="w-4 h-4 text-[#7b0f2b]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden>
+      <svg className="w-4 h-4 text-[#b51e3e]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden>
         <path d="M9 18a2 2 0 100-4 2 2 0 000 4z" />
         <path d="M11 14V6l10-2v8" strokeLinecap="round" strokeLinejoin="round" />
         <path d="M19 16a2 2 0 100-4 2 2 0 000 4z" />
@@ -55,7 +57,7 @@ const FILTERS: Array<{ id: FilterId; icon: React.ReactNode }> = [
   {
     id: "articles",
     icon: (
-      <svg className="w-4 h-4 text-[#7b0f2b]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden>
+      <svg className="w-4 h-4 text-[#b51e3e]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden>
         <path d="M6 4h9l3 3v13a2 2 0 01-2 2H6a2 2 0 01-2-2V6a2 2 0 012-2z" strokeLinejoin="round" />
         <path d="M15 4v4h4" strokeLinejoin="round" />
         <path d="M7 12h10M7 15h10" strokeLinecap="round" />
@@ -65,6 +67,7 @@ const FILTERS: Array<{ id: FilterId; icon: React.ReactNode }> = [
 ];
 
 export default function DashboardHeader() {
+  const { logout } = useAuth();
   const [filterOpen, setFilterOpen] = useState(false);
   const [userOpen, setUserOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
@@ -116,14 +119,9 @@ export default function DashboardHeader() {
   const [notifs, setNotifs] = useState<Notif[]>(() => {
     try {
       const saved = JSON.parse(localStorage.getItem('ui_notifs') || '[]');
-      if (Array.isArray(saved) && saved.length) return saved;
+      if (Array.isArray(saved) && saved.length) return saved.filter((item: Notif) => !(["New book added", "System update", "Reminder"].includes(item.title) && ["n1", "n2", "n3"].includes(item.id)));
     } catch {}
-    const now = new Date();
-    return [
-      { id: 'n1', title: 'New book added', body: '“Design of Everyday Things” is now available.', time: now.toLocaleTimeString(), read: false, type: 'success' },
-      { id: 'n2', title: 'System update', body: 'Library catalogue was refreshed.', time: now.toLocaleTimeString(), read: false, type: 'info' },
-      { id: 'n3', title: 'Reminder', body: 'Check out latest AI articles.', time: now.toLocaleTimeString(), read: true, type: 'warning' },
-    ];
+    return [];
   });
   useEffect(() => { try { localStorage.setItem('ui_notifs', JSON.stringify(notifs)); } catch {} }, [notifs]);
 
@@ -270,22 +268,22 @@ export default function DashboardHeader() {
     return (
       <span>
         {before}
-        <span className="text-[#7b0f2b] font-semibold">{mid}</span>
+        <span className="text-[#b51e3e] font-semibold">{mid}</span>
         {after}
       </span>
     );
   };
 
   const Capsule = ({ children }: { children: React.ReactNode }) => (
-    <div className="inline-flex items-center gap-2 px-3 py-2 rounded-full bg-white border text-sm shadow-sm">
+    <div className="toolbar-capsule inline-flex items-center gap-2 px-3 py-2 text-sm">
       {children}
     </div>
   );
 
   return (
-    <div className="hidden sm:flex items-center justify-between mb-6">
+    <div className="dashboard-toolbar hidden md:flex items-center justify-between">
       {/* left: filter + search */}
-      <div className="flex-1 flex items-center gap-3">
+      <div className="toolbar-search flex-1 flex items-center gap-3">
         <div ref={filterRef} className="relative">
           <Capsule>
             <button onClick={() => setFilterOpen(v=>!v)} className="flex items-center gap-2">
@@ -361,7 +359,7 @@ export default function DashboardHeader() {
           />
           <button
             onClick={doSearch}
-            className="absolute right-2 top-1/2 -translate-y-1/2 text-[#7b0f2b] flex items-center justify-center w-8 h-8 rounded-full hover:bg-[#fff1f2]"
+            className="absolute right-2 top-1/2 -translate-y-1/2 text-[#b51e3e] flex items-center justify-center w-8 h-8 rounded-full hover:bg-[#f4e9e7]"
             aria-label={searchAriaLabel}
           >
             <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none"><path d="M21 21l-4.35-4.35" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/><circle cx="11" cy="11" r="6" stroke="currentColor" strokeWidth="1.5" /></svg>
@@ -384,7 +382,7 @@ export default function DashboardHeader() {
                   className="w-full text-left px-4 py-3 hover:bg-slate-50 flex items-center gap-3"
                   onClick={doSearch}
                 >
-                  <span className="w-8 h-8 rounded-full bg-[#fff1f2] text-[#7b0f2b] flex items-center justify-center">
+                  <span className="w-8 h-8 rounded-full bg-[#f4e9e7] text-[#b51e3e] flex items-center justify-center">
                     <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
                       <path d="M21 21l-4.35-4.35" />
                       <circle cx="10" cy="10" r="6" />
@@ -437,7 +435,7 @@ export default function DashboardHeader() {
       </div>
 
       {/* right: time, date, user */}
-      <div className="flex items-center gap-3">
+      <div className="toolbar-actions flex items-center gap-3">
         <LanguageSwitcher />
         <div ref={notifRef} className="relative">
           <Capsule>
@@ -445,7 +443,7 @@ export default function DashboardHeader() {
             <button type="button" aria-label={notifLabel} onClick={()=>setNotifOpen(v=>!v)} className="flex items-center gap-2">
               <span className="relative">
                 {/* Notification (bell) icon */}
-                <svg className="w-5 h-5 text-[#7b0f2b]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden>
+                <svg className="w-5 h-5 text-[#b51e3e]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden>
                   <path d="M18 8a6 6 0 10-12 0v3c0 .7-.3 1.3-1 2l-1 1h16l-1-1c-.7-.7-1-1.3-1-2V8" strokeLinecap="round" strokeLinejoin="round" />
                   <path d="M10 21h4" strokeLinecap="round" />
                 </svg>
@@ -483,15 +481,15 @@ export default function DashboardHeader() {
           <Capsule>
             <button onClick={()=>setUserOpen(v=>!v)} className="flex items-center gap-2">
               <div className="w-7 h-7 rounded-full bg-slate-300 flex items-center justify-center overflow-hidden"><span className="text-xs font-medium text-white">U</span></div>
-              <div className="text-sm">User</div>
+              <div className="text-sm">{designCopy().profile}</div>
               <svg className="w-4 h-4 text-slate-400" viewBox="0 0 20 20" fill="none"><path d="M6 8l4 4 4-4" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/></svg>
             </button>
           </Capsule>
           {userOpen && (
             <div className="absolute z-50 right-0 mt-2 w-48 bg-white border rounded-md shadow" onMouseDown={(e)=>e.stopPropagation()}>
-              <button onClick={()=>{ setUserOpen(false); nav('/profile'); }} className="w-full text-left px-3 py-2 hover:bg-slate-50 text-sm">Profile</button>
-              <button onClick={()=>{ setUserOpen(false); nav('/shelf'); }} className="w-full text-left px-3 py-2 hover:bg-slate-50 text-sm">My Shelf</button>
-              <button onClick={()=>{ setUserOpen(false); try{ localStorage.removeItem('token'); sessionStorage.removeItem('token'); window.dispatchEvent(new CustomEvent('auth:logout')); }catch{} nav('/login'); }} className="w-full text-left px-3 py-2 hover:bg-slate-50 text-sm text-rose-600">Logout</button>
+              <button onClick={()=>{ setUserOpen(false); nav('/profile'); }} className="w-full text-left px-3 py-2 hover:bg-slate-50 text-sm">{designCopy().profile}</button>
+              <button onClick={()=>{ setUserOpen(false); nav('/shelf'); }} className="w-full text-left px-3 py-2 hover:bg-slate-50 text-sm">{t("nav.shelf")}</button>
+              <button onClick={()=>{ setUserOpen(false); logout(); nav('/auth/login'); }} className="w-full text-left px-3 py-2 hover:bg-slate-50 text-sm text-rose-600">{designCopy().logout}</button>
             </div>
           )}
         </div>
@@ -503,7 +501,7 @@ export default function DashboardHeader() {
 // Mobile fragment: to be shown inside the sidebar on mobile
 export function MobileDashboardHeader() {
   return (
-    <div className="sm:hidden px-4 pt-3 pb-2 border-b">
+    <div className="mobile-dashboard-utility px-4 pt-3 pb-2">
       <div className="flex items-center justify-between gap-3">
         <div className="text-sm font-semibold text-slate-800">TAU</div>
         <LanguageSwitcher className="ml-auto" />

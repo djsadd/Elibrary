@@ -396,7 +396,7 @@ export default function UserDetailPage() {
                     {userbooks.map((ub) => (
                       <tr key={ub.id} className="border-t border-slate-100">
                         <td className="px-3 py-2">
-                          <Link to={`/catalog/books/${encodeURIComponent(String(ub.book?.id))}`} className="text-[#7b0f2b] hover:underline">
+                          <Link to={`/catalog/books/${encodeURIComponent(String(ub.book?.id))}`} className="text-[#b51e3e] hover:underline">
                             {ub.book?.title || "Untitled"}
                           </Link>
                         </td>

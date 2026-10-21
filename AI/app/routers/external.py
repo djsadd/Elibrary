@@ -1,20 +1,22 @@
 import os
 from pathlib import Path
 
-from fastapi import APIRouter, Header, HTTPException, Body
+from fastapi import APIRouter, Header, HTTPException, Body, Depends
 from dotenv import load_dotenv
+from app.utils.authz import get_current_user
+from app.core.config import settings
 from pydantic import BaseModel
 import requests
 
 load_dotenv(dotenv_path=Path(__file__).resolve().parents[2] / ".env")
 
-router = APIRouter()
+router = APIRouter(dependencies=[Depends(get_current_user)])
 
-CHAT_CARD_URL = os.getenv("AI_CHAT_CARD_URL", "http://192.168.112.182/api/chat_card")
+CHAT_CARD_URL = settings.AI_CHAT_CARD_URL
 
 
 class ChatCardPayload(BaseModel):
-    query: str
+    query: str = __import__("pydantic").Field(min_length=1, max_length=8000)
 
 
 @router.get("/post/{post_id}")
@@ -25,9 +27,14 @@ def get_post(post_id: int):
 
 
 def chat_card_external_service(authorization: str, payload: dict):
+    if not CHAT_CARD_URL:
+        raise HTTPException(503, "AI service is not configured")
     if not authorization:
         raise HTTPException(status_code=401, detail="Missing bearer token")
 
+    from urllib.parse import urlparse
+    if urlparse(CHAT_CARD_URL).scheme != "https":
+        raise HTTPException(503, "AI_CHAT_CARD_URL must use HTTPS")
     headers = {"Authorization": authorization}
     try:
         response = requests.post(
@@ -35,6 +42,7 @@ def chat_card_external_service(authorization: str, payload: dict):
             json=payload,
             headers=headers,
             timeout=15,
+            allow_redirects=False,
         )
     except requests.RequestException as exc:
         raise HTTPException(status_code=502, detail="Chat card service unavailable") from exc

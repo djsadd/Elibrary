@@ -1,4 +1,4 @@
-﻿// src/shared/api/client.ts
+// src/shared/api/client.ts
 const BASE: string = resolveApiBase(import.meta.env.VITE_API_URL as string | undefined);
 
 function resolveApiBase(raw?: string): string {
@@ -122,9 +122,21 @@ function uiLangHeader(): string | null {
   return null;
 }
 
+function readResponse<T>(response: Response): Promise<T> {
+  // Successful DELETE endpoints have no JSON body.
+  if (response.status === 204 || response.status === 205) return Promise.resolve(undefined as T);
+  return response.json();
+}
+
+export class ApiError extends Error {
+  status:number;
+  retryAfter:number|null;
+  constructor(message:string,status:number,retryAfter:number|null=null){super(message);this.name='ApiError';this.status=status;this.retryAfter=retryAfter;}
+}
+
 export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
   const token = localStorage.getItem("token") || sessionStorage.getItem("token");
-  const isAuthEndpoint = /^\/?api\/auth\/(login|register|refresh|verify|platonus|2fa)/i.test(path);
+  const isAuthEndpoint = /^\/?api\/auth\/(login|register|refresh|verify|platonus|2fa|password-reset)/i.test(path);
   if (!token && !isAuthEndpoint) {
     // Immediately redirect unauthenticated users to login for protected calls
     try { window.dispatchEvent(new CustomEvent("auth:logout")); } catch {}
@@ -167,7 +179,7 @@ export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
       const newToken = await refreshPromise.finally(() => { refreshPromise = null; });
       if (newToken) {
         res = await doFetch(newToken);
-        if (res.ok) return res.json();
+        if (res.ok) return readResponse<T>(res);
       }
       // no refresh or failed: clear and logout
       try {
@@ -176,7 +188,8 @@ export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
       } catch {}
       try { window.dispatchEvent(new CustomEvent("auth:logout")); } catch {}
     }
-    throw new Error(message);
+    const retry=Number(res.headers.get('Retry-After'));
+    throw new ApiError(message,res.status,Number.isFinite(retry)&&retry>0?retry:null);
   }
-  return res.json();
+  return readResponse<T>(res);
 }

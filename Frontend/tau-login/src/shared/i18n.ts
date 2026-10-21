@@ -58,6 +58,7 @@ const dict: Record<Lang, Record<string, any>> = {
       home: {
         heading: 'Admin Dashboard',
         addBookBtn: 'Add Book',
+        quickArticleBtn: 'Add article',
         addPlaylistBtn: 'Add Playlist',
         empty: 'No books yet. Click "Add Book" to create one.',
         table: { title: 'Title', authors: 'Authors', subjects: 'Subjects', created: 'Created' },
@@ -343,6 +344,7 @@ const dict: Record<Lang, Record<string, any>> = {
       home: {
         heading: 'Админ-панель',
         addBookBtn: 'Добавить книгу',
+        quickArticleBtn: 'Добавить статью',
         addPlaylistBtn: 'Добавить подборку',
         empty: 'Книг пока нет. Нажмите «Добавить книгу», чтобы создать.',
         table: { title: 'Название', authors: 'Авторы', subjects: 'Темы', created: 'Создано' },
@@ -608,6 +610,7 @@ const dict: Record<Lang, Record<string, any>> = {
       home: {
         heading: 'Әкімші тақтасы',
         addBookBtn: 'Кітап қосу',
+        quickArticleBtn: 'Мақала қосу',
         addPlaylistBtn: 'Ойнату тізімі қосу',
         empty: 'Әзірге кітаптар жоқ. "Кітап қосу" түймесін басып, жаңа кітап жасаңыз.',
         table: { title: 'Атауы', authors: 'Авторлар', subjects: 'Тақырыптар', created: 'Жасалған' },
@@ -819,19 +822,36 @@ const dict: Record<Lang, Record<string, any>> = {
   },
 };
 
+function syncDocumentLanguage(lang: Lang): Lang {
+  if (typeof document !== 'undefined' && document.documentElement.lang !== lang) {
+    document.documentElement.lang = lang;
+  }
+  return lang;
+}
+
+export function setLang(lang: Lang): void {
+  try {
+    localStorage.setItem('ui_lang', lang);
+  } catch {}
+  syncDocumentLanguage(lang);
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new Event('lang:changed'));
+  }
+}
+
 export function getLang(): Lang {
   try {
     const raw = (localStorage.getItem('ui_lang') || '').toLowerCase();
-    if (raw.startsWith('ru')) return 'ru';
-    if (raw.startsWith('kk')) return 'kk';
-    if (raw.startsWith('en')) return 'en';
+    if (raw.startsWith('ru')) return syncDocumentLanguage('ru');
+    if (raw.startsWith('kk')) return syncDocumentLanguage('kk');
+    if (raw.startsWith('en')) return syncDocumentLanguage('en');
   } catch {}
   try {
     const nav = (navigator?.language || '').toLowerCase();
-    if (nav.startsWith('ru')) return 'ru';
-    if (nav.startsWith('kk')) return 'kk';
+    if (nav.startsWith('ru')) return syncDocumentLanguage('ru');
+    if (nav.startsWith('kk')) return syncDocumentLanguage('kk');
   } catch {}
-  return 'en';
+  return syncDocumentLanguage('en');
 }
 
 export function t(path: string, vars?: Record<string, any>): string {

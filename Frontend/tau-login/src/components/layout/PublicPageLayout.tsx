@@ -1,7 +1,10 @@
 import { useEffect, type ReactNode } from "react";
-import { useLocation } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { PublicHeader } from "@/components/layout/PublicHeader";
 import { PublicFooter } from "@/components/layout/PublicFooter";
+import { useFolioMotion } from "@/shared/ui/useFolioMotion";
+import { designCopy } from "@/shared/designCopy";
+import { t } from "@/shared/i18n";
 
 export function PublicPageLayout({
   children,
@@ -13,6 +16,9 @@ export function PublicPageLayout({
   maxWidthClassName?: string;
 }) {
   const location = useLocation();
+  const copy=designCopy();
+  const parent=location.pathname.startsWith('/public/students/')?'students':location.pathname.startsWith('/public/teachers/')?'teachers':null;
+  const motionRef = useFolioMotion<HTMLDivElement>();
   const hasChildren =
     children !== undefined &&
     children !== null &&
@@ -59,13 +65,14 @@ export function PublicPageLayout({
   }, [location.pathname, location.search]);
 
   return (
-    <div className="min-h-screen bg-[color:var(--public-bg)] flex flex-col">
+    <div ref={motionRef} className={`public-layout min-h-screen ${hero ? "public-layout--home" : ""}`}>
+      <a href="#public-content" className="public-skip">{copy.skip}</a>
       <PublicHeader />
 
-      <main className="public-main flex-1 w-full">
+      <main id="public-content" tabIndex={-1} className="public-main flex-1 w-full">
         {hero}
         {hasChildren ? (
-          <div className={["mx-auto grid gap-6 px-4 py-8 w-full", maxWidthClassName].join(" ")}>{children}</div>
+          <div className={["mx-auto grid gap-6 px-4 py-8 w-full", maxWidthClassName].join(" ")}><nav className="public-breadcrumbs" aria-label={copy.navigation}><Link to="/public">{t('publicHome.nav.home')}</Link>{parent&&<><span aria-hidden="true">/</span><Link to={`/public/${parent}`}>{t(`publicHome.nav.${parent}`)}</Link></>}</nav>{children}</div>
         ) : null}
       </main>
 
