@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field
-from typing import List, Optional
+from typing import List, Literal, Optional
 from app.schemas.userbook import BookMinimal
 from app.schemas.common import Pagination
 
@@ -22,6 +22,14 @@ class SubjectMerge(SubjectI18n):
     target_id: int = Field(..., description="Основная запись, в которую сливаются остальные")
     source_ids: List[int] = Field(..., min_length=1, description="Дубли, которые будут удалены")
     name: Optional[str] = Field(None, min_length=1, max_length=256, description="Новое основное название")
+
+
+class SubjectToLanguage(BaseModel):
+    lang: Literal["Russian", "English", "Kazakh"] = Field(..., description="Язык, который получат все книги категории")
+
+
+class SubjectToLanguageResult(BaseModel):
+    updated_books: int
 
 
 class SubjectDetail(BaseModel):
