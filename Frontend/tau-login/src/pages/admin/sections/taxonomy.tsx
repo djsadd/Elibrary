@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { api } from "@/shared/api/client";
-import { t } from "@/shared/i18n";
+import { getLang, t } from "@/shared/i18n";
 
 /**
  * Shared admin UI for authors and subjects (categories):
@@ -21,6 +21,9 @@ export type TaxonomyItem = {
   name_ru?: string | null;
   name_kk?: string | null;
   name_en?: string | null;
+  description_ru?: string | null;
+  description_kk?: string | null;
+  description_en?: string | null;
   books_count?: number;
 };
 
@@ -110,6 +113,297 @@ export function I18nNameFields({
       </div>
       <div className="text-xs text-slate-500">{t("admin.taxonomy.names.hint")}</div>
     </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Descriptions (authors only), icons, delete, create modal            */
+/* ------------------------------------------------------------------ */
+
+type I18nDescriptions = Record<`description_${NameLang}`, string>;
+const EMPTY_DESCRIPTIONS: I18nDescriptions = { description_ru: "", description_kk: "", description_en: "" };
+
+/** Only authors have a description. */
+const hasDescription = (kind: TaxonomyKind) => kind === "authors";
+
+function descriptionsOf(item?: TaxonomyItem | null): I18nDescriptions {
+  return {
+    description_ru: item?.description_ru || "",
+    description_kk: item?.description_kk || "",
+    description_en: item?.description_en || "",
+  };
+}
+
+function trimDescriptions(d: I18nDescriptions): Record<string, string | null> {
+  const out: Record<string, string | null> = {};
+  for (const lang of LANGS) out[`description_${lang}`] = d[`description_${lang}`].trim() || null;
+  return out;
+}
+
+export function DescriptionFields({
+  value,
+  onChange,
+}: {
+  value: I18nDescriptions;
+  onChange: (next: I18nDescriptions) => void;
+}) {
+  const [tab, setTab] = useState<NameLang>(() => {
+    const lang = getLang();
+    return (LANGS as readonly string[]).includes(lang) ? (lang as NameLang) : "ru";
+  });
+  return (
+    <div>
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-sm text-slate-700">{t("admin.taxonomy.description.label")}</span>
+        <div className="flex gap-1" role="tablist">
+          {LANGS.map((lang) => {
+            const filled = Boolean(value[`description_${lang}`].trim());
+            return (
+              <button
+                key={lang}
+                type="button"
+                role="tab"
+                aria-selected={tab === lang}
+                onClick={() => setTab(lang)}
+                className={`text-xs px-2 py-1 rounded border ${
+                  tab === lang ? "bg-[#b51e3e] border-[#b51e3e] text-white" : "bg-white hover:bg-slate-50"
+                }`}
+              >
+                {t(`admin.taxonomy.names.${lang}`)}
+                {filled && tab !== lang ? <span className="ml-1 text-emerald-600">●</span> : null}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+      <textarea
+        className="mt-1 w-full border rounded px-3 py-2 text-sm min-h-[120px]"
+        value={value[`description_${tab}`]}
+        onChange={(e) => onChange({ ...value, [`description_${tab}`]: e.target.value })}
+        maxLength={20000}
+      />
+    </div>
+  );
+}
+
+const iconProps = {
+  width: 18,
+  height: 18,
+  viewBox: "0 0 24 24",
+  fill: "none",
+  stroke: "currentColor",
+  strokeWidth: 2,
+  strokeLinecap: "round" as const,
+  strokeLinejoin: "round" as const,
+  "aria-hidden": true,
+};
+
+const EyeIcon = () => (
+  <svg {...iconProps}>
+    <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z" />
+    <circle cx="12" cy="12" r="3" />
+  </svg>
+);
+
+const PencilIcon = () => (
+  <svg {...iconProps}>
+    <path d="M17 3a2.85 2.85 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
+    <path d="m15 5 4 4" />
+  </svg>
+);
+
+const TrashIcon = () => (
+  <svg {...iconProps}>
+    <path d="M3 6h18" />
+    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" />
+    <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+    <path d="M10 11v6M14 11v6" />
+  </svg>
+);
+
+const iconBtn =
+  "w-8 h-8 inline-flex items-center justify-center rounded-md border border-transparent text-slate-500 hover:bg-slate-100 hover:text-slate-800 disabled:opacity-35 disabled:cursor-not-allowed disabled:hover:bg-transparent";
+
+/** Eye / pencil / trash. Trash is disabled while books are linked. */
+function RowActions({
+  kind,
+  item,
+  booksCount,
+  onDeleted,
+}: {
+  kind: TaxonomyKind;
+  item: TaxonomyItem;
+  booksCount: number;
+  onDeleted: () => void;
+}) {
+  const [busy, setBusy] = useState(false);
+  const blocked = booksCount > 0;
+
+  async function onDelete() {
+    if (blocked || busy) return;
+    if (!window.confirm(t("admin.taxonomy.row.deleteConfirm", { name: item.name }))) return;
+    try {
+      setBusy(true);
+      await api(`/api/catalog/${kind}/${item.id}`, { method: "DELETE" });
+      onDeleted();
+    } catch (e: unknown) {
+      window.alert(errorText(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="flex items-center gap-0.5 shrink-0">
+      <Link to={`/admin/${kind}/${item.id}`} className={iconBtn} title={t("admin.taxonomy.row.view")} aria-label={t("admin.taxonomy.row.view")}>
+        <EyeIcon />
+      </Link>
+      <Link to={`/admin/${kind}/${item.id}/edit`} className={iconBtn} title={t("admin.taxonomy.row.edit")} aria-label={t("admin.taxonomy.row.edit")}>
+        <PencilIcon />
+      </Link>
+      {/* span keeps the tooltip working on a disabled button */}
+      <span title={blocked ? t("admin.taxonomy.row.deleteBlocked", { n: booksCount }) : t("admin.taxonomy.row.delete")}>
+        <button
+          type="button"
+          onClick={onDelete}
+          disabled={blocked || busy}
+          aria-label={t("admin.taxonomy.row.delete")}
+          className={`${iconBtn} ${blocked ? "" : "hover:!text-red-600 hover:!bg-red-50"}`}
+        >
+          <TrashIcon />
+        </button>
+      </span>
+    </div>
+  );
+}
+
+function ModalShell({
+  title,
+  busy,
+  onClose,
+  children,
+  footer,
+}: {
+  title: string;
+  busy?: boolean;
+  onClose: () => void;
+  children: React.ReactNode;
+  footer: React.ReactNode;
+}) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && !busy) onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      document.body.style.overflow = prevOverflow;
+    };
+  }, [busy, onClose]);
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+      onMouseDown={(e) => {
+        if (e.target === e.currentTarget && !busy) onClose();
+      }}
+    >
+      <div role="dialog" aria-modal="true" aria-label={title} className="w-full max-w-2xl max-h-[90vh] overflow-auto bg-white rounded-lg shadow-xl">
+        <div className="flex items-center justify-between gap-2 px-5 py-4 border-b">
+          <div className="text-base font-semibold">{title}</div>
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={busy}
+            aria-label={t("admin.taxonomy.merge.cancel")}
+            className="w-8 h-8 rounded hover:bg-slate-100 text-slate-500 text-xl leading-none"
+          >
+            ×
+          </button>
+        </div>
+        <div className="px-5 py-4 space-y-4">{children}</div>
+        <div className="flex items-center justify-end gap-2 px-5 py-4 border-t bg-slate-50 rounded-b-lg">{footer}</div>
+      </div>
+    </div>
+  );
+}
+
+function CreateModal({ kind, onClose, onCreated }: { kind: TaxonomyKind; onClose: () => void; onCreated: () => void }) {
+  const [name, setName] = useState("");
+  const [names, setNames] = useState<I18nNames>(EMPTY_NAMES);
+  const [descriptions, setDescriptions] = useState<I18nDescriptions>(EMPTY_DESCRIPTIONS);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function submit(e?: React.FormEvent) {
+    e?.preventDefault();
+    if (busy) return;
+    const trimmed = name.trim();
+    if (!trimmed) {
+      setError(t("admin.taxonomy.errors.nameRequired"));
+      return;
+    }
+    try {
+      setBusy(true);
+      setError(null);
+      await api(`/api/catalog/${kind}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: trimmed,
+          ...trimNames(names),
+          ...(hasDescription(kind) ? trimDescriptions(descriptions) : {}),
+        }),
+      });
+      onCreated();
+    } catch (err: unknown) {
+      setError(errorText(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <ModalShell
+      title={t(`admin.taxonomy.create.${kind}`)}
+      busy={busy}
+      onClose={onClose}
+      footer={
+        <>
+          <button type="button" onClick={onClose} disabled={busy} className="px-3 py-2 border rounded bg-white hover:bg-slate-50 text-sm">
+            {t("admin.taxonomy.merge.cancel")}
+          </button>
+          <button
+            type="button"
+            onClick={() => submit()}
+            disabled={busy}
+            className="px-4 py-2 rounded bg-[#b51e3e] text-white text-sm hover:bg-rose-800 disabled:opacity-60"
+          >
+            {busy ? t("admin.taxonomy.create.creating") : t("admin.taxonomy.create.submit")}
+          </button>
+        </>
+      }
+    >
+      <form onSubmit={submit} className="space-y-4">
+        <label className="block">
+          <span className="text-sm text-slate-700">{t("admin.taxonomy.names.main")} *</span>
+          <input
+            className="mt-1 w-full border rounded px-3 py-2 text-sm"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder={t(`admin.taxonomy.${kind}.namePlaceholder`)}
+            maxLength={256}
+            autoFocus
+          />
+        </label>
+        <I18nNameFields value={names} onChange={setNames} />
+        {hasDescription(kind) ? <DescriptionFields value={descriptions} onChange={setDescriptions} /> : null}
+        {error && <div className="text-sm text-red-600">{error}</div>}
+        <button type="submit" hidden />
+      </form>
+    </ModalShell>
   );
 }
 
@@ -464,15 +758,17 @@ export function TaxonomyListPage({ kind }: { kind: TaxonomyKind }) {
   const [error, setError] = useState<string | null>(null);
   const [refreshTick, setRefreshTick] = useState(0);
 
-  const [newName, setNewName] = useState("");
-  const [creating, setCreating] = useState(false);
-  const [createError, setCreateError] = useState<string | null>(null);
-  const [createOk, setCreateOk] = useState<string | null>(null);
+  const [createOpen, setCreateOpen] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
+
+  function flash(message: string) {
+    setNotice(message);
+    setTimeout(() => setNotice(null), 2500);
+  }
 
   // selection survives searching and paging, so duplicates with different spellings can be collected
   const [selected, setSelected] = useState<Map<string, TaxonomyItem>>(new Map());
   const [mergeOpen, setMergeOpen] = useState(false);
-  const [mergeOk, setMergeOk] = useState<string | null>(null);
 
   // new search / page size → back to the first page
   useEffect(() => {
@@ -534,63 +830,15 @@ export function TaxonomyListPage({ kind }: { kind: TaxonomyKind }) {
     });
   }
 
-  async function onCreate(e: React.FormEvent) {
-    e.preventDefault();
-    setCreateError(null);
-    setCreateOk(null);
-    const name = newName.trim();
-    if (!name) {
-      setCreateError(t("admin.taxonomy.errors.nameRequired"));
-      return;
-    }
-    if (name.length > 256) {
-      setCreateError(t("admin.taxonomy.errors.nameTooLong"));
-      return;
-    }
-    try {
-      setCreating(true);
-      await api(`/api/catalog/${kind}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name }),
-      });
-      setNewName("");
-      setCreateOk(t("admin.taxonomy.errors.addedOk"));
-      setRefreshTick((x) => x + 1);
-    } catch (err: unknown) {
-      setCreateError(errorText(err));
-    } finally {
-      setCreating(false);
-      setTimeout(() => setCreateOk(null), 1500);
-    }
-  }
-
   return (
     <div className="space-y-4">
-      <form onSubmit={onCreate} className="bg-white border rounded-md p-4 flex flex-wrap items-end gap-3">
-        <div className="flex-1 min-w-[200px]">
-          <label className="block text-sm text-slate-600 mb-1">{t(`${tk}.addLabel`)}</label>
-          <input
-            value={newName}
-            onChange={(e) => setNewName(e.target.value)}
-            placeholder={t(`${tk}.namePlaceholder`)}
-            className="w-full px-3 py-2 rounded-md border border-slate-200 text-sm"
-          />
-        </div>
-        <button type="submit" disabled={creating} className="px-4 py-2 rounded-md bg-[#b51e3e] text-white text-sm disabled:opacity-60">
-          {creating ? t(`${tk}.adding`) : t(`${tk}.add`)}
-        </button>
-        {createError && <div className="text-sm text-red-600">{createError}</div>}
-        {createOk && <div className="text-sm text-emerald-600">{createOk}</div>}
-      </form>
-
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h2 className="text-lg font-semibold">{t(`${tk}.heading`)}</h2>
           <div className="text-slate-500 text-sm">{t(`${tk}.subheading`)}</div>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          {mergeOk && <span className="text-sm text-emerald-600">{mergeOk}</span>}
+          {notice && <span className="text-sm text-emerald-600">{notice}</span>}
           <input
             value={q}
             onChange={(e) => setQ(e.target.value)}
@@ -598,6 +846,13 @@ export function TaxonomyListPage({ kind }: { kind: TaxonomyKind }) {
             className="px-3 py-2 rounded-md border border-slate-200 text-sm min-w-[220px]"
           />
           <ActionsMenu count={selected.size} onMerge={() => setMergeOpen(true)} onClear={() => setSelected(new Map())} />
+          <button
+            type="button"
+            onClick={() => setCreateOpen(true)}
+            className="px-4 py-2 rounded-md bg-[#b51e3e] text-white text-sm hover:bg-rose-800"
+          >
+            + {t(`admin.taxonomy.create.${kind}`)}
+          </button>
         </div>
       </div>
 
@@ -634,9 +889,20 @@ export function TaxonomyListPage({ kind }: { kind: TaxonomyKind }) {
                     {t("admin.taxonomy.booksCount", { n: item.books_count ?? 0 })}
                   </span>
                   {langBadges(item)}
-                  <Link to={`/admin/${kind}/${item.id}/edit`} className="text-sm text-[#b51e3e] hover:underline">
-                    {t("admin.taxonomy.edit.edit")}
-                  </Link>
+                  <RowActions
+                    kind={kind}
+                    item={item}
+                    booksCount={item.books_count ?? 0}
+                    onDeleted={() => {
+                      setSelected((prev) => {
+                        const next = new Map(prev);
+                        next.delete(String(item.id));
+                        return next;
+                      });
+                      flash(t("admin.taxonomy.row.deleted"));
+                      setRefreshTick((x) => x + 1);
+                    }}
+                  />
                 </li>
               );
             })}
@@ -653,9 +919,20 @@ export function TaxonomyListPage({ kind }: { kind: TaxonomyKind }) {
           onMerged={() => {
             setMergeOpen(false);
             setSelected(new Map());
-            setMergeOk(t("admin.taxonomy.merge.done"));
+            flash(t("admin.taxonomy.merge.done"));
             setRefreshTick((x) => x + 1);
-            setTimeout(() => setMergeOk(null), 2500);
+          }}
+        />
+      ) : null}
+
+      {createOpen ? (
+        <CreateModal
+          kind={kind}
+          onClose={() => setCreateOpen(false)}
+          onCreated={() => {
+            setCreateOpen(false);
+            flash(t("admin.taxonomy.errors.addedOk"));
+            setRefreshTick((x) => x + 1);
           }}
         />
       ) : null}
@@ -673,6 +950,7 @@ export function TaxonomyEditPage({ kind }: { kind: TaxonomyKind }) {
   const [item, setItem] = useState<TaxonomyDetail | null>(null);
   const [name, setName] = useState("");
   const [names, setNames] = useState<I18nNames>(EMPTY_NAMES);
+  const [descriptions, setDescriptions] = useState<I18nDescriptions>(EMPTY_DESCRIPTIONS);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -689,6 +967,7 @@ export function TaxonomyEditPage({ kind }: { kind: TaxonomyKind }) {
           setItem(data || null);
           setName(data?.name || "");
           setNames(namesOf(data));
+          setDescriptions(descriptionsOf(data));
         }
       } catch (e: unknown) {
         if (!cancelled) setError(errorText(e));
@@ -714,7 +993,11 @@ export function TaxonomyEditPage({ kind }: { kind: TaxonomyKind }) {
       await api(`/api/catalog/${kind}/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: trimmed, ...trimNames(names) }),
+        body: JSON.stringify({
+          name: trimmed,
+          ...trimNames(names),
+          ...(hasDescription(kind) ? trimDescriptions(descriptions) : {}),
+        }),
       });
       navigate(`/admin/${kind}`);
     } catch (e: unknown) {
@@ -749,6 +1032,7 @@ export function TaxonomyEditPage({ kind }: { kind: TaxonomyKind }) {
             />
           </label>
           <I18nNameFields value={names} onChange={setNames} />
+          {hasDescription(kind) ? <DescriptionFields value={descriptions} onChange={setDescriptions} /> : null}
           {error && <div className="text-sm text-red-600">{error}</div>}
           <div className="flex items-center justify-end gap-2">
             <button onClick={() => navigate(-1)} type="button" className="px-3 py-2 border rounded hover:bg-slate-50">
@@ -790,6 +1074,307 @@ export function TaxonomyEditPage({ kind }: { kind: TaxonomyKind }) {
             ) : null}
           </div>
         </div>
+      ) : null}
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* View page (eye icon): profile, description and analytics            */
+/* ------------------------------------------------------------------ */
+
+type NamedCount = { key: string; count: number };
+
+type TaxonomyStats = {
+  books_total: number;
+  books_public: number;
+  books_hidden: number;
+  readers_total: number;
+  reading: number;
+  finished: number;
+  dropped: number;
+  avg_progress: number | null;
+  years: string | null;
+  by_lang: NamedCount[];
+  by_format: NamedCount[];
+  related: NamedCount[];
+  books: {
+    id: number;
+    title: string;
+    year?: string | null;
+    lang?: string | null;
+    is_public: boolean;
+    formats: string[];
+    readers: number;
+    reading: number;
+    finished: number;
+  }[];
+};
+
+function StatTile({ label, value, hint }: { label: string; value: React.ReactNode; hint?: React.ReactNode }) {
+  return (
+    <div className="bg-white border rounded-md p-4">
+      <div className="text-xs text-slate-500">{label}</div>
+      <div className="mt-1 text-2xl font-semibold tabular-nums text-slate-900">{value}</div>
+      {hint ? <div className="mt-0.5 text-xs text-slate-500">{hint}</div> : null}
+    </div>
+  );
+}
+
+function Distribution({ title, rows }: { title: string; rows: NamedCount[] }) {
+  const max = Math.max(1, ...rows.map((r) => r.count));
+  return (
+    <div className="bg-white border rounded-md p-4">
+      <div className="text-sm font-medium text-slate-700 mb-3">{title}</div>
+      {rows.length === 0 ? (
+        <div className="text-sm text-slate-400">{t("admin.taxonomy.view.noData")}</div>
+      ) : (
+        <ul className="space-y-2">
+          {rows.map((r) => (
+            <li key={r.key} className="text-sm">
+              <div className="flex justify-between gap-2">
+                <span className="truncate text-slate-700">{r.key}</span>
+                <span className="tabular-nums text-slate-500">{r.count}</span>
+              </div>
+              <div className="mt-1 h-1.5 rounded bg-slate-100">
+                <div className="h-1.5 rounded bg-[#b51e3e]" style={{ width: `${(r.count / max) * 100}%` }} />
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+export function TaxonomyViewPage({ kind }: { kind: TaxonomyKind }) {
+  const { id } = useParams();
+  const navigate = useNavigate();
+  const [item, setItem] = useState<TaxonomyDetail | null>(null);
+  const [stats, setStats] = useState<TaxonomyStats | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [descLang, setDescLang] = useState<NameLang>(() => {
+    const lang = getLang();
+    return (LANGS as readonly string[]).includes(lang) ? (lang as NameLang) : "ru";
+  });
+  const [deleting, setDeleting] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        if (!id) throw new Error("Missing id");
+        const [detail, st] = await Promise.all([
+          api<TaxonomyDetail>(`/api/catalog/${kind}/${id}`),
+          api<TaxonomyStats>(`/api/catalog/${kind}/${id}/stats`),
+        ]);
+        if (cancelled) return;
+        setItem(detail || null);
+        setStats(st || null);
+        // show the first language that actually has a description
+        if (hasDescription(kind) && detail && !(detail[`description_${descLang}`] || "").trim()) {
+          const filled = LANGS.find((l) => (detail[`description_${l}`] || "").trim());
+          if (filled) setDescLang(filled);
+        }
+      } catch (e: unknown) {
+        if (!cancelled) setError(errorText(e));
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [id, kind]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const booksTotal = stats?.books_total ?? 0;
+  const blocked = booksTotal > 0;
+
+  async function onDelete() {
+    if (!item || blocked || deleting) return;
+    if (!window.confirm(t("admin.taxonomy.row.deleteConfirm", { name: item.name }))) return;
+    try {
+      setDeleting(true);
+      await api(`/api/catalog/${kind}/${item.id}`, { method: "DELETE" });
+      navigate(`/admin/${kind}`);
+    } catch (e: unknown) {
+      window.alert(errorText(e));
+    } finally {
+      setDeleting(false);
+    }
+  }
+
+  if (loading) return <div className="text-slate-500">{t("admin.taxonomy.edit.loading")}</div>;
+  if (!item) {
+    return error ? <div className="text-red-600">{error}</div> : <div className="text-slate-500">{t("admin.taxonomy.edit.notFound")}</div>;
+  }
+
+  const description = hasDescription(kind) ? (item[`description_${descLang}`] || "").trim() : "";
+
+  return (
+    <div className="space-y-4">
+      <Link to={`/admin/${kind}`} className="text-sm text-[#b51e3e] hover:underline">
+        ← {t("admin.taxonomy.view.back")}
+      </Link>
+
+      <div className="admin-editor-banner flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="text-xl font-semibold break-words">{item.name}</div>
+          <div className="text-sm opacity-90">ID: {item.id}</div>
+        </div>
+        <div className="flex items-center gap-2">
+          <Link
+            to={`/admin/${kind}/${item.id}/edit`}
+            className="px-3 py-2 rounded-md bg-white/90 text-slate-800 text-sm inline-flex items-center gap-2 hover:bg-white"
+          >
+            <PencilIcon /> {t("admin.taxonomy.row.edit")}
+          </Link>
+          <span title={blocked ? t("admin.taxonomy.row.deleteBlocked", { n: booksTotal }) : undefined}>
+            <button
+              type="button"
+              onClick={onDelete}
+              disabled={blocked || deleting}
+              className="px-3 py-2 rounded-md bg-white/90 text-red-700 text-sm inline-flex items-center gap-2 hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <TrashIcon /> {t("admin.taxonomy.row.delete")}
+            </button>
+          </span>
+        </div>
+      </div>
+
+      {error && <div className="text-sm text-red-600">{error}</div>}
+
+      <div className={`grid gap-4 ${hasDescription(kind) ? "lg:grid-cols-3" : ""}`}>
+        <div className="bg-white border rounded-md p-4">
+          <div className="text-sm font-medium text-slate-700 mb-3">{t("admin.taxonomy.view.translations")}</div>
+          <dl className="space-y-2 text-sm">
+            {LANGS.map((lang) => (
+              <div key={lang} className="flex gap-3">
+                <dt className="w-24 shrink-0 text-slate-500">{t(`admin.taxonomy.names.${lang}`)}</dt>
+                <dd className={item[`name_${lang}`] ? "text-slate-800" : "text-slate-400"}>{item[`name_${lang}`] || "—"}</dd>
+              </div>
+            ))}
+          </dl>
+        </div>
+
+        {hasDescription(kind) ? (
+          <div className="bg-white border rounded-md p-4 lg:col-span-2">
+            <div className="flex items-center justify-between gap-2 mb-3">
+              <div className="text-sm font-medium text-slate-700">{t("admin.taxonomy.description.label")}</div>
+              <div className="flex gap-1" role="tablist">
+                {LANGS.map((lang) => (
+                  <button
+                    key={lang}
+                    type="button"
+                    role="tab"
+                    aria-selected={descLang === lang}
+                    onClick={() => setDescLang(lang)}
+                    className={`text-xs px-2 py-1 rounded border ${
+                      descLang === lang ? "bg-[#b51e3e] border-[#b51e3e] text-white" : "bg-white hover:bg-slate-50"
+                    }`}
+                  >
+                    {lang.toUpperCase()}
+                  </button>
+                ))}
+              </div>
+            </div>
+            {description ? (
+              <p className="text-sm text-slate-700 whitespace-pre-line">{description}</p>
+            ) : (
+              <p className="text-sm text-slate-400">
+                {t("admin.taxonomy.description.empty")}{" "}
+                <Link to={`/admin/${kind}/${item.id}/edit`} className="text-[#b51e3e] hover:underline">
+                  {t("admin.taxonomy.row.edit")}
+                </Link>
+              </p>
+            )}
+          </div>
+        ) : null}
+      </div>
+
+      {stats ? (
+        <>
+          <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
+            <StatTile
+              label={t("admin.taxonomy.view.books")}
+              value={stats.books_total}
+              hint={`${stats.books_public} ${t("admin.taxonomy.view.public")} · ${stats.books_hidden} ${t("admin.taxonomy.view.hidden")}`}
+            />
+            <StatTile label={t("admin.taxonomy.view.readers")} value={stats.readers_total} />
+            <StatTile label={t("admin.taxonomy.view.reading")} value={stats.reading} />
+            <StatTile
+              label={t("admin.taxonomy.view.finished")}
+              value={stats.finished}
+              hint={stats.dropped ? `${t("admin.taxonomy.view.dropped")}: ${stats.dropped}` : undefined}
+            />
+            <StatTile label={t("admin.taxonomy.view.avgProgress")} value={stats.avg_progress != null ? `${stats.avg_progress}%` : "—"} />
+            <StatTile label={t("admin.taxonomy.view.years")} value={<span className="text-lg">{stats.years || "—"}</span>} />
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-3">
+            <Distribution title={t("admin.taxonomy.view.byLang")} rows={stats.by_lang} />
+            <Distribution title={t("admin.taxonomy.view.byFormat")} rows={stats.by_format} />
+            <Distribution
+              title={t(kind === "authors" ? "admin.taxonomy.view.relatedAuthors" : "admin.taxonomy.view.relatedSubjects")}
+              rows={stats.related}
+            />
+          </div>
+
+          <div className="bg-white border rounded-md">
+            <div className="px-4 py-3 border-b flex items-center justify-between">
+              <div className="text-sm font-medium text-slate-700">{t("admin.taxonomy.view.books")}</div>
+              <div className="text-xs text-slate-500">{stats.books.length}</div>
+            </div>
+            {stats.books.length === 0 ? (
+              <div className="p-6 text-center text-sm text-slate-500">{t("admin.taxonomy.edit.noBooks")}</div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="bg-slate-50 text-xs text-slate-500">
+                    <tr>
+                      <th className="text-left font-medium px-4 py-2">{t("admin.taxonomy.view.title")}</th>
+                      <th className="text-left font-medium px-4 py-2">{t("admin.taxonomy.view.year")}</th>
+                      <th className="text-left font-medium px-4 py-2">{t("admin.taxonomy.view.lang")}</th>
+                      <th className="text-left font-medium px-4 py-2">{t("admin.taxonomy.view.status")}</th>
+                      <th className="text-right font-medium px-4 py-2">{t("admin.taxonomy.view.readers")}</th>
+                      <th className="text-right font-medium px-4 py-2">{t("admin.taxonomy.view.reading")}</th>
+                      <th className="text-right font-medium px-4 py-2">{t("admin.taxonomy.view.finished")}</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y">
+                    {stats.books.map((b) => (
+                      <tr key={b.id} className="hover:bg-slate-50">
+                        <td className="px-4 py-2">
+                          <Link to={`/admin/books/${b.id}`} className="text-slate-800 hover:text-[#b51e3e] hover:underline">
+                            {b.title}
+                          </Link>
+                          {b.formats.length ? <div className="text-xs text-slate-400">{b.formats.join(", ")}</div> : null}
+                        </td>
+                        <td className="px-4 py-2 text-slate-600">{b.year || "—"}</td>
+                        <td className="px-4 py-2 text-slate-600">{b.lang || "—"}</td>
+                        <td className="px-4 py-2">
+                          <span
+                            className={`text-xs px-2 py-0.5 rounded ${
+                              b.is_public ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-500"
+                            }`}
+                          >
+                            {b.is_public ? t("admin.taxonomy.view.publicBadge") : t("admin.taxonomy.view.hiddenBadge")}
+                          </span>
+                        </td>
+                        <td className="px-4 py-2 text-right tabular-nums">{b.readers}</td>
+                        <td className="px-4 py-2 text-right tabular-nums">{b.reading}</td>
+                        <td className="px-4 py-2 text-right tabular-nums">{b.finished}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </>
       ) : null}
     </div>
   );

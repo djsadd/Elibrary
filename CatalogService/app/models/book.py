@@ -136,6 +136,9 @@ class Author(Base):
     name_ru: Mapped[str | None] = mapped_column(String(256), nullable=True)
     name_kk: Mapped[str | None] = mapped_column(String(256), nullable=True)
     name_en: Mapped[str | None] = mapped_column(String(256), nullable=True)
+    description_ru: Mapped[str | None] = mapped_column(Text, nullable=True)
+    description_kk: Mapped[str | None] = mapped_column(Text, nullable=True)
+    description_en: Mapped[str | None] = mapped_column(Text, nullable=True)
     books = relationship("Book", secondary=book_authors, back_populates="authors")
 
     __table_args__ = (UniqueConstraint("name", name="uq_authors_name"),)

@@ -6,6 +6,8 @@ from sqlalchemy.orm import Session
 
 from app.api.catalog_common import (
     _apply_i18n,
+    _delete_named,
+    _stats_named,
     _author_to_detail,
     _merge_named,
     _name_search,
@@ -16,6 +18,7 @@ from app.api.catalog_common import (
 from app.models.book import Author, book_authors
 from app.schemas.authors import AuthorCreate, AuthorDetail, AuthorMerge, AuthorPage, AuthorUpdate
 from app.utils.authz import require_roles
+from app.schemas.common import TaxonomyStats
 from app.utils.i18n_names import fill_detected_lang
 
 router = APIRouter()
@@ -89,6 +92,21 @@ def get_author(author_id: int, db: Session = Depends(get_db)):
     if not author:
         raise HTTPException(status_code=404, detail="Author not found")
     return _author_to_detail(author)
+
+
+@router.get("/authors/{author_id}/stats", response_model=TaxonomyStats, dependencies=[STAFF])
+def author_stats(author_id: int, db: Session = Depends(get_db)):
+    """Аналитика: книги, читатели, языки, форматы, связанные категории."""
+    obj = db.get(Author, author_id)
+    if not obj:
+        raise HTTPException(status_code=404, detail="Author not found")
+    return _stats_named(db, obj, "subjects")
+
+
+@router.delete("/authors/{author_id}", status_code=status.HTTP_204_NO_CONTENT, dependencies=[STAFF])
+def delete_author(author_id: int, db: Session = Depends(get_db)):
+    """Удалить можно только если к записи не привязано ни одной книги (иначе 409)."""
+    _delete_named(db, Author, book_authors, "author_id", author_id, "Author")
 
 
 @router.patch("/authors/{author_id}", response_model=AuthorDetail, dependencies=[STAFF])

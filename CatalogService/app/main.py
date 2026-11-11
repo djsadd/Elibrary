@@ -136,6 +136,19 @@ def ensure_taxonomy_i18n_columns() -> None:
                     )
 
 
+def ensure_author_description_columns() -> None:
+    inspector = inspect(engine)
+    if "authors" not in inspector.get_table_names():
+        return
+    existing_columns = {column["name"] for column in inspector.get_columns("authors")}
+    missing = [n for n in ("description_ru", "description_kk", "description_en") if n not in existing_columns]
+    if not missing:
+        return
+    with engine.begin() as connection:
+        for column_name in missing:
+            connection.execute(text(f"ALTER TABLE authors ADD COLUMN {column_name} TEXT"))
+
+
 def ensure_book_external_source() -> None:
     """Колонка books.external_url и значение EXTERNAL в enum booksource (PostgreSQL)."""
     inspector = inspect(engine)
@@ -163,6 +176,7 @@ ensure_menu_item_i18n_columns()
 ensure_content_page_html_column()
 ensure_content_page_i18n_columns()
 ensure_taxonomy_i18n_columns()
+ensure_author_description_columns()
 
 setup_logging()
 

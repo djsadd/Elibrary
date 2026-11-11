@@ -3,7 +3,7 @@ from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
 from app.core.db import SessionLocal
-from app.models.book import Author, Book, Subject
+from app.models.book import Author, Book, Subject, UserBook
 from app.schemas.authors import AuthorDetail
 from app.schemas.book import AuthorOut, BookOut, SubjectOut
 from app.schemas.subjects import SubjectDetail
@@ -67,22 +67,26 @@ def _ensure_subjects(db: Session, names: list[str]) -> list[Subject]:
     return _ensure_named(db, Subject, names)
 
 
-def _i18n_fields(obj) -> dict:
-    return {
-        "id": obj.id,
-        "name": obj.name,
-        "name_ru": obj.name_ru,
-        "name_kk": obj.name_kk,
-        "name_en": obj.name_en,
-    }
+def _lang_fields(obj) -> list[str]:
+    """name_ru/kk/en, plus description_ru/kk/en for models that have them (authors)."""
+    fields = [f"name_{lang}" for lang in LANGS]
+    fields += [f"description_{lang}" for lang in LANGS if hasattr(type(obj), f"description_{lang}")]
+    return fields
+
+
+def _i18n_fields(obj, *, with_description: bool = True) -> dict:
+    out = {"id": obj.id, "name": obj.name}
+    for field in _lang_fields(obj):
+        if with_description or not field.startswith("description_"):
+            out[field] = getattr(obj, field)
+    return out
 
 
 def _apply_i18n(obj, payload, *, only_set: bool = True) -> None:
-    """Copy name_ru/name_kk/name_en from a payload onto obj (only fields that were sent)."""
-    sent = payload.model_fields_set if only_set else set(f"name_{l}" for l in LANGS)
-    for lang in LANGS:
-        field = f"name_{lang}"
-        if field in sent:
+    """Copy name_*/description_* from a payload onto obj (only fields that were sent)."""
+    sent = payload.model_fields_set if only_set else set(type(payload).model_fields)
+    for field in _lang_fields(obj):
+        if field in sent and field in type(payload).model_fields:
             setattr(obj, field, clean(getattr(payload, field)))
 
 
@@ -119,10 +123,10 @@ def _merge_named(db: Session, model, relation: str, payload, label: str):
                 linked.remove(src)
             affected.add(book.id)
         # keep translations / old spelling of the duplicate if the target has none
-        src_lang_names = {lang: getattr(src, f"name_{lang}") for lang in LANGS}
-        for lang, value in src_lang_names.items():
-            if value and not (getattr(target, f"name_{lang}") or "").strip():
-                setattr(target, f"name_{lang}", value)
+        for field in _lang_fields(src):
+            value = getattr(src, field)
+            if value and not (getattr(target, field) or "").strip():
+                setattr(target, field, value)
         db.delete(src)
 
     db.flush()  # free unique names of deleted duplicates before renaming
@@ -230,5 +234,106 @@ def _page_named(db: Session, model, link_table, link_column: str, q: str | None,
         .limit(limit)
         .all()
     )
-    items = [{**_i18n_fields(obj), "books_count": int(cnt or 0)} for obj, cnt in rows]
+    items = [{**_i18n_fields(obj, with_description=False), "books_count": int(cnt or 0)} for obj, cnt in rows]
     return {"items": items, "page": {"limit": limit, "offset": offset, "total": total}}
+
+
+def _books_count(db: Session, link_table, link_column: str, item_id: int) -> int:
+    return int(
+        db.query(func.count())
+        .select_from(link_table)
+        .filter(getattr(link_table.c, link_column) == item_id)
+        .scalar()
+        or 0
+    )
+
+
+def _delete_named(db: Session, model, link_table, link_column: str, item_id: int, label: str) -> None:
+    """Delete an author/subject; refused (409) while books are still linked."""
+    obj = db.get(model, item_id)
+    if not obj:
+        raise HTTPException(status_code=404, detail=f"{label} not found")
+    linked = _books_count(db, link_table, link_column, item_id)
+    if linked:
+        raise HTTPException(
+            status_code=409,
+            detail=f"{label} has {linked} linked book(s). Unlink or merge them first.",
+        )
+    db.delete(obj)
+    db.commit()
+
+
+def _counts(values) -> list[dict]:
+    acc: dict[str, int] = {}
+    for v in values:
+        key = (str(v).strip() if v is not None else "") or "—"
+        acc[key] = acc.get(key, 0) + 1
+    return [{"key": k, "count": c} for k, c in sorted(acc.items(), key=lambda kv: (-kv[1], kv[0]))]
+
+
+def _stats_named(db: Session, obj, related_attr: str) -> dict:
+    """
+    Analytics for an author/subject: books (public/hidden), reading activity from user_books,
+    languages, formats, year range, and the most frequent related subjects (for authors)
+    or authors (for subjects).
+    """
+    books = sorted(obj.books or [], key=lambda b: (b.title or "").lower())
+    ids = [b.id for b in books]
+
+    per_book: dict[int, dict[str, int]] = {}
+    avg_progress = None
+    if ids:
+        rows = (
+            db.query(UserBook.book_id, UserBook.status, func.count(UserBook.id))
+            .filter(UserBook.book_id.in_(ids))
+            .group_by(UserBook.book_id, UserBook.status)
+            .all()
+        )
+        for book_id, status, cnt in rows:
+            d = per_book.setdefault(book_id, {"readers": 0, "reading": 0, "readed": 0, "dropped": 0})
+            d["readers"] += int(cnt)
+            if status in d:
+                d[status] += int(cnt)
+        avg = db.query(func.avg(UserBook.progress_percent)).filter(UserBook.book_id.in_(ids)).scalar()
+        avg_progress = round(float(avg), 1) if avg is not None else None
+
+    def total(key: str) -> int:
+        return sum(d[key] for d in per_book.values())
+
+    years = sorted({str(b.year).strip() for b in books if b.year and str(b.year).strip()})
+    year_range = None
+    if years:
+        year_range = years[0] if len(years) == 1 else f"{years[0]}–{years[-1]}"
+
+    related = []
+    for b in books:
+        related.extend(r.name for r in (getattr(b, related_attr) or []))
+
+    return {
+        "books_total": len(books),
+        "books_public": sum(1 for b in books if b.is_public),
+        "books_hidden": sum(1 for b in books if not b.is_public),
+        "readers_total": total("readers"),
+        "reading": total("reading"),
+        "finished": total("readed"),
+        "dropped": total("dropped"),
+        "avg_progress": avg_progress,
+        "years": year_range,
+        "by_lang": _counts(b.lang for b in books),
+        "by_format": _counts(f for b in books for f in b.formats_list),
+        "related": _counts(related)[:15],
+        "books": [
+            {
+                "id": b.id,
+                "title": b.title,
+                "year": b.year,
+                "lang": b.lang,
+                "is_public": bool(b.is_public),
+                "formats": b.formats_list,
+                "readers": per_book.get(b.id, {}).get("readers", 0),
+                "reading": per_book.get(b.id, {}).get("reading", 0),
+                "finished": per_book.get(b.id, {}).get("readed", 0),
+            }
+            for b in books
+        ],
+    }

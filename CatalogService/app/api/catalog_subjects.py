@@ -6,6 +6,8 @@ from sqlalchemy.orm import Session
 
 from app.api.catalog_common import (
     _apply_i18n,
+    _delete_named,
+    _stats_named,
     _subject_to_detail,
     _merge_named,
     _name_search,
@@ -17,6 +19,7 @@ from app.models.book import Subject, book_subjects
 from app.schemas.subjects import SubjectCreate, SubjectDetail, SubjectMerge, SubjectPage, SubjectUpdate
 from app.schemas.book import SubjectOut
 from app.utils.authz import AuthUser, get_current_user, require_roles
+from app.schemas.common import TaxonomyStats
 from app.utils.i18n_names import fill_detected_lang
 
 router = APIRouter()
@@ -93,6 +96,21 @@ def get_subject(subject_id: int, user: AuthUser = Depends(get_current_user), db:
     if not subject:
         raise HTTPException(status_code=404, detail="Subject not found")
     return _subject_to_detail(subject)
+
+
+@router.get("/subjects/{subject_id}/stats", response_model=TaxonomyStats, dependencies=[STAFF])
+def subject_stats(subject_id: int, db: Session = Depends(get_db)):
+    """Аналитика: книги, читатели, языки, форматы, связанные авторы."""
+    obj = db.get(Subject, subject_id)
+    if not obj:
+        raise HTTPException(status_code=404, detail="Subject not found")
+    return _stats_named(db, obj, "authors")
+
+
+@router.delete("/subjects/{subject_id}", status_code=status.HTTP_204_NO_CONTENT, dependencies=[STAFF])
+def delete_subject(subject_id: int, db: Session = Depends(get_db)):
+    """Удалить можно только если к записи не привязано ни одной книги (иначе 409)."""
+    _delete_named(db, Subject, book_subjects, "subject_id", subject_id, "Subject")
 
 
 @router.patch("/subjects/{subject_id}", response_model=SubjectDetail, dependencies=[STAFF])

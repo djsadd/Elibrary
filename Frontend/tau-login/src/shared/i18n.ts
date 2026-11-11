@@ -140,6 +140,10 @@ const dict: Record<Lang, Record<string, any>> = {
         actions: { label: "Actions", merge: "Merge…", clearSelection: "Clear selection", needTwo: "Select at least two records to merge" },
         pager: { range: "{{from}}–{{to}} of {{total}}", prev: "Previous", next: "Next", perPage: "Per page" },
         booksCount: "books: {{n}}",
+        row: { view: "View", edit: "Edit", delete: "Delete", deleteBlocked: "Cannot delete: {{n}} linked book(s). Merge or unlink them first.", deleteConfirm: "Delete \"{{name}}\"? This cannot be undone.", deleted: "Deleted" },
+        create: { authors: "Create author", subjects: "Create subject", submit: "Create", creating: "Creating..." },
+        description: { label: "Description", empty: "No description yet" },
+        view: { back: "Back to list", books: "Books", public: "public", hidden: "hidden", readers: "Readers", reading: "Reading", finished: "Finished", dropped: "Dropped", avgProgress: "Avg. progress", years: "Publication years", byLang: "Languages", byFormat: "Formats", relatedAuthors: "Subjects of this author", relatedSubjects: "Authors in this subject", title: "Title", year: "Year", lang: "Lang", status: "Status", hiddenBadge: "Hidden", publicBadge: "Public", noData: "No data", translations: "Names" },
       },
     },
     shelf: {
@@ -414,6 +418,10 @@ const dict: Record<Lang, Record<string, any>> = {
         actions: { label: "Действия", merge: "Объединить…", clearSelection: "Сбросить выбор", needTwo: "Для объединения выберите минимум две записи" },
         pager: { range: "{{from}}–{{to}} из {{total}}", prev: "Назад", next: "Вперёд", perPage: "На странице" },
         booksCount: "книг: {{n}}",
+        row: { view: "Просмотр", edit: "Изменить", delete: "Удалить", deleteBlocked: "Нельзя удалить: привязано книг — {{n}}. Сначала объедините или отвяжите их.", deleteConfirm: "Удалить «{{name}}»? Отменить это нельзя.", deleted: "Удалено" },
+        create: { authors: "Создать автора", subjects: "Создать категорию", submit: "Создать", creating: "Создание..." },
+        description: { label: "Описание", empty: "Описание пока не заполнено" },
+        view: { back: "Назад к списку", books: "Книги", public: "открытых", hidden: "скрытых", readers: "Читатели", reading: "Читают", finished: "Прочитали", dropped: "Бросили", avgProgress: "Средний прогресс", years: "Годы изданий", byLang: "Языки", byFormat: "Форматы", relatedAuthors: "Категории автора", relatedSubjects: "Авторы категории", title: "Название", year: "Год", lang: "Язык", status: "Статус", hiddenBadge: "Скрыта", publicBadge: "Открыта", noData: "Нет данных", translations: "Названия" },
       },
     },
     shelf: {
@@ -686,6 +694,10 @@ const dict: Record<Lang, Record<string, any>> = {
         actions: { label: "Әрекеттер", merge: "Біріктіру…", clearSelection: "Таңдауды тазалау", needTwo: "Біріктіру үшін кемінде екі жазбаны таңдаңыз" },
         pager: { range: "{{from}}–{{to}} / {{total}}", prev: "Артқа", next: "Алға", perPage: "Бетте" },
         booksCount: "кітап: {{n}}",
+        row: { view: "Қарау", edit: "Өңдеу", delete: "Жою", deleteBlocked: "Жоюға болмайды: {{n}} кітап байланған. Алдымен біріктіріңіз немесе ажыратыңыз.", deleteConfirm: "«{{name}}» жою керек пе? Мұны қайтару мүмкін емес.", deleted: "Жойылды" },
+        create: { authors: "Автор қосу", subjects: "Санат қосу", submit: "Құру", creating: "Құрылуда..." },
+        description: { label: "Сипаттама", empty: "Сипаттама әлі толтырылмаған" },
+        view: { back: "Тізімге оралу", books: "Кітаптар", public: "ашық", hidden: "жасырын", readers: "Оқырмандар", reading: "Оқып жатыр", finished: "Оқып шықты", dropped: "Тастады", avgProgress: "Орташа прогресс", years: "Басылым жылдары", byLang: "Тілдер", byFormat: "Форматтар", relatedAuthors: "Автордың санаттары", relatedSubjects: "Санаттың авторлары", title: "Атауы", year: "Жылы", lang: "Тілі", status: "Күйі", hiddenBadge: "Жасырын", publicBadge: "Ашық", noData: "Деректер жоқ", translations: "Атаулар" },
       },
     },
     shelf: {

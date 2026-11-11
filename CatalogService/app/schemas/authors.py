@@ -10,11 +10,17 @@ class AuthorI18n(BaseModel):
     name_en: Optional[str] = Field(None, max_length=256)
 
 
-class AuthorCreate(AuthorI18n):
+class AuthorTexts(AuthorI18n):
+    description_ru: Optional[str] = Field(None, max_length=20000)
+    description_kk: Optional[str] = Field(None, max_length=20000)
+    description_en: Optional[str] = Field(None, max_length=20000)
+
+
+class AuthorCreate(AuthorTexts):
     name: str = Field(..., min_length=1, max_length=256, description="Имя автора")
 
 
-class AuthorUpdate(AuthorI18n):
+class AuthorUpdate(AuthorTexts):
     name: Optional[str] = Field(None, min_length=1, max_length=256, description="Имя автора")
 
 
@@ -30,6 +36,9 @@ class AuthorDetail(BaseModel):
     name_ru: Optional[str] = None
     name_kk: Optional[str] = None
     name_en: Optional[str] = None
+    description_ru: Optional[str] = None
+    description_kk: Optional[str] = None
+    description_en: Optional[str] = None
     books: List[BookMinimal] = []
 
 
