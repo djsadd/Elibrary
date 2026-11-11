@@ -237,16 +237,9 @@ function RowActions({
   onDeleted: () => void;
 }) {
   const [busy, setBusy] = useState(false);
-  const [toLangOpen, setToLangOpen] = useState(false);
-  // a subject with books can still be removed: its books get a language instead
-  const canConvert = kind === "subjects" && booksCount > 0;
-  const blocked = booksCount > 0 && !canConvert;
+  const blocked = booksCount > 0;
 
   async function onDelete() {
-    if (canConvert) {
-      setToLangOpen(true);
-      return;
-    }
     if (blocked || busy) return;
     if (!window.confirm(t("admin.taxonomy.row.deleteConfirm", { name: item.name }))) return;
     try {
@@ -269,15 +262,7 @@ function RowActions({
         <PencilIcon />
       </Link>
       {/* span keeps the tooltip working on a disabled button */}
-      <span
-        title={
-          blocked
-            ? t("admin.taxonomy.row.deleteBlocked", { n: booksCount })
-            : canConvert
-              ? t("admin.taxonomy.toLang.tooltip", { n: booksCount })
-              : t("admin.taxonomy.row.delete")
-        }
-      >
+      <span title={blocked ? t("admin.taxonomy.row.deleteBlocked", { n: booksCount }) : t("admin.taxonomy.row.delete")}>
         <button
           type="button"
           onClick={onDelete}
@@ -288,110 +273,7 @@ function RowActions({
           <TrashIcon />
         </button>
       </span>
-      {toLangOpen ? (
-        <ToLanguageModal
-          item={item}
-          booksCount={booksCount}
-          onClose={() => setToLangOpen(false)}
-          onDone={() => {
-            setToLangOpen(false);
-            onDeleted();
-          }}
-        />
-      ) : null}
     </div>
-  );
-}
-
-const BOOK_LANGS = ["Russian", "English", "Kazakh"] as const;
-
-/** Pre-select the language when the subject name obviously is one ("Russian", "Русский", "Қазақша"...). */
-function guessBookLang(item: TaxonomyItem): string {
-  const text = [item.name, item.name_ru, item.name_kk, item.name_en].filter(Boolean).join(" ").toLowerCase();
-  if (/kazakh|казах|қазақ|kaz\b|\bkk\b/.test(text)) return "Kazakh";
-  if (/english|англ|ағылшын|\ben\b|\beng\b/.test(text)) return "English";
-  if (/russian|рус|орыс|\bru\b|\brus\b/.test(text)) return "Russian";
-  return "";
-}
-
-/** Delete a subject and assign the chosen language to all of its books. */
-function ToLanguageModal({
-  item,
-  booksCount,
-  onClose,
-  onDone,
-}: {
-  item: TaxonomyItem;
-  booksCount: number;
-  onClose: () => void;
-  onDone: () => void;
-}) {
-  const [lang, setLang] = useState<string>(() => guessBookLang(item));
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  async function run() {
-    if (busy) return;
-    if (!lang) {
-      setError(t("admin.taxonomy.toLang.pickLang"));
-      return;
-    }
-    try {
-      setBusy(true);
-      setError(null);
-      await api(`/api/catalog/subjects/${item.id}/to-language`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ lang }),
-      });
-      onDone();
-    } catch (e: unknown) {
-      setError(errorText(e));
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  return (
-    <ModalShell
-      title={t("admin.taxonomy.toLang.title", { name: item.name })}
-      busy={busy}
-      onClose={onClose}
-      footer={
-        <>
-          <button type="button" onClick={onClose} disabled={busy} className="px-3 py-2 border rounded bg-white hover:bg-slate-50 text-sm">
-            {t("admin.taxonomy.merge.cancel")}
-          </button>
-          <button
-            type="button"
-            onClick={run}
-            disabled={busy || !lang}
-            className="px-4 py-2 rounded bg-[#b51e3e] text-white text-sm hover:bg-rose-800 disabled:opacity-60"
-          >
-            {busy ? t("admin.taxonomy.toLang.running") : t("admin.taxonomy.toLang.run")}
-          </button>
-        </>
-      }
-    >
-      <div className="text-sm text-slate-600">{t("admin.taxonomy.toLang.hint", { n: booksCount })}</div>
-      <label className="block">
-        <span className="text-sm text-slate-700">{t("admin.taxonomy.toLang.lang")}</span>
-        <select
-          className="mt-1 w-full border rounded px-3 py-2 text-sm"
-          value={lang}
-          onChange={(e) => setLang(e.target.value)}
-          disabled={busy}
-        >
-          <option value="">{t("admin.taxonomy.toLang.pickLang")}</option>
-          {BOOK_LANGS.map((l) => (
-            <option key={l} value={l}>
-              {l}
-            </option>
-          ))}
-        </select>
-      </label>
-      {error && <div className="text-sm text-red-600">{error}</div>}
-    </ModalShell>
   );
 }
 

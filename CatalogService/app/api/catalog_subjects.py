@@ -16,15 +16,7 @@ from app.api.catalog_common import (
     get_db,
 )
 from app.models.book import Subject, book_subjects
-from app.schemas.subjects import (
-    SubjectCreate,
-    SubjectDetail,
-    SubjectMerge,
-    SubjectPage,
-    SubjectToLanguage,
-    SubjectToLanguageResult,
-    SubjectUpdate,
-)
+from app.schemas.subjects import SubjectCreate, SubjectDetail, SubjectMerge, SubjectPage, SubjectUpdate
 from app.schemas.book import SubjectOut
 from app.utils.authz import AuthUser, get_current_user, require_roles
 from app.schemas.common import TaxonomyStats
@@ -119,35 +111,6 @@ def subject_stats(subject_id: int, db: Session = Depends(get_db)):
 def delete_subject(subject_id: int, db: Session = Depends(get_db)):
     """Удалить можно только если к записи не привязано ни одной книги (иначе 409)."""
     _delete_named(db, Subject, book_subjects, "subject_id", subject_id, "Subject")
-
-
-@router.post("/subjects/{subject_id}/to-language", response_model=SubjectToLanguageResult, dependencies=[STAFF])
-def subject_to_language(
-    subject_id: int,
-    payload: SubjectToLanguage,
-    background_tasks: BackgroundTasks,
-    db: Session = Depends(get_db),
-):
-    """
-    Превратить категорию в язык: всем привязанным книгам проставить `lang`,
-    затем удалить категорию (связи book_subjects снимаются вместе с ней).
-    Для ошибочных категорий вида «Russian» / «English» / «Kazakh».
-    """
-    subject = db.get(Subject, subject_id)
-    if not subject:
-        raise HTTPException(status_code=404, detail="Subject not found")
-
-    books = list(subject.books or [])
-    book_ids = [b.id for b in books]
-    for book in books:
-        book.lang = payload.lang
-        book.subjects = [s for s in book.subjects if s.id != subject.id]
-    db.flush()
-    db.delete(subject)
-    db.commit()
-
-    _reindex_books(db, book_ids, background_tasks)
-    return SubjectToLanguageResult(updated_books=len(book_ids))
 
 
 @router.patch("/subjects/{subject_id}", response_model=SubjectDetail, dependencies=[STAFF])
