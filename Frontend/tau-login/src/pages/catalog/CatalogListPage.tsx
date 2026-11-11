@@ -5,7 +5,8 @@ import { designCopy } from "@/shared/designCopy";
 import { Link, useSearchParams } from "react-router-dom";
 import { useEffect, useRef, useState } from "react";
 import DashboardHeader from "../../components/layout/DashboardHeader";
-import { t } from "@/shared/i18n";
+import { getLang, t } from "@/shared/i18n";
+import { localizedName } from "@/shared/ui/text";
 import { api } from "@/shared/api/client";
 
 type Book = {
@@ -27,9 +28,12 @@ type BookListResponse = {
   page?: { limit: number; offset: number; total: number };
 };
 
+type SubjectFilterItem = { name: string; name_ru?: string | null; name_kk?: string | null; name_en?: string | null };
+
 type FiltersResponse = {
   authors: string[];
   subjects: string[];
+  subject_items?: SubjectFilterItem[];
   langs: string[];
   years: Array<string | number>;
 };
@@ -43,6 +47,8 @@ type FilterDropdownProps = {
   allLabel: string;
   noMatchesLabel: string;
   onChange: (value: string) => void;
+  /** Display text for an option; the option itself is still what gets passed to onChange. */
+  getLabel?: (value: string) => string;
 };
 
 const FilterDropdown = ({
@@ -54,6 +60,7 @@ const FilterDropdown = ({
   allLabel,
   noMatchesLabel,
   onChange,
+  getLabel = (v) => v,
 }: FilterDropdownProps) => {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -73,8 +80,9 @@ const FilterDropdown = ({
     return () => { document.removeEventListener("mousedown", onDocClick); document.removeEventListener("keydown", onKey); };
   }, [open]);
 
+  const needle = query.toLocaleLowerCase();
   const filtered = query
-    ? options.filter((s) => s.toLocaleLowerCase().includes(query.toLocaleLowerCase()))
+    ? options.filter((s) => getLabel(s).toLocaleLowerCase().includes(needle) || s.toLocaleLowerCase().includes(needle))
     : options;
 
   return (
@@ -95,7 +103,7 @@ const FilterDropdown = ({
           className="w-full border border-slate-200 rounded-full px-3 py-2 text-sm text-left bg-white flex items-center justify-between gap-2 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#b51e3e]"
         >
           <span className={value ? "text-slate-900" : "text-slate-400"}>
-            {value || placeholder}
+            {value ? getLabel(value) : placeholder}
           </span>
           <svg viewBox="0 0 24 24" className="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" strokeWidth={2}>
             <path d="M6 9l6 6 6-6" />
@@ -140,7 +148,7 @@ const FilterDropdown = ({
                       s === value ? "bg-slate-50 text-slate-900" : "text-slate-700"
                     }`}
                   >
-                    <span className="truncate">{s}</span>
+                    <span className="truncate">{getLabel(s)}</span>
                     {s === value ? (
                       <svg className="w-4 h-4 text-emerald-600 shrink-0" viewBox="0 0 20 20" fill="none" aria-hidden>
                         <path d="M16 6l-7 7-3-3" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
@@ -408,13 +416,18 @@ export default function CatalogListPage() {
   const yearAllLabel = t("catalog.filters.year.all");
   const noMatchesLabel = t("catalog.filters.noMatches");
 
+  // categories: value stays the canonical `name` (used for filtering), label follows the UI language
+  const subjectByName=new Map((filtersData.subject_items||[]).map(s=>[s.name,s]));
+  const subjectLabel=(name:string)=>localizedName(subjectByName.get(name)||name);
+  const subjectOptions=[...filtersData.subjects].sort((a,b)=>subjectLabel(a).localeCompare(subjectLabel(b),getLang()));
+
   const copy=designCopy();
   const activeFilters=([
-    ['author',author,authorLabel],['subject',subject,categoryLabel],['lang',lang,langLabel],['year',year,yearLabel],
+    ['author',author,authorLabel],['subject',subject?subjectLabel(subject):'',categoryLabel],['lang',lang,langLabel],['year',year,yearLabel],
   ] as const).filter(([,value])=>Boolean(value));
   const filterControls=()=> <>
     <FilterDropdown label={authorLabel} value={author} options={filtersData.authors} placeholder={authorPlaceholder} searchPlaceholder={authorSearchPlaceholder} allLabel={authorAllLabel} noMatchesLabel={noMatchesLabel} onChange={value=>updateFilter('author',value)}/>
-    <FilterDropdown label={categoryLabel} value={subject} options={filtersData.subjects} placeholder={categoryPlaceholder} searchPlaceholder={categorySearchPlaceholder} allLabel={categoryAllLabel} noMatchesLabel={noMatchesLabel} onChange={value=>updateFilter('subject',value)}/>
+    <FilterDropdown label={categoryLabel} value={subject} options={subjectOptions} getLabel={subjectLabel} placeholder={categoryPlaceholder} searchPlaceholder={categorySearchPlaceholder} allLabel={categoryAllLabel} noMatchesLabel={noMatchesLabel} onChange={value=>updateFilter('subject',value)}/>
     <FilterDropdown label={langLabel} value={lang} options={filtersData.langs} placeholder={langPlaceholder} searchPlaceholder={langSearchPlaceholder} allLabel={langAllLabel} noMatchesLabel={noMatchesLabel} onChange={value=>updateFilter('lang',value)}/>
     <FilterDropdown label={yearLabel} value={year} options={filtersData.years.map(String)} placeholder={yearPlaceholder} searchPlaceholder={yearSearchPlaceholder} allLabel={yearAllLabel} noMatchesLabel={noMatchesLabel} onChange={value=>updateFilter('year',value)}/>
   </>;
