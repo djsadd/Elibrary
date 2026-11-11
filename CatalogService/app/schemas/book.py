@@ -6,7 +6,18 @@ from pydantic import field_validator
 from app.utils.storage import validate_file_id
 
 # --- Новые перечисления ---
-BookSourceLiteral = Literal["KABIS", "LIBRARY", "RMEB", "IPRBOOKS", "OTHER"]
+BookSourceLiteral = Literal["KABIS", "LIBRARY", "RMEB", "IPRBOOKS", "OTHER", "EXTERNAL"]
+
+
+def validate_external_url(value: Optional[str]) -> Optional[str]:
+    if value is None:
+        return None
+    value = str(value).strip()
+    if not value:
+        return None
+    if len(value) > 2048 or not value.lower().startswith(("http://", "https://")) or any(ord(c) < 32 for c in value):
+        raise ValueError("external_url must be an http(s) link")
+    return value
 
 
 class FileReference(BaseModel):
@@ -14,6 +25,11 @@ class FileReference(BaseModel):
     @classmethod
     def safe_file_id(cls, value):
         return validate_file_id(value)
+
+    @field_validator("external_url", check_fields=False)
+    @classmethod
+    def safe_external_url(cls, value):
+        return validate_external_url(value)
 
 
 class BookCreate(FileReference):
@@ -25,6 +41,7 @@ class BookCreate(FileReference):
     cover: Optional[str] = None
     file_id: Optional[str] = None
     download_url: Optional[str] = None
+    external_url: Optional[str] = None
     authors: List[str] = Field(default_factory=list)
     subjects: List[str] = Field(default_factory=list)
 
@@ -74,6 +91,7 @@ class BookUpdate(FileReference):
     cover: Optional[str] = None
     file_id: Optional[str] = None
     download_url: Optional[str] = None
+    external_url: Optional[str] = None
     authors: Optional[List[str]] = None
     subjects: Optional[List[str]] = None
 
@@ -110,6 +128,7 @@ class BookOut(BaseModel):
     cover: Optional[str]
     file_id: Optional[str]
     download_url: Optional[str]
+    external_url: Optional[str] = None
 
     # Новые поля
     source: Optional[str] = None
@@ -127,6 +146,10 @@ class BookOut(BaseModel):
     is_public: Optional[bool] = None
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
+
+    @field_validator("source", mode="before")
+    def parse_source(cls, v):
+        return getattr(v, "value", v)
 
     authors: List[AuthorOut] = []
     subjects: List[SubjectOut] = []

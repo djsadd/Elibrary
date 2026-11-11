@@ -8,6 +8,7 @@ from app.api import (
     catalog_books,
     catalog_content,
     catalog_filters,
+    catalog_import,
     catalog_files,
     catalog_notes,
     catalog_playlists,
@@ -27,5 +28,6 @@ router.include_router(catalog_playlists.router)
 router.include_router(catalog_userbooks.router)
 router.include_router(catalog_notes.router)
 router.include_router(catalog_admin.router)
+router.include_router(catalog_import.router)
 router.include_router(catalog_content.router)
 router.include_router(catalog_ai.router)

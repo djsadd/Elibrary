@@ -17,6 +17,8 @@ type Book = {
   cover?: string | null;
   file_id?: string | null;
   download_url?: string | null;
+  external_url?: string | null;
+  source?: string | null;
   authors?: any[];
   subjects?: any[];
   formats?: string[] | null;
@@ -307,6 +309,12 @@ export default function CatalogDetailPage() {
     }
   };
 
+  const externalHref = useMemo(() => {
+    const raw = (book?.external_url || "").trim();
+    return /^https?:\/\//i.test(raw) ? raw : null;
+  }, [book]);
+  const hasLocalFile = Boolean(book?.file_id);
+
   async function startReading() {
     if (!id) return;
     navigate(`/reader?book=${encodeURIComponent(String(id))}`);
@@ -517,7 +525,31 @@ export default function CatalogDetailPage() {
               </div>
 
               {/* Actions */}
+              {externalHref ? (
+                <div className="mt-3 inline-flex items-center gap-2 rounded-full bg-sky-50 text-sky-700 border border-sky-200 px-3 py-1 text-xs">
+                  <span className="w-2 h-2 rounded-full bg-sky-500" />
+                  {t("bookImport.externalBadge")}: {(() => { try { return new URL(externalHref).hostname; } catch { return externalHref; } })()}
+                </div>
+              ) : null}
               <div className="mt-4 flex flex-col sm:flex-row flex-wrap gap-2 sm:gap-3">
+                {externalHref ? (
+                  <a
+                    href={externalHref}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className={`px-4 py-2.5 rounded-md w-full sm:w-auto text-sm inline-flex items-center justify-center gap-2 ${
+                      hasLocalFile ? "border border-[#b51e3e] text-[#b51e3e] bg-white" : "bg-[#b51e3e] text-white"
+                    }`}
+                  >
+                    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                      <path d="M14 4h6v6" />
+                      <path d="M20 4l-9 9" />
+                      <path d="M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5" />
+                    </svg>
+                    <span>{t("bookImport.openExternal")}</span>
+                  </a>
+                ) : null}
+                {hasLocalFile || !externalHref ? (
                 <button
                   onClick={startReading}
                   className="px-4 py-2.5 bg-[#b51e3e] text-white rounded-md w-full sm:w-auto text-sm inline-flex items-center justify-center gap-2"
@@ -534,6 +566,7 @@ export default function CatalogDetailPage() {
                   </svg>
                   <span>{t("catalog.readOnline")}</span>
                 </button>
+                ) : null}
                 <button
                   type="button"
                   onClick={toggleFavorite}

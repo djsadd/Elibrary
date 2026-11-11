@@ -53,7 +53,10 @@ export default function BooksListPage() {
     <div>
       <div className="flex items-center justify-between mb-3">
         <h2 className="text-lg font-semibold">{t('admin.books.heading')}</h2>
-        <a href="/admin/books/new" className="px-3 py-2 rounded-md bg-slate-700 text-white text-sm">{t('admin.books.addBook')}</a>
+        <div className="flex items-center gap-2">
+          <Link to="/admin/books/import" className="px-3 py-2 rounded-md border border-slate-300 text-slate-700 text-sm">{t('bookImport.nav')}</Link>
+          <a href="/admin/books/new" className="px-3 py-2 rounded-md bg-slate-700 text-white text-sm">{t('admin.books.addBook')}</a>
+        </div>
       </div>
       <div className="flex items-end justify-between gap-3 mb-3">
         <div className="flex items-center gap-2">

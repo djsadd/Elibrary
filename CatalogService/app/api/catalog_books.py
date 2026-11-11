@@ -266,6 +266,7 @@ def create_book(payload: BookCreate, background_tasks: BackgroundTasks, db: Sess
         cover=payload.cover,
         file_id=payload.file_id,
         download_url=payload.download_url,
+        external_url=payload.external_url,
         source=payload.source,
         isbn=payload.isbn,
         edition=payload.edition,

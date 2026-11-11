@@ -145,8 +145,10 @@ export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
   }
   const doFetch = async (auth?: string) => {
     const lang = uiLangHeader();
+    const isFormData = typeof FormData !== "undefined" && init.body instanceof FormData;
     const mergedHeaders = {
-      "Content-Type": "application/json",
+      // для FormData браузер сам выставит multipart/form-data с boundary
+      ...(isFormData ? {} : { "Content-Type": "application/json" }),
       ...(init.headers || {} as any),
       ...(auth ? { Authorization: `Bearer ${auth}` } : (token ? { Authorization: `Bearer ${token}` } : {})),
       ...(lang ? { "Accept-Language": lang, "X-UI-Lang": lang } : {}),

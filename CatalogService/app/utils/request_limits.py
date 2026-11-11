@@ -14,7 +14,7 @@ class RequestLimitsMiddleware:
             return await self.app(scope, receive, send)
         path = scope.get("path", "")
         headers = dict(scope.get("headers", []))
-        upload = path.rstrip("/").endswith(("/upload/raw", "/files/upload"))
+        upload = path.rstrip("/").endswith(("/upload/raw", "/files/upload", "/admin/import/books"))
         limit = int(os.getenv("MAX_UPLOAD_MB", "200") if upload else os.getenv("MAX_REQUEST_MB", "2")) * 1024 * 1024
 
         async def reject(status, detail):

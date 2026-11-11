@@ -14,6 +14,7 @@ type Book = {
   cover?: string | null;
   file_id?: string | null;
   download_url?: string | null;
+  external_url?: string | null;
   authors?: string[] | null;
   subjects?: string[] | null;
   source?: string | null;
@@ -54,6 +55,7 @@ export default function EditBookPage() {
   const [lang, setLang] = useState("");
   const [pubInfo, setPubInfo] = useState("");
   const [summary, setSummary] = useState("");
+  const [externalUrl, setExternalUrl] = useState("");
   const [isbn, setIsbn] = useState("");
   const [edition, setEdition] = useState("");
   const [pageCount, setPageCount] = useState<string>("");
@@ -72,7 +74,7 @@ export default function EditBookPage() {
   const [selectedAuthors, setSelectedAuthors] = useState<string[]>([]);
   const [selectedSubjects, setSelectedSubjects] = useState<string[]>([]);
   const [formatOptions] = useState<string[]>(["EBOOK", "HARDCOPY", "AUDIOBOOK", "ARTICLE"]);
-  const [sourceOptions] = useState<string[]>(["KABIS", "LIBRARY", "RMEB", "OTHER"]);
+  const [sourceOptions] = useState<string[]>(["KABIS", "LIBRARY", "RMEB", "IPRBOOKS", "EXTERNAL", "OTHER"]);
 
   // fetch lists + book
   useEffect(() => {
@@ -115,6 +117,7 @@ export default function EditBookPage() {
         setLang(String(data.lang || ""));
         setPubInfo(String(data.pub_info || ""));
         setSummary(String(data.summary || ""));
+        setExternalUrl(String(data.external_url || ""));
         setIsbn(String(data.isbn || ""));
         setEdition(String(data.edition || ""));
         setPageCount(data.page_count != null ? String(data.page_count) : "");
@@ -176,6 +179,8 @@ export default function EditBookPage() {
       apply("lang", lang || undefined);
       apply("pub_info", pubInfo || undefined);
       apply("summary", summary || undefined);
+      // пустая строка очищает ссылку на бэкенде
+      if (externalUrl.trim() !== String(initial?.external_url || "")) apply("external_url", externalUrl.trim());
       apply("isbn", isbn || undefined);
       apply("edition", edition || undefined);
       apply("page_count", pageCount ? Number(pageCount) : undefined);
@@ -238,6 +243,10 @@ export default function EditBookPage() {
 
             <label className="block text-sm font-medium mt-3">Summary</label>
             <textarea value={summary} onChange={(e)=>setSummary(e.target.value)} className="mt-1 w-full border rounded-md px-3 py-2 min-h-24" />
+
+            <label className="block text-sm font-medium mt-3">External link</label>
+            <input type="url" value={externalUrl} onChange={(e)=>setExternalUrl(e.target.value)} placeholder="https://..." className="mt-1 w-full border rounded-md px-3 py-2" />
+            <div className="text-xs text-slate-500 mt-1">For books hosted on another site (source EXTERNAL). Readers will see an "Open on external site" button.</div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">
               <div>

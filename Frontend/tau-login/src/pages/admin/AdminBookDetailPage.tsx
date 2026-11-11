@@ -17,6 +17,7 @@ type Book = {
   authors?: Array<string | { name?: string | null }> | null;
   subjects?: Array<string | { name?: string | null }> | null;
   source?: string | null;
+  external_url?: string | null;
   formats?: string[] | string | null;
   isbn?: string | null;
   edition?: string | null;
@@ -163,6 +164,7 @@ export default function AdminBookDetailPage() {
               <Row label="Available copies" value={book.available_copies ?? "-"} />
               <Row label="Formats" value={formats.length ? formats.join(", ") : "-"} />
               <Row label="Source" value={book.source || "-"} />
+              <Row label="External link" value={book.external_url || "-"} />
               <Row label="Public" value={fmtBool(book.is_public)} />
               <Row label="Publisher info" value={book.pub_info || "-"} />
               <Row

@@ -32,6 +32,7 @@ export default function CreateBookPage() {
   const [pageCount, setPageCount] = useState<string>("");
   const [availableCopies, setAvailableCopies] = useState<string>("");
   const [source, setSource] = useState("LIBRARY");
+  const [externalUrl, setExternalUrl] = useState("");
   const [formats, setFormats] = useState<string[]>([]);
   const [isPublic, setIsPublic] = useState<boolean>(true);
   const [coverFile, setCoverFile] = useState<File | null>(null);
@@ -41,7 +42,7 @@ export default function CreateBookPage() {
   const [subjects, setSubjects] = useState<string[]>([]);
   const [langs, setLangs] = useState<string[]>([]);
   const [formatOptions] = useState<string[]>(["EBOOK", "HARDCOPY", "AUDIOBOOK", "ARTICLE"]);
-  const [sourceOptions] = useState<string[]>(["KABIS", "LIBRARY", "RMEB", "OTHER"]);
+  const [sourceOptions] = useState<string[]>(["KABIS", "LIBRARY", "RMEB", "IPRBOOKS", "EXTERNAL", "OTHER"]);
 
   // locally persisted additions (kept separate so we don't overwrite server lists)
   const [localAuthors, setLocalAuthors] = useState<string[]>(() => {
@@ -195,6 +196,7 @@ export default function CreateBookPage() {
         ...(availableCopies ? { available_copies: Number(availableCopies) } : {}),
         ...(typeof isPublic === "boolean" ? { is_public: isPublic } : {}),
         ...(source ? { source: String(source).trim().toUpperCase() } : {}),
+        ...(externalUrl.trim() ? { external_url: externalUrl.trim() } : {}),
         ...(coverDataUrl ? { cover: coverDataUrl } : {}),
         ...(selectedAuthors.length ? { authors: selectedAuthors } : {}),
         ...(selectedSubjects.length ? { subjects: selectedSubjects } : {}),
@@ -223,7 +225,7 @@ export default function CreateBookPage() {
       localStorage.setItem("books", JSON.stringify(books));
 
     setTitle(""); setYear(""); setLang(""); setPubInfo(""); setSummary("");
-      setIsbn(""); setEdition(""); setPageCount(""); setAvailableCopies(""); setSource(""); setFormats([]); setIsPublic(true);
+      setIsbn(""); setEdition(""); setPageCount(""); setAvailableCopies(""); setSource(""); setExternalUrl(""); setFormats([]); setIsPublic(true);
       setCoverFile(null); setPdfFile(null);
       setSelectedAuthors([]); setSelectedSubjects([]);
 
@@ -291,6 +293,16 @@ export default function CreateBookPage() {
           <select value={source} onChange={(e) => setSource(e.target.value)} className="mt-1 w-full border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#b51e3e]/30">
             {sourceOptions.map(s => <option key={s} value={s}>{s}</option>)}
           </select>
+
+          <label className="block text-sm font-medium mt-3">{t("bookImport.externalUrl")}</label>
+          <input
+            type="url"
+            value={externalUrl}
+            onChange={(e) => { setExternalUrl(e.target.value); if (e.target.value.trim() && !pdfFile) setSource("EXTERNAL"); }}
+            placeholder="https://..."
+            className="mt-1 w-full border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#b51e3e]/30"
+          />
+          <div className="text-xs text-slate-500 mt-1">{t("bookImport.externalUrlHint")}</div>
 
           <div className="mb-4 mt-3">
             <MultiSelect

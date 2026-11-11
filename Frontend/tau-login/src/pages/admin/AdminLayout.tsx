@@ -10,6 +10,7 @@ const nav = [
   { to: "/admin/articles/quick", label: () => "Quick Article" },
   { to: "/admin/books", label: () => t("admin.nav.books") },
   { to: "/admin/books/new", label: () => t("admin.nav.addBook") },
+  { to: "/admin/books/import", label: () => t("bookImport.nav") },
   { to: "/admin/playlists", label: () => t("admin.nav.playlists") },
   { to: "/admin/playlists/new", label: () => t("admin.nav.addPlaylist") },
   { to: "/admin/authors", label: () => t("admin.nav.authors") },

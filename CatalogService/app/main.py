@@ -108,7 +108,29 @@ def ensure_content_page_i18n_columns() -> None:
         )
 
 
+def ensure_book_external_source() -> None:
+    """Колонка books.external_url и значение EXTERNAL в enum booksource (PostgreSQL)."""
+    inspector = inspect(engine)
+    if "books" not in inspector.get_table_names():
+        return
+
+    existing_columns = {column["name"] for column in inspector.get_columns("books")}
+    if "external_url" not in existing_columns:
+        with engine.begin() as connection:
+            connection.execute(text("ALTER TABLE books ADD COLUMN external_url VARCHAR(2048)"))
+
+    if engine.dialect.name == "postgresql":
+        # ALTER TYPE ... ADD VALUE нельзя выполнять внутри транзакции на старых версиях PostgreSQL
+        with engine.connect().execution_options(isolation_level="AUTOCOMMIT") as connection:
+            exists = connection.execute(
+                text("SELECT 1 FROM pg_type WHERE typname = 'booksource'")
+            ).scalar()
+            if exists:
+                connection.execute(text("ALTER TYPE booksource ADD VALUE IF NOT EXISTS 'EXTERNAL'"))
+
+
 Base.metadata.create_all(bind=engine)
+ensure_book_external_source()
 ensure_menu_item_i18n_columns()
 ensure_content_page_html_column()
 ensure_content_page_i18n_columns()

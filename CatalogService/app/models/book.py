@@ -34,6 +34,7 @@ class BookSource(enum.Enum):
     RMEB = "RMEB"
     IPRBOOKS = "IPRBOOKS"
     OTHER = "OTHER"
+    EXTERNAL = "EXTERNAL"  # книга размещена на внешнем сайте, у нас только ссылка
 
 
 class BookFormat(enum.Enum):
@@ -60,6 +61,7 @@ class Book(Base):
 
     file_id: Mapped[str | None] = mapped_column(String(128))
     download_url: Mapped[str | None] = mapped_column(String(2048))
+    external_url: Mapped[str | None] = mapped_column(String(2048))  # ссылка на книгу на внешнем сайте
 
     source: Mapped[BookSource] = mapped_column(Enum(BookSource), default=BookSource.LIBRARY, index=True)
     formats: Mapped[str] = mapped_column(String(256), default="EBOOK")

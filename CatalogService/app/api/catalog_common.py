@@ -58,6 +58,8 @@ def _to_out(b: Book) -> BookOut:
         cover=b.cover,
         file_id=b.file_id,
         download_url=b.download_url,
+        external_url=b.external_url,
+        source=b.source.value if b.source else None,
         formats=b.formats_list,
         authors=[AuthorOut.from_orm(a) for a in b.authors],
         subjects=[SubjectOut.from_orm(s) for s in b.subjects],

@@ -152,6 +152,7 @@ const router = createBrowserRouter([{ element: <PageMotion />, errorElement: <Ro
             { index: true, lazy: loadPage(() => import("../pages/admin/AdminHome"), "Admin Home - TAU") },
             { path: "books", lazy: loadPage(() => import("../pages/admin/sections/BooksListPage"), "Admin Books - TAU") },
             { path: "books/new", lazy: loadPage(() => import("../pages/admin/CreateBookPage"), "Add Book - TAU") },
+            { path: "books/import", lazy: loadPage(() => import("../pages/admin/ImportBooksPage"), "Import Books - TAU") },
             { path: "articles/quick", lazy: loadPage(() => import("../pages/admin/QuickArticlePage"), "Quick Article - TAU") },
             {
               path: "content",
