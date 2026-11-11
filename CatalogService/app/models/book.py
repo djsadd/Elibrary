@@ -133,6 +133,9 @@ class Author(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     name: Mapped[str] = mapped_column(String(256), index=True, nullable=False, unique=True)
+    name_ru: Mapped[str | None] = mapped_column(String(256), nullable=True)
+    name_kk: Mapped[str | None] = mapped_column(String(256), nullable=True)
+    name_en: Mapped[str | None] = mapped_column(String(256), nullable=True)
     books = relationship("Book", secondary=book_authors, back_populates="authors")
 
     __table_args__ = (UniqueConstraint("name", name="uq_authors_name"),)
@@ -143,6 +146,9 @@ class Subject(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     name: Mapped[str] = mapped_column(String(256), index=True, nullable=False, unique=True)
+    name_ru: Mapped[str | None] = mapped_column(String(256), nullable=True)
+    name_kk: Mapped[str | None] = mapped_column(String(256), nullable=True)
+    name_en: Mapped[str | None] = mapped_column(String(256), nullable=True)
     books = relationship("Book", secondary=book_subjects, back_populates="subjects")
 
     __table_args__ = (UniqueConstraint("name", name="uq_subjects_name"),)

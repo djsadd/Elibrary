@@ -1,15 +1,39 @@
-from app.utils.authz import require_roles
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, status
+from sqlalchemy import or_
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.api.catalog_common import _author_to_detail, get_db
+from app.api.catalog_common import (
+    _apply_i18n,
+    _author_to_detail,
+    _merge_named,
+    _reindex_books,
+    get_db,
+)
 from app.models.book import Author
-from app.schemas.authors import AuthorDetail, AuthorUpdate
+from app.schemas.authors import AuthorCreate, AuthorDetail, AuthorMerge, AuthorUpdate
+from app.utils.authz import require_roles
+from app.utils.i18n_names import fill_detected_lang
 
 router = APIRouter()
+
+STAFF = Depends(require_roles("editor", "admin", "librarian"))
+
+
+def _search(query, q: Optional[str]):
+    if q:
+        like = f"%{q}%"
+        query = query.filter(
+            or_(
+                Author.name.ilike(like),
+                Author.name_ru.ilike(like),
+                Author.name_kk.ilike(like),
+                Author.name_en.ilike(like),
+            )
+        )
+    return query
 
 
 @router.get("/authors", response_model=list[str])
@@ -18,10 +42,7 @@ def list_authors(
     q: Optional[str] = None,
     limit: int = Query(50, ge=1, le=200),
 ):
-    query = db.query(Author)
-    if q:
-        query = query.filter(Author.name.ilike(f"%{q}%"))
-    authors = query.order_by(Author.name.asc()).limit(limit).all()
+    authors = _search(db.query(Author), q).order_by(Author.name.asc()).limit(limit).all()
     return [a.name for a in authors]
 
 
@@ -31,11 +52,37 @@ def list_authors_details(
     q: Optional[str] = None,
     limit: int = Query(50, ge=1, le=200),
 ):
-    query = db.query(Author)
-    if q:
-        query = query.filter(Author.name.ilike(f"%{q}%"))
-    authors = query.order_by(Author.name.asc()).limit(limit).all()
+    authors = _search(db.query(Author), q).order_by(Author.name.asc()).limit(limit).all()
     return [_author_to_detail(a) for a in authors]
+
+
+@router.post("/authors", response_model=AuthorDetail, status_code=status.HTTP_201_CREATED, dependencies=[STAFF])
+def create_author(payload: AuthorCreate, db: Session = Depends(get_db)):
+    author = Author(name=payload.name.strip())
+    _apply_i18n(author, payload)
+    fill_detected_lang(author)
+    db.add(author)
+    try:
+        db.commit()
+        db.refresh(author)
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status_code=400, detail=f"Author '{payload.name}' already exists.")
+    return _author_to_detail(author)
+
+
+@router.post("/authors/merge", response_model=AuthorDetail, dependencies=[STAFF])
+def merge_authors(payload: AuthorMerge, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
+    """Объединить дубли авторов в одного и сразу присвоить новое название."""
+    target, book_ids = _merge_named(db, Author, "authors", payload, "Author")
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status_code=400, detail=f"Author '{payload.name}' already exists.")
+    db.refresh(target)
+    _reindex_books(db, book_ids, background_tasks)
+    return _author_to_detail(target)
 
 
 @router.get("/authors/{author_id}", response_model=AuthorDetail)
@@ -46,29 +93,30 @@ def get_author(author_id: int, db: Session = Depends(get_db)):
     return _author_to_detail(author)
 
 
-@router.patch("/authors/{author_id}", response_model=AuthorDetail, dependencies=[Depends(require_roles("editor", "admin", "librarian"))])
+@router.patch("/authors/{author_id}", response_model=AuthorDetail, dependencies=[STAFF])
 def update_author(
     author_id: int,
     payload: AuthorUpdate,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
 ):
     author = db.get(Author, author_id)
     if not author:
         raise HTTPException(status_code=404, detail="Author not found")
 
-    new_name = payload.name.strip()
-    if not new_name:
-        raise HTTPException(status_code=400, detail="Author name is required")
+    if payload.name is not None:
+        new_name = payload.name.strip()
+        if not new_name:
+            raise HTTPException(status_code=400, detail="Author name is required")
+        author.name = new_name
+    _apply_i18n(author, payload)
 
-    author.name = new_name
     try:
         db.commit()
         db.refresh(author)
     except IntegrityError:
         db.rollback()
-        raise HTTPException(
-            status_code=400,
-            detail=f"Author '{payload.name}' already exists.",
-        )
+        raise HTTPException(status_code=400, detail=f"Author '{payload.name}' already exists.")
 
+    _reindex_books(db, [b.id for b in author.books or []], background_tasks)
     return _author_to_detail(author)

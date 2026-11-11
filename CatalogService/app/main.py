@@ -108,6 +108,34 @@ def ensure_content_page_i18n_columns() -> None:
         )
 
 
+def ensure_taxonomy_i18n_columns() -> None:
+    """authors/subjects: name_ru, name_kk, name_en + fill them from the current name by alphabet."""
+    from app.utils.i18n_names import detect_lang
+
+    inspector = inspect(engine)
+    tables = inspector.get_table_names()
+    for table in ("authors", "subjects"):
+        if table not in tables:
+            continue
+        existing_columns = {column["name"] for column in inspector.get_columns(table)}
+        missing_columns = [name for name in ("name_ru", "name_kk", "name_en") if name not in existing_columns]
+        if not missing_columns:
+            continue
+
+        with engine.begin() as connection:
+            for column_name in missing_columns:
+                connection.execute(text(f"ALTER TABLE {table} ADD COLUMN {column_name} VARCHAR(256)"))
+
+            rows = connection.execute(text(f"SELECT id, name FROM {table}")).fetchall()
+            for row_id, name in rows:
+                lang = detect_lang(name)
+                if lang:
+                    connection.execute(
+                        text(f"UPDATE {table} SET name_{lang} = :name WHERE id = :id AND name_{lang} IS NULL"),
+                        {"name": name, "id": row_id},
+                    )
+
+
 def ensure_book_external_source() -> None:
     """Колонка books.external_url и значение EXTERNAL в enum booksource (PostgreSQL)."""
     inspector = inspect(engine)
@@ -134,6 +162,7 @@ ensure_book_external_source()
 ensure_menu_item_i18n_columns()
 ensure_content_page_html_column()
 ensure_content_page_i18n_columns()
+ensure_taxonomy_i18n_columns()
 
 setup_logging()
 

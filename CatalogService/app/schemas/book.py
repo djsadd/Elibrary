@@ -107,6 +107,9 @@ class BookUpdate(FileReference):
 class AuthorOut(BaseModel):
     id: int
     name: str
+    name_ru: Optional[str] = None
+    name_kk: Optional[str] = None
+    name_en: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -114,6 +117,9 @@ class AuthorOut(BaseModel):
 class SubjectOut(BaseModel):
     id: int
     name: str
+    name_ru: Optional[str] = None
+    name_kk: Optional[str] = None
+    name_en: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
 

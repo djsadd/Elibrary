@@ -4,7 +4,7 @@ import { Link, useSearchParams } from "react-router-dom";
 import DashboardHeader from "../../components/layout/DashboardHeader";
 import { api } from "@/shared/api/client";
 import { t } from "@/shared/i18n";
-import { namesFrom } from "@/shared/ui/text";
+import { displayNamesFrom } from "@/shared/ui/text";
 import bookPdf from "../../assets/books/book.pdf";
 
 // Using pdfjs-dist to render pages into canvases
@@ -573,7 +573,7 @@ export default function ReaderPage() {
               <div className="text-sm font-semibold">{bookMeta?.title || t("reader.book")}</div>
               <div className="text-xs opacity-80">
                 {(() => {
-                  const authors = namesFrom((bookMeta as any)?.authors);
+                  const authors = displayNamesFrom((bookMeta as any)?.authors);
                   const authorLine = authors.length ? authors.join(', ') : '';
                   const year = (bookMeta as any)?.year || '';
                   const sep = authorLine && year ? ' — ' : '';

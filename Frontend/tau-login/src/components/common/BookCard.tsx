@@ -2,13 +2,13 @@ import type { MouseEvent } from 'react';
 import { Link } from 'react-router-dom';
 import LibraryIcon from './LibraryIcon';
 import placeholder from '@/assets/images/book-placeholder.svg';
-import { namesFrom } from '@/shared/ui/text';
+import { displayNamesFrom } from '@/shared/ui/text';
 import { designCopy } from '@/shared/designCopy';
 import { t } from '@/shared/i18n';
 
 export type BookCardData = { id: string | number; title: string; cover?: string | null; authors?: unknown; year?: string | number | null; lang?: string | null; summary?: string | null };
 export default function BookCard({ book, to, favorite, onFavorite, progress }: { book: BookCardData; to?: string; favorite?: boolean; onFavorite?: (event: MouseEvent<HTMLButtonElement>) => void; progress?: number | null }) {
-  const authors = namesFrom(book.authors);
+  const authors = displayNamesFrom(book.authors);
   const href = to || `/catalog/${book.id}`;
   const lang = book.lang ? ({ru:'RU',kk:'KZ',kz:'KZ',en:'EN'}[book.lang.toLowerCase()] || book.lang.toUpperCase()) : '';
   return <article className="library-book-card">

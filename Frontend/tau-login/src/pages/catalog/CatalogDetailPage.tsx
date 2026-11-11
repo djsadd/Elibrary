@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import DashboardHeader from "@/components/layout/DashboardHeader";
-import { t } from "@/shared/i18n";
+import { getLang, t } from "@/shared/i18n";
 import { api } from "@/shared/api/client";
 import { getBookRecommendationExplanation, type StudentProfile } from "@/shared/api/search";
 import placeholder from "@/assets/images/book-placeholder.svg";
-import { namesFrom } from "@/shared/ui/text";
+import { displayNamesFrom, namesFrom } from "@/shared/ui/text";
 
 type Book = {
   id: number | string;
@@ -261,8 +261,8 @@ export default function CatalogDetailPage() {
   }, [id]);
 
   const coverUrl = useMemo(() => (book?.cover ? book.cover : placeholder), [book]);
-  const authorNames = useMemo(() => namesFrom((book as any)?.authors), [book]);
-  const subjectNames = useMemo(() => namesFrom((book as any)?.subjects), [book]);
+  const authorNames = useMemo(() => displayNamesFrom((book as any)?.authors), [book, getLang()]);
+  const subjectNames = useMemo(() => displayNamesFrom((book as any)?.subjects), [book, getLang()]);
   const downloadHref = useMemo(() => {
     if (id) return `${BASE}/api/catalog/books/${id}/download`;
     if (!book?.download_url) return null;
@@ -888,9 +888,9 @@ export default function CatalogDetailPage() {
                             />
                           </div>
                           <div className="text-sm font-medium text-slate-800 truncate">{b.title}</div>
-                          {namesFrom((b as any).authors).length ? (
+                          {displayNamesFrom((b as any).authors).length ? (
                             <div className="text-xs text-slate-400 truncate">
-                              {namesFrom((b as any).authors).join(", ")}
+                              {displayNamesFrom((b as any).authors).join(", ")}
                             </div>
                           ) : null}
                         </Link>
