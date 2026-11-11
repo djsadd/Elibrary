@@ -1,6 +1,7 @@
 from pydantic import BaseModel, Field
 from typing import List, Optional
 from app.schemas.userbook import BookMinimal
+from app.schemas.common import Pagination
 
 
 class SubjectI18n(BaseModel):
@@ -30,3 +31,14 @@ class SubjectDetail(BaseModel):
     name_kk: Optional[str] = None
     name_en: Optional[str] = None
     books: List[BookMinimal] = []
+
+
+class SubjectRow(SubjectI18n):
+    id: int
+    name: str
+    books_count: int = 0
+
+
+class SubjectPage(BaseModel):
+    items: List[SubjectRow]
+    page: Pagination

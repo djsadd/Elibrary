@@ -1,7 +1,6 @@
 from typing import Optional
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, status
-from sqlalchemy import or_
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -9,11 +8,13 @@ from app.api.catalog_common import (
     _apply_i18n,
     _author_to_detail,
     _merge_named,
+    _name_search,
+    _page_named,
     _reindex_books,
     get_db,
 )
-from app.models.book import Author
-from app.schemas.authors import AuthorCreate, AuthorDetail, AuthorMerge, AuthorUpdate
+from app.models.book import Author, book_authors
+from app.schemas.authors import AuthorCreate, AuthorDetail, AuthorMerge, AuthorPage, AuthorUpdate
 from app.utils.authz import require_roles
 from app.utils.i18n_names import fill_detected_lang
 
@@ -22,27 +23,13 @@ router = APIRouter()
 STAFF = Depends(require_roles("editor", "admin", "librarian"))
 
 
-def _search(query, q: Optional[str]):
-    if q:
-        like = f"%{q}%"
-        query = query.filter(
-            or_(
-                Author.name.ilike(like),
-                Author.name_ru.ilike(like),
-                Author.name_kk.ilike(like),
-                Author.name_en.ilike(like),
-            )
-        )
-    return query
-
-
 @router.get("/authors", response_model=list[str])
 def list_authors(
     db: Session = Depends(get_db),
     q: Optional[str] = None,
     limit: int = Query(50, ge=1, le=200),
 ):
-    authors = _search(db.query(Author), q).order_by(Author.name.asc()).limit(limit).all()
+    authors = _name_search(db.query(Author), Author, q).order_by(Author.name.asc()).limit(limit).all()
     return [a.name for a in authors]
 
 
@@ -52,8 +39,19 @@ def list_authors_details(
     q: Optional[str] = None,
     limit: int = Query(50, ge=1, le=200),
 ):
-    authors = _search(db.query(Author), q).order_by(Author.name.asc()).limit(limit).all()
+    authors = _name_search(db.query(Author), Author, q).order_by(Author.name.asc()).limit(limit).all()
     return [_author_to_detail(a) for a in authors]
+
+
+@router.get("/authors/page", response_model=AuthorPage)
+def page_authors(
+    db: Session = Depends(get_db),
+    q: Optional[str] = None,
+    limit: int = Query(25, ge=1, le=200),
+    offset: int = Query(0, ge=0),
+):
+    """Pagination for the admin list: items with books_count + page {limit, offset, total}."""
+    return _page_named(db, Author, book_authors, "author_id", q, limit, offset)
 
 
 @router.post("/authors", response_model=AuthorDetail, status_code=status.HTTP_201_CREATED, dependencies=[STAFF])

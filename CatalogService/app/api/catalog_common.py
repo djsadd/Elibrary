@@ -191,3 +191,44 @@ def _reindex_books(db: Session, book_ids: list[int], background_tasks) -> None:
     books = db.query(Book).filter(Book.id.in_(book_ids)).all()
     for book in books:
         background_tasks.add_task(index_book_in_search, _to_out(book).model_dump())
+
+
+def _name_search(query, model, q: str | None):
+    """Filter by main name or any translation."""
+    q = (q or "").strip()
+    if not q:
+        return query
+    like = f"%{q}%"
+    return query.filter(
+        or_(
+            model.name.ilike(like),
+            model.name_ru.ilike(like),
+            model.name_kk.ilike(like),
+            model.name_en.ilike(like),
+        )
+    )
+
+
+def _page_named(db: Session, model, link_table, link_column: str, q: str | None, limit: int, offset: int) -> dict:
+    """Paginated authors/subjects with books count: {items: [...], page: {limit, offset, total}}."""
+    base = _name_search(db.query(model), model, q)
+    total = base.order_by(None).count()
+
+    counts = (
+        db.query(getattr(link_table.c, link_column).label("item_id"), func.count().label("cnt"))
+        .group_by(getattr(link_table.c, link_column))
+        .subquery()
+    )
+    rows = (
+        _name_search(
+            db.query(model, func.coalesce(counts.c.cnt, 0)).outerjoin(counts, counts.c.item_id == model.id),
+            model,
+            q,
+        )
+        .order_by(func.lower(model.name).asc(), model.id.asc())
+        .offset(offset)
+        .limit(limit)
+        .all()
+    )
+    items = [{**_i18n_fields(obj), "books_count": int(cnt or 0)} for obj, cnt in rows]
+    return {"items": items, "page": {"limit": limit, "offset": offset, "total": total}}
