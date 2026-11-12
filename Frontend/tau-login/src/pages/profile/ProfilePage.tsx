@@ -4,6 +4,7 @@ import { Link } from "react-router-dom";
 import DashboardHeader from "@/components/layout/DashboardHeader";
 import { api } from "@/shared/api/client";
 import { t } from "@/shared/i18n";
+import { MyInsightsContent } from "@/pages/insights/MyInsightsPage";
 
 type AuthProfile = {
   id: number;
@@ -65,7 +66,6 @@ type Review = {
   created_at: string;
 };
 
-type EventsPage = { total: number; items: { event_time?: string | null }[] };
 
 type EditProfile = {
   first_name: string;
@@ -76,13 +76,6 @@ type EditProfile = {
   group_name: string;
   avatar_url: string;
 };
-
-function ymd(d: Date): string {
-  const yyyy = d.getFullYear();
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
-  const dd = String(d.getDate()).padStart(2, "0");
-  return `${yyyy}-${mm}-${dd}`;
-}
 
 function formatDateTime(value?: string | null): string {
   if (!value) return "-";
@@ -119,8 +112,6 @@ export default function ProfilePage() {
   const [reviews, setReviews] = useState<Review[]>([]);
   const [reviewsLoaded, setReviewsLoaded] = useState(false);
   const [reviewsLoading, setReviewsLoading] = useState(false);
-  const [traffic7d, setTraffic7d] = useState<{ total: number; lastSeen?: string | null } | null>(null);
-  const [traffic30d, setTraffic30d] = useState<{ total: number; lastSeen?: string | null } | null>(null);
 
   const fileRef = useRef<HTMLInputElement | null>(null);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
@@ -154,24 +145,6 @@ export default function ProfilePage() {
         if (ubR.status === "fulfilled") setUserbooks(Array.isArray(ubR.value) ? ubR.value : []);
         if (favR.status === "fulfilled") setFavourites(Array.isArray(favR.value) ? favR.value : []);
         if (notesR.status === "fulfilled") setNotes(Array.isArray(notesR.value) ? notesR.value : []);
-
-        const userId = clampInt(p?.id, 0);
-        if (userId > 0) {
-          const to = new Date();
-          const from7 = new Date(to);
-          from7.setDate(to.getDate() - 7);
-          const from30 = new Date(to);
-          from30.setDate(to.getDate() - 30);
-          const qs = (from: Date, to: Date) =>
-            `from=${encodeURIComponent(ymd(from))}&to=${encodeURIComponent(ymd(to))}&who=users&user_id=${encodeURIComponent(String(userId))}&limit=1`;
-          const [t7, t30] = await Promise.allSettled([
-            api<EventsPage>(`/api/analytics/traffic?${qs(from7, to)}`),
-            api<EventsPage>(`/api/analytics/traffic?${qs(from30, to)}`),
-          ]);
-          if (cancelled) return;
-          if (t7.status === "fulfilled") setTraffic7d({ total: clampInt(t7.value?.total, 0), lastSeen: t7.value?.items?.[0]?.event_time ?? null });
-          if (t30.status === "fulfilled") setTraffic30d({ total: clampInt(t30.value?.total, 0), lastSeen: t30.value?.items?.[0]?.event_time ?? null });
-        }
       } catch (e: unknown) {
         const msg = e instanceof Error ? e.message : String(e);
         if (!cancelled) setError(msg);
@@ -652,31 +625,12 @@ export default function ProfilePage() {
 
             {tab === "analytics" && (
               <div className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                  <div className="border rounded-md p-4">
-                    <div className="text-xs text-slate-500">{t("profile.analytics.readingTime")}</div>
-                    <div className="text-lg font-semibold text-slate-800">
-                      {derived.minutes < 60
-                        ? `${derived.minutes} ${t("profile.analytics.min")}`
-                        : `${Math.floor(derived.minutes / 60)}${t("profile.analytics.h")} ${derived.minutes % 60}${t("profile.analytics.min")}`}
-                    </div>
-                  </div>
-                  <div className="border rounded-md p-4">
-                    <div className="text-xs text-slate-500">{t("profile.analytics.api7d")}</div>
-                    <div className="text-lg font-semibold text-slate-800">{traffic7d?.total ?? 0}</div>
-                    <div className="text-xs text-slate-500 mt-1">
-                      {t("profile.analytics.lastSeen")}: <span className="text-slate-700">{formatDateTime(traffic7d?.lastSeen || null)}</span>
-                    </div>
-                  </div>
-                  <div className="border rounded-md p-4">
-                    <div className="text-xs text-slate-500">{t("profile.analytics.api30d")}</div>
-                    <div className="text-lg font-semibold text-slate-800">{traffic30d?.total ?? 0}</div>
-                    <div className="text-xs text-slate-500 mt-1">
-                      {t("profile.analytics.lastSeen")}: <span className="text-slate-700">{formatDateTime(traffic30d?.lastSeen || null)}</span>
-                    </div>
-                  </div>
+                <div className="flex justify-end">
+                  <Link to="/insights" className="text-sm text-[#b51e3e] hover:underline">
+                    {t("insights.my.fullPage")} →
+                  </Link>
                 </div>
-                <div className="text-sm text-slate-500">{t("profile.analytics.hint")}</div>
+                <MyInsightsContent />
               </div>
             )}
 

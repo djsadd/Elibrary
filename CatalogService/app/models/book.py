@@ -1,7 +1,7 @@
-from sqlalchemy import Column, Integer, String, Text, ForeignKey, DateTime, Float, func, Table, UniqueConstraint, Enum, Boolean
+from sqlalchemy import Column, Date, Integer, String, Text, ForeignKey, DateTime, Float, func, Table, UniqueConstraint, Enum, Boolean
 from sqlalchemy.orm import relationship, Mapped, mapped_column
 from app.core.db import Base
-from datetime import datetime
+from datetime import date, datetime
 import enum
 from typing import List
 
@@ -167,3 +167,18 @@ class Playlist(Base):
     updated_at: Mapped[str] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
 
     books = relationship("Book", secondary=playlist_books, back_populates="playlists")
+
+
+class ReadingActivity(Base):
+    """Per-user, per-book, per-day reading log (seconds + pages) used for reading insights."""
+
+    __tablename__ = "reading_activity"
+    __table_args__ = (UniqueConstraint("user_id", "book_id", "day", name="uq_reading_activity_user_book_day"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(Integer, index=True, nullable=False)
+    book_id: Mapped[int] = mapped_column(ForeignKey("books.id", ondelete="CASCADE"), index=True, nullable=False)
+    day: Mapped[date] = mapped_column(Date, index=True, nullable=False)
+    seconds: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    pages: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    updated_at: Mapped[DateTime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())

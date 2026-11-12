@@ -104,6 +104,7 @@ const router = createBrowserRouter([{ element: <PageMotion />, errorElement: <Ro
       { path: "catalog", element: <WithTitle title="Catalog - TAU"><CatalogListPage /></WithTitle> },
       { path: "search", element: <WithTitle title="Search - TAU"><SearchResultsPage /></WithTitle> },
       { path: "intelligent-search", element: <WithTitle title="Intelligent Search - TAU"><IntelligentSearchPage /></WithTitle> },
+      { path: "insights", lazy: loadPage(() => import("../pages/insights/MyInsightsPage"), "My Stats - TAU") },
       {
         path: "analytics",
         element: (

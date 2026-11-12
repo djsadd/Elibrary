@@ -2826,3 +2826,9 @@ dict.kk.bookImport = {
   externalBadge: 'Сыртқы дереккөз',
   openExternal: 'Сыртқы сайтта ашу',
 };
+
+// Analytics insights (personal + admin)
+import { insightsDict } from "./insightsI18n";
+dict.en.insights = insightsDict.en;
+dict.ru.insights = insightsDict.ru;
+dict.kk.insights = insightsDict.kk;

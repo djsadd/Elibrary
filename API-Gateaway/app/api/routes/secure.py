@@ -7,6 +7,12 @@ router = APIRouter(tags=["secure"])
 
 # ======== Analytics ========
 
+# Personal analytics: any signed-in user, AnalyticsService scopes the data to the token's user.
+# Must be declared before the admin-only catch-all below.
+@router.get("/analytics/me/{path:path}")
+async def analytics_me_proxy(path: str, request: Request, _=Depends(auth_required)):
+    return await forward(request, settings.ANALYTICS_SERVICE_URL, path_suffix=f"analytics/me/{path}")
+
 
 @router.api_route("/analytics", methods=["GET", "POST", "PUT", "PATCH", "DELETE"])
 @router.api_route("/analytics/", methods=["GET", "POST", "PUT", "PATCH", "DELETE"])

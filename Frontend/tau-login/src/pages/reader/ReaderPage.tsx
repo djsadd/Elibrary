@@ -226,6 +226,51 @@ export default function ReaderPage() {
     return () => { cancelled = true; };
   }, [bookIdParam, BASE]);
 
+  // Reading-time tracking for personal insights: count only time when the tab is visible
+  // and the reader was interacted with recently, then flush to the backend once a minute.
+  const activityRef = useRef({ seconds: 0, pages: 0, lastInteraction: Date.now(), prevPage: 0 });
+  useEffect(() => {
+    const a = activityRef.current;
+    if (a.prevPage && a.prevPage !== page) a.pages += 1;
+    a.prevPage = page;
+    a.lastInteraction = Date.now();
+  }, [page]);
+  useEffect(() => {
+    if (!userbookId) return;
+    const TICK_MS = 10_000;
+    const IDLE_MS = 3 * 60_000;
+    const bump = () => { activityRef.current.lastInteraction = Date.now(); };
+    const inputEvents = ["mousemove", "keydown", "wheel", "touchstart", "scroll"] as const;
+    inputEvents.forEach((e) => window.addEventListener(e, bump, { passive: true }));
+    const flush = () => {
+      const a = activityRef.current;
+      const seconds = Math.min(Math.round(a.seconds), 900);
+      const pages = Math.min(a.pages, 200);
+      if (seconds < 5 && pages === 0) return;
+      a.seconds = 0;
+      a.pages = 0;
+      api(`/api/catalog/userbook/${userbookId}/activity`, {
+        method: "POST",
+        body: JSON.stringify({ seconds, pages }),
+        keepalive: true,
+      }).catch(() => {});
+    };
+    const tick = window.setInterval(() => {
+      const a = activityRef.current;
+      if (document.visibilityState === "visible" && Date.now() - a.lastInteraction < IDLE_MS) a.seconds += TICK_MS / 1000;
+    }, TICK_MS);
+    const sender = window.setInterval(flush, 60_000);
+    const onVisibility = () => { if (document.visibilityState === "hidden") flush(); };
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      window.clearInterval(tick);
+      window.clearInterval(sender);
+      document.removeEventListener("visibilitychange", onVisibility);
+      inputEvents.forEach((e) => window.removeEventListener(e, bump));
+      flush();
+    };
+  }, [userbookId]);
+
   // Send progress update on page change (debounced)
   useEffect(() => {
     if (!userbookId || pageCount <= 0) return;
@@ -233,7 +278,8 @@ export default function ReaderPage() {
       current_page: page,
       total_pages: pageCount,
       progress_percent: Math.max(0, Math.min(100, Math.round((page / pageCount) * 100))),
-      status: "reading",
+      // Mark as finished on the last page; otherwise keep the stored status (a finished book stays finished).
+      ...(page >= pageCount ? { status: "readed" } : {}),
     } as any;
     const t = setTimeout(async () => {
       try {
