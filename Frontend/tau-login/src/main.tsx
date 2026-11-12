@@ -7,6 +7,7 @@ import "./styles/public.css";
 import "./styles/navigation.css";
 import "./styles/motion.css";
 import "./styles/atlas.css";
+import "./styles/book-detail.css";
 import App from "./app/index";
 
 const root = document.getElementById("root")!;

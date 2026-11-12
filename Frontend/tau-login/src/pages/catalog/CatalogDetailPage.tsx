@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import DashboardHeader from "@/components/layout/DashboardHeader";
 import { getLang, t } from "@/shared/i18n";
@@ -31,6 +31,59 @@ type AuthProfile = StudentProfile & {
   email?: string | null;
 };
 
+const COPY = {
+  ru: {
+    back: "Каталог", by: "Автор", loading: "Загрузка…", failed: "Не удалось загрузить книгу",
+    retry: "Повторить", showMore: "Показать полностью", showLess: "Свернуть",
+    noSummary: "Описание пока не добавлено.", subjects: "Темы", ratings: "рейтинг",
+    authorBio: "Биография автора не указана.", unknownAuthor: "Автор не указан",
+    aiSearch: "Интеллектуальный поиск", aiPlaceholder: "Найти идею, цитату или тему",
+    aiHint: "Напишите любой вопрос — позже подключим умный поиск по книге.",
+    reviewsEmpty: "Отзывов пока нет. Станьте первым!", writeReview: "Оставить отзыв",
+    reviewPlaceholder: "Поделитесь впечатлениями о книге", submitReview: "Отправить",
+    selectRating: "Выберите оценку", writeShort: "Напишите короткий отзыв",
+    listsEmpty: "Книга пока не добавлена ни в один список.", relatedEmpty: "Похожие книги не найдены.",
+    linkCopied: "Ссылка скопирована", you: "Вы",
+    aiMatch: "Почему эта книга подходит именно вам", aiQuery: "По вашему запросу:",
+    aiLoading: "Подбираем персональное объяснение…", aiNone: "Объяснение пока недоступно.",
+    aiDown: "AI временно недоступен:",
+  },
+  kk: {
+    back: "Каталог", by: "Автор", loading: "Жүктелуде…", failed: "Кітапты жүктеу мүмкін болмады",
+    retry: "Қайталау", showMore: "Толық көрсету", showLess: "Жасыру",
+    noSummary: "Сипаттама әлі қосылмаған.", subjects: "Тақырыптар", ratings: "рейтинг",
+    authorBio: "Автордың өмірбаяны көрсетілмеген.", unknownAuthor: "Автор көрсетілмеген",
+    aiSearch: "Зияткерлік іздеу", aiPlaceholder: "Идея, дәйексөз немесе тақырып табу",
+    aiHint: "Кез келген сұрақ жазыңыз — кейін кітап бойынша ақылды іздеуді қосамыз.",
+    reviewsEmpty: "Пікірлер әлі жоқ. Бірінші болыңыз!", writeReview: "Пікір қалдыру",
+    reviewPlaceholder: "Кітап туралы ойыңызбен бөлісіңіз", submitReview: "Жіберу",
+    selectRating: "Бағаны таңдаңыз", writeShort: "Қысқа пікір жазыңыз",
+    listsEmpty: "Кітап әлі ешбір тізімге қосылмаған.", relatedEmpty: "Ұқсас кітаптар табылмады.",
+    linkCopied: "Сілтеме көшірілді", you: "Сіз",
+    aiMatch: "Бұл кітап сізге неге сәйкес келеді", aiQuery: "Сіздің сұрауыңыз бойынша:",
+    aiLoading: "Жеке түсініктеме дайындалуда…", aiNone: "Түсініктеме әзірге қолжетімсіз.",
+    aiDown: "AI уақытша қолжетімсіз:",
+  },
+  en: {
+    back: "Catalog", by: "By", loading: "Loading…", failed: "Failed to load the book",
+    retry: "Retry", showMore: "Show more", showLess: "Show less",
+    noSummary: "No description yet.", subjects: "Subjects", ratings: "rating",
+    authorBio: "Author bio is not provided.", unknownAuthor: "Unknown author",
+    aiSearch: "Smart search", aiPlaceholder: "Find an idea, quote or topic",
+    aiHint: "Ask anything — smart in-book search is coming soon.",
+    reviewsEmpty: "No reviews yet. Be the first to review this book.", writeReview: "Write a review",
+    reviewPlaceholder: "Share your thoughts about this book", submitReview: "Submit review",
+    selectRating: "Select rating", writeShort: "Write a short review",
+    listsEmpty: "This book is not in any lists yet.", relatedEmpty: "No related books found.",
+    linkCopied: "Link copied", you: "You",
+    aiMatch: "Why this book fits you", aiQuery: "For your query:",
+    aiLoading: "Preparing a personal explanation…", aiNone: "Explanation is not available yet.",
+    aiDown: "AI is temporarily unavailable:",
+  },
+} as const;
+
+const STAR_PATH = "M12 17.3l-5.2 3.1 1.4-5.9L3 9.8l6-.5L12 3l3 6.3 6 .5-5.2 4.7 1.4 5.9z";
+
 function getApiBase(): string {
   const raw = import.meta.env.VITE_API_URL as string | undefined;
   if (raw && /^https?:\/\//i.test(raw)) return raw.replace(/\/$/, "");
@@ -60,6 +113,15 @@ export default function CatalogDetailPage() {
   const [reviews, setReviews] = useState<Review[]>([]);
   const [rating, setRating] = useState<number>(0);
   const [reviewText, setReviewText] = useState<string>("");
+  const [summaryExpanded, setSummaryExpanded] = useState(false);
+  const [shareNotice, setShareNotice] = useState<string | null>(null);
+  const tabsRef = useRef<HTMLDivElement | null>(null);
+  const L = COPY[getLang()] || COPY.ru;
+
+  const openTab = (next: typeof tab) => {
+    setTab(next);
+    requestAnimationFrame(() => tabsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }));
+  };
 
   const BASE = getApiBase();
   const openedFromVectorSearch = searchParams.get("from") === "vector-search";
@@ -320,590 +382,500 @@ export default function CatalogDetailPage() {
     navigate(`/reader?book=${encodeURIComponent(String(id))}`);
   }
 
+  async function shareBook() {
+    try {
+      const url = window.location.href;
+      const title = book?.title || "Book";
+      if (navigator.share) {
+        await navigator.share({ title, url, text: `${title} — ${url}` });
+      } else {
+        await navigator.clipboard.writeText(url);
+        setShareNotice(L.linkCopied);
+        window.setTimeout(() => setShareNotice(null), 2200);
+      }
+    } catch {}
+  }
+
+  async function submitReview(e: { preventDefault: () => void }) {
+    e.preventDefault();
+    const rt = Math.max(0, Math.min(5, rating));
+    const txt = reviewText.trim();
+    if (!rt) return alert(L.selectRating);
+    if (!txt) return alert(L.writeShort);
+    const next: Review = {
+      id: crypto?.randomUUID ? crypto.randomUUID() : String(Date.now()),
+      rating: rt,
+      text: txt,
+      author: L.you,
+      created_at: new Date().toISOString(),
+    };
+    setReviews([next, ...reviews]);
+    setRating(0);
+    setReviewText("");
+    try {
+      const body = { rating: rt, comment: txt, book_id: Number(id) } as any;
+      const resp = (await api(`/api/reviews`, { method: "POST", body: JSON.stringify(body) })) as any;
+      try { console.info("[CatalogDetail] POST /api/reviews response:", resp); } catch {}
+    } catch (err: any) {
+      try { console.warn("[CatalogDetail] POST /api/reviews failed:", err?.message || String(err)); } catch {}
+    }
+  }
+
+  const externalHost = useMemo(() => {
+    if (!externalHref) return null;
+    try { return new URL(externalHref).hostname; } catch { return externalHref; }
+  }, [externalHref]);
+  const canReadLocally = hasLocalFile || !externalHref;
+  const summaryIsLong = (book?.summary || "").length > 600;
+  const formatList: string[] = Array.isArray(book?.formats) ? (book!.formats as string[]) : [];
+
+  const facts: [string, string][] = book
+    ? [
+        [t("catalog.fields.publishDate"), book.year || "—"],
+        [t("catalog.fields.publisher"), book.pub_info || "—"],
+        [t("catalog.fields.language"), book.lang || "—"],
+        [t("catalog.fields.formats"), humanizeFormatList(book.formats)],
+      ]
+    : [];
+
+  const icons = {
+    read: (
+      <svg className="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
+        <path d="M3 6.5A2.5 2.5 0 0 1 5.5 4H12v16H5.5A2.5 2.5 0 0 1 3 17.5v-11z" />
+        <path d="M21 6.5A2.5 2.5 0 0 0 18.5 4H12v16h6.5A2.5 2.5 0 0 0 21 17.5v-11z" />
+      </svg>
+    ),
+    external: (
+      <svg className="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
+        <path d="M14 4h6v6" />
+        <path d="M20 4l-9 9" />
+        <path d="M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5" />
+      </svg>
+    ),
+    heart: (
+      <svg className="w-[18px] h-[18px]" viewBox="0 0 24 24" fill={favorite ? "currentColor" : "none"} stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
+        <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.41 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.41 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
+      </svg>
+    ),
+    review: (
+      <svg className="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden="true">
+        <path d="M4 4h16v12H7l-3 3V4z" />
+        <path d="M8 9h8M8 12h5" />
+      </svg>
+    ),
+    notes: (
+      <svg className="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden="true">
+        <rect x="4" y="3" width="16" height="18" rx="2" />
+        <path d="M8 7h8M8 11h8M8 15h5" />
+      </svg>
+    ),
+    share: (
+      <svg className="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden="true">
+        <circle cx="18" cy="5" r="2.2" />
+        <circle cx="6" cy="12" r="2.2" />
+        <circle cx="18" cy="19" r="2.2" />
+        <path d="M8 11l8-5M8 13l8 5" />
+      </svg>
+    ),
+  };
+
+  const Stars = ({ value, size = "w-4 h-4" }: { value: number; size?: string }) => (
+    <span className="bd-stars" aria-hidden="true">
+      {Array.from({ length: 5 }).map((_, i) => (
+        <svg key={i} viewBox="0 0 24 24" className={size} fill={i < value ? "currentColor" : "none"} stroke="currentColor" strokeWidth="1.5">
+          <path d={STAR_PATH} />
+        </svg>
+      ))}
+    </span>
+  );
+
+  const primaryAction = canReadLocally ? (
+    <button type="button" onClick={startReading} className="bd-btn bd-btn--primary">
+      {icons.read}
+      <span>{t("catalog.readOnline")}</span>
+    </button>
+  ) : externalHref ? (
+    <a href={externalHref} target="_blank" rel="noopener noreferrer" className="bd-btn bd-btn--primary">
+      {icons.external}
+      <span>{t("bookImport.openExternal")}</span>
+    </a>
+  ) : null;
+
   return (
-    <div className="book-detail-page">
+    <div className="book-detail-page bd">
       <DashboardHeader />
       {error ? (
-        <div className="text-red-600">Failed to load: {error}</div>
+        <div className="bd-state bd-state--error" role="alert">
+          <strong>{L.failed}</strong>
+          <span>{error}</span>
+          <button type="button" className="bd-btn bd-btn--ghost" onClick={() => window.location.reload()}>
+            {L.retry}
+          </button>
+        </div>
       ) : loading ? (
-        <div className="text-slate-500">Loading…</div>
+        <div className="bd-skeleton" aria-busy="true" aria-label={L.loading}>
+          <div className="bd-skeleton__cover" />
+          <div className="bd-skeleton__lines">
+            <span style={{ width: "30%" }} />
+            <span style={{ width: "85%", height: 34 }} />
+            <span style={{ width: "50%" }} />
+            <span style={{ width: "65%" }} />
+            <span style={{ width: "40%", height: 46, marginTop: 16 }} />
+          </div>
+        </div>
       ) : book ? (
-        <div className="space-y-4">
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-            {/* Left: cover */}
-            <div className="lg:col-span-3">
-              <div className="bg-white rounded-xl border shadow-sm p-4 flex flex-col items-center">
-                <div className="w-full flex justify-center">
-                  <img
-                    src={coverUrl}
-                    alt="cover"
-                    className="max-h-80 w-auto object-contain rounded-md bg-slate-100 p-2"
-                  />
-                </div>
-                <div className="mt-4 w-full border-t pt-3 space-y-4">
-                  <div className="grid grid-cols-3 gap-2 text-center">
-                    <button
-                      type="button"
-                      onClick={() => setTab("reviews")}
-                      className="group flex flex-col items-center py-2 hover:text-[#b51e3e]"
-                    >
-                      <svg
-                        className="w-7 h-7 text-slate-700 group-hover:text-[#b51e3e]"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="1.6"
-                      >
-                        <path d="M4 4h16v12H7l-3 3V4z" />
-                        <path d="M14 8l-4 4" />
-                        <path d="M10 8l4 4" />
-                      </svg>
-                      <div className="mt-1 text-xs text-slate-700">{t("catalog.actions.review")}</div>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => navigate(`/catalog/${id}/notes`)}
-                      className="group flex flex-col items-center py-2 hover:text-[#b51e3e]"
-                    >
-                      <svg
-                        className="w-7 h-7 text-slate-700 group-hover:text-[#b51e3e]"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="1.6"
-                      >
-                        <rect x="4" y="3" width="16" height="18" rx="2" />
-                        <path d="M8 7h8" />
-                        <path d="M8 11h8" />
-                      </svg>
-                      <div className="mt-1 text-xs text-slate-700">{t("catalog.actions.notes")}</div>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={async () => {
-                        try {
-                          const url = window.location.href;
-                          const text = `${book?.title || "Book"} — ${url}`;
-                          if (navigator.share) {
-                            await navigator.share({ title: book?.title || "Book", url, text });
-                          } else {
-                            await navigator.clipboard.writeText(url);
-                            alert("Link copied");
-                          }
-                        } catch {}
-                      }}
-                      className="group flex flex-col items-center py-2 hover:text-[#b51e3e]"
-                    >
-                      <svg
-                        className="w-7 h-7 text-slate-700 group-hover:text-[#b51e3e]"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="1.6"
-                      >
-                        <circle cx="18" cy="5" r="2" />
-                        <circle cx="6" cy="12" r="2" />
-                        <circle cx="18" cy="19" r="2" />
-                        <path d="M8 12h8" />
-                        <path d="M16 7l-8 4" />
-                        <path d="M8 16l8 3" />
-                      </svg>
-                      <div className="mt-1 text-xs text-slate-700">{t("catalog.actions.share")}</div>
-                    </button>
-                  </div>
+        <>
+          <nav className="bd-crumbs" aria-label="breadcrumb">
+            <Link to="/catalog" className="bd-crumbs__back">
+              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                <path d="M15 18l-6-6 6-6" />
+              </svg>
+              {L.back}
+            </Link>
+            <span aria-hidden="true">/</span>
+            <span className="bd-crumbs__current">{book.title}</span>
+          </nav>
 
-                  <div className="pt-3 border-t border-dashed border-slate-200">
-                    <div className="text-[11px] font-semibold tracking-wide text-slate-500 uppercase mb-2">
-                      Интеллектуальный поиск
-                    </div>
-                    <div className="relative group">
-                      <div className="absolute inset-0 rounded-2xl bg-[#b51e3e]/10 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 blur-sm transition-opacity" />
-                      <div className="relative bg-white/90 backdrop-blur border border-slate-200 rounded-2xl shadow-sm group-hover:shadow-md group-focus-within:border-[#b51e3e] group-focus-within:shadow-[0_0_0_1px_rgba(123,15,43,0.18)] transition-all flex items-center px-3 py-2">
-                        <svg
-                          className="w-4 h-4 text-slate-400 mr-2 flex-shrink-0"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="1.6"
-                        >
-                          <circle cx="11" cy="11" r="6" />
-                          <path d="M16 16l4 4" />
-                        </svg>
-                        <input
-                          type="search"
-                          placeholder="Найти идею, цитату или тему"
-                          className="w-full bg-transparent border-none outline-none text-xs sm:text-sm text-slate-800 placeholder-slate-400"
-                        />
-                        <span className="ml-2 hidden sm:inline text-[10px] uppercase tracking-wide text-slate-500 bg-slate-100 rounded-full px-2 py-0.5">
-                          AI
-                        </span>
-                      </div>
-                      <p className="mt-2 text-[11px] text-slate-400 leading-tight">
-                        Напишите любой вопрос — позже подключим умный поиск по книге.
-                      </p>
-                    </div>
-                  </div>
+          {/* Hero */}
+          <section className="bd-hero">
+            <div className="bd-cover">
+              <img src={coverUrl} alt={book.title} loading="eager" />
+              {formatList.length ? (
+                <div className="bd-cover__formats">
+                  {formatList.map((f, i) => (
+                    <span key={`${f}-${i}`}>
+                      <i aria-hidden="true" />
+                      {humanizeFormat(f)}
+                    </span>
+                  ))}
                 </div>
-              </div>
+              ) : null}
             </div>
 
-            {/* Middle: title and actions */}
-            <div className="lg:col-span-6 space-y-2">
-              <h1 className="text-2xl font-semibold text-slate-800">{book.title}</h1>
-              {authorNames.length ? (
-                <div className="text-slate-600">
-                  By {authorNames.join(", ")}
-                  {book.year ? `, ${book.year}` : ""}
-                </div>
-              ) : (
-                <div className="text-slate-600">{book.year ?? ""}</div>
-              )}
-              <div className="text-xs text-slate-500">{t("catalog.secondEdition")}</div>
-
-              {openedFromVectorSearch ? (
-                <div className="mt-4 rounded-2xl border border-[#b51e3e]/15 bg-[#eee4db] p-4 shadow-sm">
-                  <div className="flex items-center justify-between gap-3">
-                    <div>
-                      <div className="text-xs font-semibold uppercase tracking-[0.2em] text-[#b51e3e]">
-                        AI Match
-                      </div>
-                      <div className="mt-1 text-sm font-medium text-slate-800">
-                        Почему эта книга подходит именно вам
-                      </div>
-                    </div>
-                    <span className="rounded-full bg-white px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-slate-500 border border-slate-200">
-                      Vector Search
-                    </span>
-                  </div>
-                  {vectorSearchQuery ? (
-                    <div className="mt-3 text-xs text-slate-500">
-                      По вашему запросу: <span className="font-medium text-slate-700">{vectorSearchQuery}</span>
-                    </div>
-                  ) : null}
-                  <div className="mt-3 text-sm leading-6 text-slate-700">
-                    {llmLoading ? "Подбираем персональное объяснение..." : llmExplanation || "Объяснение пока недоступно."}
-                  </div>
-                  {llmError ? <div className="mt-2 text-xs text-amber-700">AI временно недоступен: {llmError}</div> : null}
-                </div>
-              ) : null}
-
-              {/* Ratings and counters */}
-              <div className="flex flex-wrap items-center gap-4 text-sm text-slate-600 mt-2">
-                <div className="flex items-center gap-1">
-                  {Array.from({ length: 5 }).map((_, i) => (
-                    <svg
-                      key={i}
-                      viewBox="0 0 24 24"
-                      className="w-4 h-4 text-amber-500"
-                      fill="currentColor"
-                    >
-                      <path d="M12 17.3l-5.2 3.1 1.4-5.9L3 9.8l6-.5L12 3l3 6.3 6 .5-5.2 4.7 1.4 5.9z" />
-                    </svg>
+            <div className="bd-head">
+              {subjectNames.length ? (
+                <ul className="bd-chips" aria-label={L.subjects}>
+                  {subjectNames.slice(0, 4).map((s) => (
+                    <li key={s}>{s}</li>
                   ))}
-                  <span className="ml-1">5.0 Ratings</span>
+                </ul>
+              ) : null}
+
+              <h1>{book.title}</h1>
+
+              <p className="bd-authors">
+                {authorNames.length ? (
+                  <>
+                    <span className="bd-authors__label">{L.by}</span> <strong>{authorNames.join(", ")}</strong>
+                  </>
+                ) : (
+                  <span>{L.unknownAuthor}</span>
+                )}
+                {book.year ? <span className="bd-authors__year"> · {book.year}</span> : null}
+              </p>
+
+              <div className="bd-stats">
+                <div className="bd-stat">
+                  <Stars value={5} />
+                  <span><strong>5.0</strong> {L.ratings}</span>
                 </div>
-                <div>
-                  {readingCount.currently_reading} {t("catalog.currentlyReading")}
+                <div className="bd-stat">
+                  <strong>{readingCount.currently_reading}</strong>
+                  <span>{t("catalog.currentlyReading")}</span>
                 </div>
-                <div>
-                  {readingCount.have_read} {t("catalog.haveRead")}
+                <div className="bd-stat">
+                  <strong>{readingCount.have_read}</strong>
+                  <span>{t("catalog.haveRead")}</span>
                 </div>
               </div>
 
-              {/* Availability and status chips (from API formats) */}
-              <div className="flex flex-wrap items-center gap-3 mt-3 text-sm">
-                {Array.isArray(book.formats) && book.formats.length ? (
-                  <div className="flex items-center gap-2">
-                    {book.formats.map((f, i) => (
-                      <span key={`${f}-${i}`} className="inline-flex items-center gap-1">
-                        <span className="w-2 h-2 rounded-full bg-emerald-500" />
-                        {humanizeFormat(f)}
-                      </span>
-                    ))}
-                  </div>
-                ) : null}
-              </div>
-
-              {/* Actions */}
-              {externalHref ? (
-                <div className="mt-3 inline-flex items-center gap-2 rounded-full bg-sky-50 text-sky-700 border border-sky-200 px-3 py-1 text-xs">
-                  <span className="w-2 h-2 rounded-full bg-sky-500" />
-                  {t("bookImport.externalBadge")}: {(() => { try { return new URL(externalHref).hostname; } catch { return externalHref; } })()}
+              {externalHost ? (
+                <div className="bd-badge">
+                  <i aria-hidden="true" />
+                  {t("bookImport.externalBadge")}: {externalHost}
                 </div>
               ) : null}
-              <div className="mt-4 flex flex-col sm:flex-row flex-wrap gap-2 sm:gap-3">
-                {externalHref ? (
-                  <a
-                    href={externalHref}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className={`px-4 py-2.5 rounded-md w-full sm:w-auto text-sm inline-flex items-center justify-center gap-2 ${
-                      hasLocalFile ? "border border-[#b51e3e] text-[#b51e3e] bg-white" : "bg-[#b51e3e] text-white"
-                    }`}
-                  >
-                    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                      <path d="M14 4h6v6" />
-                      <path d="M20 4l-9 9" />
-                      <path d="M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5" />
-                    </svg>
+
+              <div className="bd-actions">
+                {primaryAction}
+                {canReadLocally && externalHref ? (
+                  <a href={externalHref} target="_blank" rel="noopener noreferrer" className="bd-btn bd-btn--outline">
+                    {icons.external}
                     <span>{t("bookImport.openExternal")}</span>
                   </a>
-                ) : null}
-                {hasLocalFile || !externalHref ? (
-                <button
-                  onClick={startReading}
-                  className="px-4 py-2.5 bg-[#b51e3e] text-white rounded-md w-full sm:w-auto text-sm inline-flex items-center justify-center gap-2"
-                >
-                  <svg
-                    className="w-4 h-4"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1.8"
-                  >
-                    <path d="M3 6.5A2.5 2.5 0 0 1 5.5 4H12v16H5.5A2.5 2.5 0 0 1 3 17.5v-11z" />
-                    <path d="M21 6.5A2.5 2.5 0 0 0 18.5 4H12v16h6.5A2.5 2.5 0 0 0 21 17.5v-11z" />
-                  </svg>
-                  <span>{t("catalog.readOnline")}</span>
-                </button>
                 ) : null}
                 <button
                   type="button"
                   onClick={toggleFavorite}
-                  className={`px-4 py-2.5 rounded-md border w-full sm:w-auto text-sm inline-flex items-center justify-center gap-2 ${
-                    favorite
-                      ? "bg-rose-50 text-rose-600 border-rose-300"
-                      : "bg-white text-slate-700 border-slate-300"
-                  }`}
+                  aria-pressed={favorite}
+                  className={`bd-btn bd-btn--ghost ${favorite ? "is-active" : ""}`}
                 >
-                  <svg
-                    viewBox="0 0 24 24"
-                    className={
-                      favorite
-                        ? "w-4 h-4 text-rose-600 fill-rose-600"
-                        : "w-4 h-4 text-slate-500"
-                    }
-                    fill={favorite ? "currentColor" : "none"}
-                    stroke="currentColor"
-                    strokeWidth="1.8"
-                  >
-                    <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.41 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.41 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
-                  </svg>
+                  {icons.heart}
                   <span>{favorite ? t("catalog.removeFav") : t("catalog.addFav")}</span>
                 </button>
-                {/* Removed Open Reader and Download PDF buttons per request */}
               </div>
+
+              <div className="bd-quick">
+                <button type="button" onClick={() => openTab("reviews")}>
+                  {icons.review}
+                  <span>{t("catalog.actions.review")}</span>
+                </button>
+                <button type="button" onClick={() => navigate(`/catalog/${id}/notes`)}>
+                  {icons.notes}
+                  <span>{t("catalog.actions.notes")}</span>
+                </button>
+                <button type="button" onClick={shareBook}>
+                  {icons.share}
+                  <span>{shareNotice || t("catalog.actions.share")}</span>
+                </button>
+              </div>
+
+              {openedFromVectorSearch ? (
+                <div className="bd-ai">
+                  <div className="bd-ai__head">
+                    <div>
+                      <div className="bd-ai__eyebrow">AI Match</div>
+                      <div className="bd-ai__title">{L.aiMatch}</div>
+                    </div>
+                    <span className="bd-ai__tag">Vector Search</span>
+                  </div>
+                  {vectorSearchQuery ? (
+                    <div className="bd-ai__query">
+                      {L.aiQuery} <strong>{vectorSearchQuery}</strong>
+                    </div>
+                  ) : null}
+                  <p className={llmLoading ? "bd-ai__text is-loading" : "bd-ai__text"}>
+                    {llmLoading ? L.aiLoading : llmExplanation || L.aiNone}
+                  </p>
+                  {llmError ? <div className="bd-ai__error">{L.aiDown} {llmError}</div> : null}
+                </div>
+              ) : null}
             </div>
+          </section>
 
-            {/* Right: about author */}
-            <aside className="lg:col-span-3 bg-white border rounded-md p-4 h-max">
-              <div className="text-[#8f1630] font-semibold mb-1">{t("catalog.aboutAuthor")}</div>
-              <div className="text-slate-800 font-medium">{authorNames[0] || "Unknown"}</div>
-              <p className="text-sm text-slate-600 mt-2">Author bio is not provided.</p>
-            </aside>
-          </div>
-
-          {/* Tabs */}
-          <div className="bg-white rounded-md p-0">
-            <div className="px-4 sm:px-6 pt-4 border-b overflow-x-auto">
-              <div className="flex items-center gap-6 text-sm whitespace-nowrap">
-                {(
-                  [
-                    ["overview", "Overview"],
-                    ["details", "Details"],
-                    ["reviews", "Reviews"],
-                    ["lists", "Lists"],
-                    ["related", "Related"],
-                  ] as [typeof tab, string][]
-                ).map(([key]) => (
+          {/* Body */}
+          <div className="bd-body">
+            <div className="bd-main">
+              <div className="bd-tabs" ref={tabsRef} role="tablist">
+                {(["overview", "details", "reviews", "lists", "related"] as (typeof tab)[]).map((key) => (
                   <button
                     key={key}
+                    type="button"
+                    role="tab"
+                    aria-selected={tab === key}
                     onClick={() => setTab(key)}
-                    className={`py-3 -mb-px border-b-2 ${
-                      tab === key
-                        ? "border-[#b51e3e] text-[#b51e3e]"
-                        : "border-transparent text-slate-500 hover:text-slate-700"
-                    }`}
+                    className={tab === key ? "is-active" : ""}
                   >
                     {t(`catalog.tabs.${key}`)}
+                    {key === "reviews" && reviews.length ? <em>{reviews.length}</em> : null}
                   </button>
                 ))}
               </div>
-            </div>
 
-            <div className="p-4 sm:p-6">
-              {tab === "overview" && (
-                <div className="space-y-4">
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-2 sm:gap-3">
-                    <div className="bg-white border rounded-md p-3">
-                      <div className="text-xs text-slate-500 mb-1">
-                        {t("catalog.fields.publishDate")}
-                      </div>
-                      <div className="text-sm text-slate-800">{book.year || "-"}</div>
-                    </div>
-                    <div className="bg-white border rounded-md p-3">
-                      <div className="text-xs text-slate-500 mb-1">
-                        {t("catalog.fields.publisher")}
-                      </div>
-                      <div className="text-sm text-slate-800">{book.pub_info || "-"}</div>
-                    </div>
-                    <div className="bg-white border rounded-md p-3">
-                      <div className="text-xs text-slate-500 mb-1">
-                        {t("catalog.fields.language")}
-                      </div>
-                      <div className="text-sm text-slate-800">{book.lang || "-"}</div>
-                    </div>
-                    <div className="bg-white border rounded-md p-3">
-                      <div className="text-xs text-slate-500 mb-1">
-                        {t("catalog.fields.formats")}
-                      </div>
-                      <div className="text-sm text-slate-800">
-                        {humanizeFormatList(book.formats)}
-                      </div>
-                    </div>
-                  </div>
-                  {book.summary && (
-                    <div className="text-slate-700 whitespace-pre-line text-sm sm:text-base">
-                      {book.summary}
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {tab === "details" && (
-                <div className="text-sm">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-2">
-                    <div>
-                      <span className="text-slate-500">ID:</span>{" "}
-                      <span className="text-slate-800">{String(book.id)}</span>
-                    </div>
-                    <div>
-                      <span className="text-slate-500">Title:</span>{" "}
-                      <span className="text-slate-800">{book.title}</span>
-                    </div>
-                    <div>
-                      <span className="text-slate-500">Year:</span>{" "}
-                      <span className="text-slate-800">{book.year || "-"}</span>
-                    </div>
-                    <div>
-                      <span className="text-slate-500">Language:</span>{" "}
-                      <span className="text-slate-800">{book.lang || "-"}</span>
-                    </div>
-                    <div>
-                      <span className="text-slate-500">Publisher:</span>{" "}
-                      <span className="text-slate-800">{book.pub_info || "-"}</span>
-                    </div>
-                    <div>
-                      <span className="text-slate-500">Formats:</span>{" "}
-                      <span className="text-slate-800">
-                        {humanizeFormatList(book.formats)}
-                      </span>
-                    </div>
-                    <div>
-                      <span className="text-slate-500">Authors:</span>{" "}
-                      <span className="text-slate-800">
-                        {authorNames.join(", ") || "-"}
-                      </span>
-                    </div>
-                    <div>
-                      <span className="text-slate-500">Subjects:</span>{" "}
-                      <span className="text-slate-800">
-                        {subjectNames.join(", ") || "-"}
-                      </span>
-                    </div>
-                    <div>
-                      <span className="text-slate-500">File ID:</span>{" "}
-                      <span className="text-slate-800">{book.file_id || "-"}</span>
-                    </div>
-                    <div>
-                      <span className="text-slate-500">Download URL:</span>{" "}
-                      <span className="text-slate-800">
-                        {book.download_url || "-"}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {tab === "reviews" && (
-                <div className="space-y-6">
-                  <div>
-                    <div className="text-base font-medium text-slate-800 mb-2">Reviews</div>
-                    {reviews.length === 0 ? (
-                      <div className="text-slate-600 text-sm">
-                        No reviews yet. Be the first to review this book.
+              <div className="bd-panel" role="tabpanel">
+                {tab === "overview" && (
+                  <div className="bd-overview">
+                    <dl className="bd-facts">
+                      {facts.map(([label, value]) => (
+                        <div key={label}>
+                          <dt>{label}</dt>
+                          <dd>{value}</dd>
+                        </div>
+                      ))}
+                    </dl>
+                    {book.summary ? (
+                      <div>
+                        <div className={`bd-summary ${summaryIsLong && !summaryExpanded ? "is-clamped" : ""}`}>
+                          {book.summary}
+                        </div>
+                        {summaryIsLong ? (
+                          <button type="button" className="bd-link" onClick={() => setSummaryExpanded((v) => !v)}>
+                            {summaryExpanded ? L.showLess : L.showMore}
+                          </button>
+                        ) : null}
                       </div>
                     ) : (
-                      <div className="space-y-3">
-                        {reviews.map((r) => (
-                          <div key={r.id} className="border rounded-md p-3 bg-white">
-                            <div className="flex items-center justify-between">
-                              <div className="flex items-center gap-1 text-amber-500">
-                                {Array.from({ length: 5 }).map((_, i) => (
-                                  <svg
-                                    key={i}
-                                    viewBox="0 0 24 24"
-                                    className={`w-4 h-4 ${
-                                      i < r.rating ? "fill-current" : ""
-                                    }`}
-                                    fill={i < r.rating ? "currentColor" : "none"}
-                                    stroke="currentColor"
-                                    strokeWidth="1.5"
-                                  >
-                                    <path d="M12 17.3l-5.2 3.1 1.4-5.9L3 9.8l6-0.5L12 3l3 6.3 6 0.5-5.2 4.7 1.4 5.9z" />
-                                  </svg>
-                                ))}
-                              </div>
-                              <div className="text-xs text-slate-500">
-                                {new Date(r.created_at).toLocaleString()}
-                              </div>
-                            </div>
-                            <div className="mt-2 text-sm text-slate-800 whitespace-pre-line">
-                              {r.text}
-                            </div>
-                            {r.author && (
-                              <div className="mt-1 text-xs text-slate-500">
-                                — {r.author}
-                              </div>
-                            )}
-                          </div>
-                        ))}
+                      <p className="bd-muted">{L.noSummary}</p>
+                    )}
+                    {subjectNames.length ? (
+                      <div>
+                        <h3 className="bd-subhead">{L.subjects}</h3>
+                        <ul className="bd-chips bd-chips--plain">
+                          {subjectNames.map((s) => (
+                            <li key={s}>{s}</li>
+                          ))}
+                        </ul>
                       </div>
+                    ) : null}
+                  </div>
+                )}
+
+                {tab === "details" && (
+                  <dl className="bd-details">
+                    {(
+                      [
+                        ["ID", String(book.id)],
+                        ["Title", book.title],
+                        ["Year", book.year || "—"],
+                        ["Language", book.lang || "—"],
+                        ["Publisher", book.pub_info || "—"],
+                        ["Formats", humanizeFormatList(book.formats)],
+                        ["Authors", authorNames.join(", ") || "—"],
+                        ["Subjects", subjectNames.join(", ") || "—"],
+                        ["File ID", book.file_id || "—"],
+                        ["Download URL", book.download_url || "—"],
+                      ] as [string, string][]
+                    ).map(([label, value]) => (
+                      <div key={label}>
+                        <dt>{label}</dt>
+                        <dd>{value}</dd>
+                      </div>
+                    ))}
+                  </dl>
+                )}
+
+                {tab === "reviews" && (
+                  <div className="bd-reviews">
+                    <form className="bd-review-form" onSubmit={submitReview}>
+                      <h3 className="bd-subhead">{L.writeReview}</h3>
+                      <div className="bd-rate" role="radiogroup">
+                        {Array.from({ length: 5 }).map((_, i) => {
+                          const idx = i + 1;
+                          const active = idx <= rating;
+                          return (
+                            <button
+                              key={idx}
+                              type="button"
+                              role="radio"
+                              aria-checked={rating === idx}
+                              onClick={() => setRating(idx)}
+                              className={active ? "is-active" : ""}
+                              aria-label={`${idx} / 5`}
+                            >
+                              <svg viewBox="0 0 24 24" className="w-7 h-7" fill={active ? "currentColor" : "none"} stroke="currentColor" strokeWidth="1.5">
+                                <path d={STAR_PATH} />
+                              </svg>
+                            </button>
+                          );
+                        })}
+                      </div>
+                      <textarea
+                        value={reviewText}
+                        onChange={(e) => setReviewText(e.target.value)}
+                        placeholder={L.reviewPlaceholder}
+                        rows={4}
+                      />
+                      <button type="submit" className="bd-btn bd-btn--primary">
+                        {L.submitReview}
+                      </button>
+                    </form>
+
+                    {reviews.length === 0 ? (
+                      <p className="bd-muted">{L.reviewsEmpty}</p>
+                    ) : (
+                      <ul className="bd-review-list">
+                        {reviews.map((r) => (
+                          <li key={r.id}>
+                            <div className="bd-review-list__head">
+                              <span className="bd-avatar" aria-hidden="true">
+                                {(r.author || "?").charAt(0).toUpperCase()}
+                              </span>
+                              <div>
+                                <strong>{r.author || "—"}</strong>
+                                <Stars value={r.rating} size="w-3.5 h-3.5" />
+                              </div>
+                              <time>{new Date(r.created_at).toLocaleDateString()}</time>
+                            </div>
+                            <p>{r.text}</p>
+                          </li>
+                        ))}
+                      </ul>
                     )}
                   </div>
+                )}
 
-                  <form
-                    className="border rounded-md p-4 bg-white"
-                    onSubmit={async (e) => {
-                      e.preventDefault();
-                      const rt = Math.max(0, Math.min(5, rating));
-                      const txt = reviewText.trim();
-                      if (!rt) return alert("Select rating");
-                      if (!txt) return alert("Write a short review");
-                      const next: Review = {
-                        id: crypto?.randomUUID ? crypto.randomUUID() : String(Date.now()),
-                        rating: rt,
-                        text: txt,
-                        author: "You",
-                        created_at: new Date().toISOString(),
-                      };
-                      const arr = [next, ...reviews];
-                      setReviews(arr);
-                      setRating(0);
-                      setReviewText("");
-                      try {
-                        const body = { rating: rt, comment: txt, book_id: Number(id) } as any;
-                        const resp = (await api(`/api/reviews`, {
-                          method: "POST",
-                          body: JSON.stringify(body),
-                        })) as any;
-                        try {
-                          console.info("[CatalogDetail] POST /api/reviews response:", resp);
-                        } catch {}
-                      } catch (err: any) {
-                        try {
-                          console.warn(
-                            "[CatalogDetail] POST /api/reviews failed:",
-                            err?.message || String(err)
+                {tab === "lists" && <p className="bd-muted">{L.listsEmpty}</p>}
+
+                {tab === "related" && (
+                  <div>
+                    {relatedLoading ? (
+                      <div className="bd-related">
+                        {Array.from({ length: 4 }).map((_, i) => (
+                          <div key={i} className="bd-related__ghost" />
+                        ))}
+                      </div>
+                    ) : relatedError ? (
+                      <p className="bd-error">{relatedError}</p>
+                    ) : related.length ? (
+                      <div className="bd-related">
+                        {related.map((b) => {
+                          const names = displayNamesFrom((b as any).authors);
+                          return (
+                            <Link key={String(b.id)} to={`/catalog/${b.id}`} className="bd-related__card">
+                              <div className="bd-related__cover">
+                                <img src={b.cover || placeholder} alt="" loading="lazy" />
+                              </div>
+                              <div className="bd-related__title">{b.title}</div>
+                              {names.length ? <div className="bd-related__author">{names.join(", ")}</div> : null}
+                            </Link>
                           );
-                        } catch {}
-                      }
-                    }}
-                  >
-                    <div className="text-base font-medium text-slate-800 mb-3">
-                      Write a review
-                    </div>
-                    <div className="flex items-center gap-2 mb-3">
-                      {Array.from({ length: 5 }).map((_, i) => {
-                        const idx = i + 1;
-                        const active = idx <= rating;
-                        return (
-                          <button
-                            key={idx}
-                            type="button"
-                            onClick={() => setRating(idx)}
-                            className="p-1"
-                            aria-label={`Rate ${idx} star${idx > 1 ? "s" : ""}`}
-                          >
-                            <svg
-                              viewBox="0 0 24 24"
-                              className={`w-6 h-6 ${
-                                active
-                                  ? "text-amber-500 fill-amber-500"
-                                  : "text-slate-400"
-                              }`}
-                              fill={active ? "currentColor" : "none"}
-                              stroke="currentColor"
-                              strokeWidth="1.5"
-                            >
-                              <path d="M12 17.3l-5.2 3.1 1.4-5.9L3 9.8l6-0.5L12 3l3 6.3 6 0.5-5.2 4.7 1.4 5.9z" />
-                            </svg>
-                          </button>
-                        );
-                      })}
-                    </div>
-                    <textarea
-                      value={reviewText}
-                      onChange={(e) => setReviewText(e.target.value)}
-                      placeholder="Share your thoughts about this book"
-                      className="w-full border rounded-md px-3 py-2 h-28"
-                    />
-                    <div className="mt-3">
-                      <button
-                        type="submit"
-                        className="px-4 py-2 bg-[#b51e3e] text-white rounded-md"
-                      >
-                        Submit review
-                      </button>
-                    </div>
-                  </form>
-                </div>
-              )}
-
-              {tab === "lists" && (
-                <div className="text-slate-600 text-sm">
-                  This book is not in any lists yet.
-                </div>
-              )}
-
-              {tab === "related" && (
-                <div>
-                  {relatedLoading ? (
-                    <div className="text-slate-500 text-sm">Loading...</div>
-                  ) : relatedError ? (
-                    <div className="text-red-600 text-sm">Failed to load: {relatedError}</div>
-                  ) : related.length ? (
-                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-                      {related.map((b) => (
-                        <Link
-                          key={String(b.id)}
-                          to={`/catalog/${b.id}`}
-                          className="group relative block bg-white border border-gray-100 rounded-lg p-2 text-center shadow-sm hover:shadow-md transition-shadow"
-                        >
-                          <div className="relative mb-2">
-                            <img
-                              src={b.cover || placeholder}
-                              alt={`book-${b.id}`}
-                              className="w-full h-40 object-contain rounded-md bg-slate-100 p-2"
-                            />
-                          </div>
-                          <div className="text-sm font-medium text-slate-800 truncate">{b.title}</div>
-                          {displayNamesFrom((b as any).authors).length ? (
-                            <div className="text-xs text-slate-400 truncate">
-                              {displayNamesFrom((b as any).authors).join(", ")}
-                            </div>
-                          ) : null}
-                        </Link>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="text-slate-500 text-sm">No related books found.</div>
-                  )}
-                </div>
-              )}
+                        })}
+                      </div>
+                    ) : (
+                      <p className="bd-muted">{L.relatedEmpty}</p>
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
+
+            <aside className="bd-aside">
+              <section className="bd-card">
+                <h2 className="bd-card__title">{t("catalog.aboutAuthor")}</h2>
+                <div className="bd-author">
+                  <span className="bd-avatar bd-avatar--lg" aria-hidden="true">
+                    {(authorNames[0] || "?").charAt(0).toUpperCase()}
+                  </span>
+                  <div>
+                    <strong>{authorNames[0] || L.unknownAuthor}</strong>
+                    {authorNames.length > 1 ? <span>+{authorNames.length - 1}</span> : null}
+                  </div>
+                </div>
+                <p className="bd-muted">{L.authorBio}</p>
+              </section>
+
+              <section className="bd-card">
+                <h2 className="bd-card__title">{L.aiSearch}</h2>
+                <label className="bd-search">
+                  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
+                    <circle cx="11" cy="11" r="6" />
+                    <path d="M16 16l4 4" />
+                  </svg>
+                  <input type="search" placeholder={L.aiPlaceholder} aria-label={L.aiSearch} />
+                  <span>AI</span>
+                </label>
+                <p className="bd-hint">{L.aiHint}</p>
+              </section>
+            </aside>
           </div>
-        </div>
+
+          {/* Mobile sticky action bar */}
+          <div className="bd-mobilebar">
+            {primaryAction}
+            <button
+              type="button"
+              onClick={toggleFavorite}
+              aria-pressed={favorite}
+              aria-label={favorite ? t("catalog.removeFav") : t("catalog.addFav")}
+              className={`bd-btn bd-btn--ghost bd-btn--icon ${favorite ? "is-active" : ""}`}
+            >
+              {icons.heart}
+            </button>
+            <button type="button" onClick={shareBook} aria-label={t("catalog.actions.share")} className="bd-btn bd-btn--ghost bd-btn--icon">
+              {icons.share}
+            </button>
+          </div>
+        </>
       ) : null}
     </div>
   );
