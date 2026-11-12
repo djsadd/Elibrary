@@ -1,7 +1,7 @@
 import os
 from typing import Optional
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request, status
 from fastapi.responses import FileResponse
 from sqlalchemy import func, or_
 from sqlalchemy.exc import IntegrityError
@@ -13,6 +13,7 @@ from app.schemas.book import BookCreate, BookList, BookOut, BookUpdate, QuickBoo
 from app.services.search_sync import index_book_in_search
 from app.utils.authz import AuthUser, get_current_user, require_roles, is_staff, get_catalog_reader
 from app.utils.storage import resolve_file
+from app.utils.range_file import ranged_file_response
 from app.utils.pagination import clamp_limit, clamp_offset
 
 router = APIRouter()
@@ -60,19 +61,27 @@ def download_book(book_id: int, db: Session = Depends(get_db), user: AuthUser = 
     )
 
 
-@router.get(
+@router.api_route(
     "/books/{book_id}/stream",
+    methods=["GET", "HEAD"],
     dependencies=[Depends(require_roles("librarian", "admin", "editor", "student", "teacher"))],
 )
-def stream_book(book_id: int, db: Session = Depends(get_db), user: AuthUser = Depends(get_current_user)):
+def stream_book(
+    book_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    user: AuthUser = Depends(get_current_user),
+):
+    """Range-aware PDF stream: the reader fetches only the byte ranges of the pages around the current one."""
     book = db.get(Book, book_id)
     if not book or (not book.is_public and not is_staff(user)):
         raise HTTPException(status_code=404, detail="Book not found")
 
     file_path = resolve_file(book.file_id)
 
-    return FileResponse(
-        path=file_path,
+    return ranged_file_response(
+        request,
+        file_path,
         media_type="application/pdf",
         headers={"Content-Disposition": "inline", "X-Content-Type-Options": "nosniff"},
     )

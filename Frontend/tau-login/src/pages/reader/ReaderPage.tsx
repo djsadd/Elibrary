@@ -345,8 +345,45 @@ export default function ReaderPage() {
 
   // Temporarily disabled: do not persist or update userbook from ReaderPage
 
+  // Keep the latest metadata in a ref: the PDF loader reads download_url only as a fallback,
+  // so metadata arriving later must not restart (and re-download) an already streaming book.
+  const bookMetaRef = useRef<any | null>(null);
+  bookMetaRef.current = bookMeta;
+
   useEffect(() => {
     let cancelled = false;
+    let activeTask: any = null;
+    let openedDoc: any = null;
+
+    // Read just the first bytes of a candidate and abort, so a server that ignores Range
+    // never makes us download the whole book only to check its signature.
+    const probePdf = async (url: string, headers?: Record<string, string>): Promise<boolean> => {
+      const ctrl = new AbortController();
+      try {
+        const resp = await fetch(url, { method: 'GET', headers: { ...(headers || {}), Range: 'bytes=0-1023' }, signal: ctrl.signal });
+        if (!resp.ok || !resp.body) {
+          console.warn('[ReaderPage] Probe non-OK', resp.status, 'for', url);
+          return false;
+        }
+        const reader = resp.body.getReader();
+        const head: number[] = [];
+        while (head.length < 5) {
+          const { value, done } = await reader.read();
+          if (done || !value) break;
+          head.push(...value.slice(0, 5 - head.length));
+        }
+        ctrl.abort();
+        const ok = String.fromCharCode(...head) === '%PDF-';
+        if (!ok) console.warn('[ReaderPage] Non-PDF response from', url);
+        return ok;
+      } catch (e) {
+        if (!ctrl.signal.aborted) console.warn('[ReaderPage] Probe failed for', url, e);
+        return false;
+      } finally {
+        ctrl.abort();
+      }
+    };
+
     const load = async () => {
       // Build a list of candidate sources and try them in order.
       const isPrivateHost = (h: string) => /^(localhost|127\.|10\.|192\.168\.|172\.(1[6-9]|2\d|3[0-1])\.)/i.test(h);
@@ -356,7 +393,11 @@ export default function ReaderPage() {
       if (pdfUrlParam) {
         candidates.push({ url: toAbsolute(pdfUrlParam), reason: 'query-param' });
       }
-      const du = (bookMeta as any)?.download_url as string | undefined;
+      if (bookIdParam) {
+        // Range-aware endpoint: only the bytes of the pages around the current one are fetched.
+        candidates.push({ url: `${BASE}/api/catalog/books/${bookIdParam}/stream`, reason: 'api-stream' });
+      }
+      const du = (bookMetaRef.current as any)?.download_url as string | undefined;
       if (du) {
         try {
           const abs = toAbsolute(du);
@@ -367,8 +408,6 @@ export default function ReaderPage() {
         } catch {}
       }
       if (bookIdParam) {
-        // Prefer streaming endpoint for faster first paint
-        candidates.push({ url: `${BASE}/api/catalog/books/${bookIdParam}/stream`, reason: 'api-stream' });
         // Fallback to download endpoint
         candidates.push({ url: `${BASE}/api/catalog/books/${bookIdParam}/download`, reason: 'api-download' });
       }
@@ -389,89 +428,84 @@ export default function ReaderPage() {
           if (token) headers = { Authorization: `Bearer ${token}` };
         }
 
-        // Probe for PDF signature
-        let okPdf = false;
-        try {
-          const probe = await fetch(cand.url, {
-            method: 'GET',
-            headers: { ...(headers || {}), Range: 'bytes=0-1023' } as any,
-          });
-          if (probe.ok) {
-            const buf = await probe.arrayBuffer();
-            const sig = new TextDecoder('ascii').decode(new Uint8Array(buf).slice(0, 5));
-            okPdf = sig === '%PDF-';
-            if (!okPdf) {
-              const text = new TextDecoder('utf-8').decode(new Uint8Array(buf));
-              console.warn('[ReaderPage] Non-PDF response sample:', text.slice(0, 256), 'from', cand);
-            }
-          } else {
-            console.warn('[ReaderPage] Probe non-OK', probe.status, 'for', cand);
-          }
-        } catch (e) {
-          console.warn('[ReaderPage] Probe failed for', cand, e);
-        }
-
+        // Probe for PDF signature (reads only the first bytes)
+        const okPdf = await probePdf(cand.url, headers);
+        if (cancelled) return;
         if (!okPdf) continue;
 
         try {
           const loadingTask = pdfjsLib.getDocument({
             url: cand.url as any,
             httpHeaders: headers as any,
-            // Enable streaming and range-based incremental loading
-            disableStream: false,
-            disableAutoFetch: true, // fetch only needed ranges/pages
-            rangeChunkSize: 65536,  // 64KB chunks
+            // Page-window streaming: no full-file stream and no background auto-fetch.
+            // pdf.js reads the xref, then fetches byte ranges only for pages we actually request
+            // (the current page and the ±PREFETCH_RADIUS window below).
+            disableStream: true,
+            disableAutoFetch: true,
+            disableRange: false,
+            rangeChunkSize: 131072, // 128KB per range request
             withCredentials: false,
           } as any);
-          try {
-            loadingTask.onProgress = (p: any) => {
-              try { console.info('[ReaderPage] PDF loading progress', p?.loaded, '/', p?.total); } catch {}
-            };
-          } catch {}
+          activeTask = loadingTask;
           const doc = await loadingTask.promise;
-          if (cancelled) return;
+          if (cancelled) { try { doc.destroy(); } catch {} return; }
+          openedDoc = doc;
           setPdf(doc);
           setPageCount(doc.numPages);
           return; // success
         } catch (e) {
+          if (cancelled) return;
           console.warn('[ReaderPage] pdf.js failed to open candidate', cand, e);
           // try next candidate
+        } finally {
+          activeTask = null;
         }
       }
 
       console.error('[ReaderPage] No usable PDF source');
     };
     load();
-    return () => { cancelled = true; };
-  }, [pdfUrlParam, bookIdParam, BASE, bookMeta]);
+    return () => {
+      cancelled = true;
+      // Abort pending range requests and free the worker-side document.
+      try { activeTask?.destroy(); } catch {}
+      try { openedDoc?.destroy(); } catch {}
+      setPdf(null);
+    };
+  }, [pdfUrlParam, bookIdParam, BASE]);
+
+  const leftRenderTaskRef = useRef<any>(null);
+  const rightRenderTaskRef = useRef<any>(null);
 
   useEffect(() => {
     if (!pdf) return;
+    let cancelled = false;
 
-    const renderPage = async (pNum: number, canvas: HTMLCanvasElement | null) => {
+    const renderPage = async (pNum: number, canvas: HTMLCanvasElement | null, taskRef: React.MutableRefObject<any>) => {
       if (!canvas) return;
+      // A canvas can host only one render at a time: cancel the previous one on fast page flips.
+      try { taskRef.current?.cancel(); } catch {}
       try {
         const pageObj = await pdf.getPage(pNum);
+        if (cancelled) return;
         const viewport = pageObj.getViewport({ scale });
         const context = canvas.getContext("2d");
         canvas.width = Math.floor(viewport.width);
         canvas.height = Math.floor(viewport.height);
         if (!context) return;
-        const renderContext = {
-          canvasContext: context,
-          viewport,
-        } as any;
-        await pageObj.render(renderContext).promise;
+        const task = pageObj.render({ canvasContext: context, viewport } as any);
+        taskRef.current = task;
+        await task.promise;
       } catch (e) {
-        // ignore
+        // ignore (including RenderingCancelledException)
       }
     };
 
     // render left page (current)
-    renderPage(page, leftCanvasRef.current);
+    renderPage(page, leftCanvasRef.current, leftRenderTaskRef);
     // render right page (current+1) if twoPage and exists
     if (twoPage && page + 1 <= pageCount) {
-      renderPage(page + 1, rightCanvasRef.current);
+      renderPage(page + 1, rightCanvasRef.current, rightRenderTaskRef);
     } else if (rightCanvasRef.current) {
       // clear right canvas
       const c = rightCanvasRef.current.getContext("2d");
@@ -479,25 +513,46 @@ export default function ReaderPage() {
         c.clearRect(0, 0, rightCanvasRef.current.width, rightCanvasRef.current.height);
       }
     }
+    return () => { cancelled = true; };
   }, [pdf, page, scale, twoPage, pageCount]);
 
+  // Pages whose data (content streams, fonts, images) has been streamed in, keyed by page number.
+  const loadedPagesRef = useRef<Map<number, any>>(new Map());
+
   useEffect(() => {
-    if (!pdf) return;
     prefetchedRef.current = new Set();
     inflightRef.current = new Set();
+    loadedPagesRef.current = new Map();
   }, [pdf]);
 
+  // Sliding window streaming: load pages [page - R, page + R], release everything outside it.
   useEffect(() => {
     if (!pdf || pageCount <= 0) return;
     let cancelled = false;
 
+    const lo = Math.max(1, page - PREFETCH_RADIUS);
+    const hi = Math.min(pageCount, page + (twoPage ? 1 : 0) + PREFETCH_RADIUS);
+
+    // Drop pages that left the window so memory stays bounded while reading long books.
+    for (const [pNum, pageObj] of loadedPagesRef.current) {
+      if (pNum < lo || pNum > hi) {
+        try { pageObj.cleanup(); } catch {}
+        loadedPagesRef.current.delete(pNum);
+        prefetchedRef.current.delete(pNum);
+      }
+    }
+
     const prefetchPage = async (pNum: number) => {
-      if (pNum < 1 || pNum > pageCount) return;
+      if (pNum < lo || pNum > hi) return;
       if (prefetchedRef.current.has(pNum) || inflightRef.current.has(pNum)) return;
       inflightRef.current.add(pNum);
       try {
-        await pdf.getPage(pNum);
+        const pageObj = await pdf.getPage(pNum);
+        // getPage() alone only parses the page dictionary; getOperatorList() makes pdf.js
+        // request the byte ranges of the page content, fonts and images, so the flip is instant.
+        await pageObj.getOperatorList();
         prefetchedRef.current.add(pNum);
+        loadedPagesRef.current.set(pNum, pageObj);
       } catch {
         // ignore prefetch errors; render will retry on demand
       } finally {

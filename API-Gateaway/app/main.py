@@ -32,6 +32,8 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    # pdf.js must read these to switch to byte-range loading on cross-origin deployments.
+    expose_headers=["Accept-Ranges", "Content-Range", "Content-Length", "Content-Encoding", "ETag"],
 )
 
 setup_logging()

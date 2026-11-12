@@ -1,9 +1,14 @@
+import re
 import time
 import jwt
 from app.core.config import settings
 from collections import OrderedDict
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import JSONResponse
+
+BOOK_STREAM_RE = re.compile(r"^/api/catalog/books/\d+/stream/?$")
+STREAM_RPS = 20.0
+STREAM_BURST = 60
 
 class RateLimitMiddleware(BaseHTTPMiddleware):
     def __init__(self, app, rate: float = 5.0, burst: int = 10):
@@ -31,8 +36,14 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request, call_next):
         now = time.monotonic()
         key = self._key(request)
-        tokens, last = self.buckets.pop(key, (float(self.burst), now))
-        tokens = min(self.burst, tokens + max(now - last, 0) * self.rate)
+        rate, burst = self.rate, self.burst
+        # The PDF reader fetches a book in many small byte ranges (pages around the current one).
+        # Give those requests their own, wider bucket so reading neither trips nor drains the API limit.
+        if request.method in ("GET", "HEAD") and BOOK_STREAM_RE.match(request.url.path):
+            key += ":book-stream"
+            rate, burst = max(rate, STREAM_RPS), max(burst, STREAM_BURST)
+        tokens, last = self.buckets.pop(key, (float(burst), now))
+        tokens = min(burst, tokens + max(now - last, 0) * rate)
         if tokens < 1:
             self.buckets[key] = (tokens, now)
             return JSONResponse({"detail": "Too Many Requests"}, status_code=429, headers={"Retry-After": "1"})

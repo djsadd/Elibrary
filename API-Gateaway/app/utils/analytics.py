@@ -319,6 +319,10 @@ class AnalyticsMiddleware(BaseHTTPMiddleware):
         path = request.url.path
         if self._should_skip(path) or not settings.ANALYTICS_ENABLED:
             return await call_next(request)
+        # Byte-range requests of the PDF reader: the book open itself is the initial non-ranged GET,
+        # so don't record an event for every page chunk fetched afterwards.
+        if request.headers.get("range"):
+            return await call_next(request)
 
         request_meta = await self._capture_request_meta(request)
         user_agent = request.headers.get("user-agent")
