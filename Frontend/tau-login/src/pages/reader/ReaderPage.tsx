@@ -443,7 +443,7 @@ export default function ReaderPage() {
             disableStream: true,
             disableAutoFetch: true,
             disableRange: false,
-            rangeChunkSize: 131072, // 128KB per range request
+            rangeChunkSize: 524288, // 512KB per range request: few requests, still far from the whole file
             withCredentials: false,
           } as any);
           activeTask = loadingTask;
