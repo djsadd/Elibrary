@@ -1,9 +1,9 @@
 import type React from "react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import DashboardHeader from "../../components/layout/DashboardHeader";
 import { api } from "@/shared/api/client";
-import { t } from "@/shared/i18n";
+import { getLang } from "@/shared/i18n";
 import { displayNamesFrom } from "@/shared/ui/text";
 import bookPdf from "../../assets/books/book.pdf";
 
@@ -14,6 +14,96 @@ import * as pdfjsLib from "pdfjs-dist/legacy/build/pdf";
 // @ts-ignore
 pdfjsLib.GlobalWorkerOptions.workerSrc = new URL("pdfjs-dist/legacy/build/pdf.worker.min.js", import.meta.url).toString();
 
+type Theme = "light" | "sepia" | "dark";
+type FitMode = "page" | "width";
+type Prefs = { theme?: Theme; twoPage?: boolean; fitMode?: FitMode; notesOpen?: boolean };
+
+const PREFS_KEY = "reader:prefs";
+const ZOOM_MIN = 0.5;
+const ZOOM_MAX = 3;
+const PAGE_GAP = 16;
+const clampZoom = (v: number) => Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, v));
+
+function readPrefs(): Prefs {
+  try {
+    const raw = JSON.parse(localStorage.getItem(PREFS_KEY) || "{}");
+    return raw && typeof raw === "object" ? raw : {};
+  } catch {
+    return {};
+  }
+}
+
+const matches = (query: string) => {
+  try { return window.matchMedia(query).matches; } catch { return false; }
+};
+
+const COPY = {
+  ru: {
+    back: "К книге", book: "Книга", loading: "Открываем книгу…", failed: "Не удалось открыть книгу",
+    failedHint: "Проверьте соединение и попробуйте ещё раз.", retry: "Повторить",
+    prev: "Предыдущая страница", next: "Следующая страница", page: "Страница", of: "из",
+    zoomIn: "Увеличить", zoomOut: "Уменьшить", resetZoom: "Сбросить масштаб",
+    settings: "Вид", theme: "Тема", light: "Светлая", sepia: "Сепия", dark: "Тёмная",
+    layout: "Разворот", single: "Одна страница", double: "Две страницы",
+    fit: "Подгонка", fitPage: "Страница целиком", fitWidth: "По ширине", zoom: "Масштаб",
+    fullscreen: "Полный экран", exitFullscreen: "Выйти из полного экрана",
+    notes: "Заметки", closeNotes: "Закрыть заметки", notesFor: "Заметка к странице {page}",
+    notesPlaceholder: "Мысли, цитаты, вопросы к этой странице…", allNotes: "Все заметки",
+    saving: "Сохранение…", saved: "Сохранено", error: "Ошибка сохранения", autosave: "Автосохранение",
+    shortcuts: "← → листать · + − масштаб · F полный экран",
+  },
+  kk: {
+    back: "Кітапқа", book: "Кітап", loading: "Кітап ашылуда…", failed: "Кітапты ашу мүмкін болмады",
+    failedHint: "Байланысты тексеріп, қайталап көріңіз.", retry: "Қайталау",
+    prev: "Алдыңғы бет", next: "Келесі бет", page: "Бет", of: "/",
+    zoomIn: "Үлкейту", zoomOut: "Кішірейту", resetZoom: "Масштабты қалпына келтіру",
+    settings: "Көрініс", theme: "Тақырып", light: "Ашық", sepia: "Сепия", dark: "Қараңғы",
+    layout: "Бет орналасуы", single: "Бір бет", double: "Екі бет",
+    fit: "Сыйдыру", fitPage: "Бетті толық", fitWidth: "Ені бойынша", zoom: "Масштаб",
+    fullscreen: "Толық экран", exitFullscreen: "Толық экраннан шығу",
+    notes: "Жазбалар", closeNotes: "Жазбаларды жабу", notesFor: "{page}-бетке жазба",
+    notesPlaceholder: "Осы бетке ойлар, дәйексөздер, сұрақтар…", allNotes: "Барлық жазбалар",
+    saving: "Сақталуда…", saved: "Сақталды", error: "Сақтау қатесі", autosave: "Автосақтау",
+    shortcuts: "← → парақтау · + − масштаб · F толық экран",
+  },
+  en: {
+    back: "Back to book", book: "Book", loading: "Opening the book…", failed: "Could not open the book",
+    failedHint: "Check your connection and try again.", retry: "Retry",
+    prev: "Previous page", next: "Next page", page: "Page", of: "of",
+    zoomIn: "Zoom in", zoomOut: "Zoom out", resetZoom: "Reset zoom",
+    settings: "View", theme: "Theme", light: "Light", sepia: "Sepia", dark: "Dark",
+    layout: "Layout", single: "Single page", double: "Two pages",
+    fit: "Fit", fitPage: "Whole page", fitWidth: "Page width", zoom: "Zoom",
+    fullscreen: "Fullscreen", exitFullscreen: "Exit fullscreen",
+    notes: "Notes", closeNotes: "Close notes", notesFor: "Note for page {page}",
+    notesPlaceholder: "Thoughts, quotes, questions about this page…", allNotes: "All notes",
+    saving: "Saving…", saved: "Saved", error: "Save failed", autosave: "Autosave",
+    shortcuts: "← → turn pages · + − zoom · F fullscreen",
+  },
+} as const;
+
+const ICONS = {
+  back: "M15 18l-6-6 6-6",
+  prev: "M15 6l-6 6 6 6",
+  next: "M9 6l6 6-6 6",
+  minus: "M5 12h14",
+  plus: "M12 5v14M5 12h14",
+  settings: "M4 7h10M18 7h2M4 17h4M12 17h8M14 4v6M8 14v6",
+  notes: "M5 4h14v16H5zM9 8h6M9 12h6M9 16h3",
+  close: "M6 6l12 12M18 6L6 18",
+  expand: "M15 3h6v6M21 3l-7 7M9 21H3v-6M3 21l7-7",
+  shrink: "M4 14h6v6M10 14l-7 7M20 10h-6V4M14 10l7-7",
+  alert: "M12 8v5M12 16.5v.5M10.3 3.9L2.4 18a2 2 0 0 0 1.7 3h15.8a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z",
+} as const;
+
+function Icon({ name, size = 18 }: { name: keyof typeof ICONS; size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d={ICONS[name]} />
+    </svg>
+  );
+}
+
 export default function ReaderPage() {
   const [searchParams] = useSearchParams();
   const pdfUrlParam = searchParams.get("url");
@@ -21,16 +111,33 @@ export default function ReaderPage() {
   const pageParam = searchParams.get("page") || searchParams.get("p");
   // Prefer configured API base; fall back to current origin for same-origin deployments.
   const BASE = (import.meta.env.VITE_API_URL as string | undefined) || window.location.origin;
+  const initialPrefs = useRef<Prefs>(readPrefs()).current;
+
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const stageRef = useRef<HTMLDivElement | null>(null);
+  const pagesRef = useRef<HTMLDivElement | null>(null);
+  const menuRef = useRef<HTMLDivElement | null>(null);
   const leftCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const rightCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const [pdf, setPdf] = useState<any>(null);
+  const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
+  const [reloadKey, setReloadKey] = useState(0);
   const [pageCount, setPageCount] = useState(0);
   const [page, setPage] = useState(1);
+  // Zoom relative to the fitted size: 1 = the page fits the stage.
   const [scale, setScale] = useState(1);
-  const [twoPage, setTwoPage] = useState(false);
-  const [isMobile, setIsMobile] = useState(false);
-  const [notesOpen, setNotesOpen] = useState(false);
+  const [twoPage, setTwoPage] = useState(Boolean(initialPrefs.twoPage));
+  const [fitMode, setFitMode] = useState<FitMode>(initialPrefs.fitMode || (matches("(max-width: 767px)") ? "width" : "page"));
+  const [theme, setTheme] = useState<Theme>(initialPrefs.theme || "light");
+  const [isNarrow, setIsNarrow] = useState(() => matches("(max-width: 899px)"));
+  const [isWide, setIsWide] = useState(() => matches("(min-width: 1024px)"));
+  const [notesOpen, setNotesOpen] = useState(() => matches("(min-width: 1024px)") && initialPrefs.notesOpen !== false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [stageSize, setStageSize] = useState({ w: 0, h: 0 });
+  const [topOffset, setTopOffset] = useState(0);
+  const [rendering, setRendering] = useState(false);
+  const [pageDraft, setPageDraft] = useState<string | null>(null);
+  const [scrub, setScrub] = useState<number | null>(null);
   const [notes, setNotes] = useState("");
   const notesMapRef = useRef<Map<number, string>>(new Map());
   const notesIdMapRef = useRef<Map<number, string | number>>(new Map());
@@ -38,8 +145,6 @@ export default function ReaderPage() {
   const inflightRef = useRef<Set<number>>(new Set());
   const lastSentRef = useRef<string>("");
   const [saving, setSaving] = useState<"idle" | "saving" | "saved" | "error">("idle");
-  const pinchStartDistRef = useRef<number | null>(null);
-  const pinchStartScaleRef = useRef<number>(1);
   const [nativeFullscreen, setNativeFullscreen] = useState(false);
   const [overlayFullscreen, setOverlayFullscreen] = useState(false);
 
@@ -47,6 +152,9 @@ export default function ReaderPage() {
   const [bookMeta, setBookMeta] = useState<any | null>(null);
   const PREFETCH_RADIUS = 10;
   const [, setLangTick] = useState(0);
+  const L = COPY[getLang()] || COPY.ru;
+  // Two-page spreads are unreadable on narrow screens, so they apply only from 900px up.
+  const twoUp = twoPage && !isNarrow;
 
   useEffect(() => {
     const handler = () => setLangTick((v) => v + 1);
@@ -54,19 +162,59 @@ export default function ReaderPage() {
     return () => window.removeEventListener("lang:changed", handler);
   }, []);
 
-  // detect mobile viewport and adapt layout (iPhone 13 target ~390px width)
   useEffect(() => {
-    const mq = window.matchMedia('(max-width: 640px)');
-    const handler = () => setIsMobile(mq.matches);
+    const narrow = window.matchMedia("(max-width: 899px)");
+    const wide = window.matchMedia("(min-width: 1024px)");
+    const handler = () => {
+      setIsNarrow(narrow.matches);
+      setIsWide(wide.matches);
+    };
     handler();
-    mq.addEventListener?.('change', handler);
-    return () => mq.removeEventListener?.('change', handler);
+    narrow.addEventListener?.("change", handler);
+    wide.addEventListener?.("change", handler);
+    return () => {
+      narrow.removeEventListener?.("change", handler);
+      wide.removeEventListener?.("change", handler);
+    };
   }, []);
 
-  // force single page layout on mobile
+  // Persist view preferences (the notes panel state only on wide screens, where it is a sidebar).
   useEffect(() => {
-    if (isMobile) setTwoPage(false);
-  }, [isMobile]);
+    try {
+      const next: Prefs = { ...readPrefs(), theme, twoPage, fitMode };
+      if (isWide) next.notesOpen = notesOpen;
+      localStorage.setItem(PREFS_KEY, JSON.stringify(next));
+    } catch {}
+  }, [theme, twoPage, fitMode, notesOpen, isWide]);
+
+  // The reader fills the viewport below the app header.
+  useLayoutEffect(() => {
+    const measure = () => {
+      const el = containerRef.current;
+      if (!el) return;
+      setTopOffset(Math.max(0, Math.round(el.getBoundingClientRect().top + window.scrollY)));
+    };
+    measure();
+    const late = window.setTimeout(measure, 400);
+    window.addEventListener("resize", measure);
+    return () => {
+      window.clearTimeout(late);
+      window.removeEventListener("resize", measure);
+    };
+  }, []);
+
+  // Track the stage size so pages are fitted to the space available.
+  useEffect(() => {
+    const el = stageRef.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(([entry]) => {
+      const w = Math.floor(entry.contentRect.width);
+      const h = Math.floor(entry.contentRect.height);
+      setStageSize((prev) => (Math.abs(prev.w - w) < 2 && Math.abs(prev.h - h) < 2 ? prev : { w, h }));
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
 
   // Listen to fullscreenchange to keep UI state in sync
   useEffect(() => {
@@ -172,14 +320,10 @@ export default function ReaderPage() {
     if (!bookIdParam) return;
     let cancelled = false;
     (async () => {
-      const token = localStorage.getItem("token") || sessionStorage.getItem("token");
-      console.info("[ReaderPage] Ensuring userbook via api(); token:", token);
-
       try {
         // 1) Try to get existing userbook by book id
         const existing: any = await api<any>(`/api/catalog/userbook/by-book/${encodeURIComponent(String(bookIdParam))}`);
         if (cancelled) return;
-        console.info("[ReaderPage] userbook exists (GET via api):", existing);
         if (existing?.id != null) {
           setUserbookId(String(existing.id));
           const cp = Number(existing.current_page);
@@ -210,7 +354,6 @@ export default function ReaderPage() {
             body: JSON.stringify(payload),
           });
           if (cancelled) return;
-          console.info("[ReaderPage] userbook created (POST via api):", created);
           if (created?.id != null) {
             setUserbookId(String(created.id));
             const cp = Number(created.current_page);
@@ -271,6 +414,11 @@ export default function ReaderPage() {
     };
   }, [userbookId]);
 
+  // Keep the current page inside the document once its length is known.
+  useEffect(() => {
+    if (pageCount > 0 && page > pageCount) setPage(pageCount);
+  }, [page, pageCount]);
+
   // Send progress update on page change (debounced)
   useEffect(() => {
     if (!userbookId || pageCount <= 0) return;
@@ -329,7 +477,6 @@ export default function ReaderPage() {
           // create new
           resp = await api<any>(`/api/catalog/notes`, { method: "POST", body: JSON.stringify(body) });
         }
-        try { console.info("[ReaderPage] notes saved:", resp); } catch {}
         // remember id after create
         const newId = resp?.id ?? resp?.note_id ?? resp?.uuid ?? existingId;
         if (newId != null) notesIdMapRef.current.set(page, newId);
@@ -343,8 +490,6 @@ export default function ReaderPage() {
     return () => { cancelled = true; clearTimeout(t); };
   }, [notes, page, bookIdParam]);
 
-  // Temporarily disabled: do not persist or update userbook from ReaderPage
-
   // Keep the latest metadata in a ref: the PDF loader reads download_url only as a fallback,
   // so metadata arriving later must not restart (and re-download) an already streaming book.
   const bookMetaRef = useRef<any | null>(null);
@@ -354,6 +499,7 @@ export default function ReaderPage() {
     let cancelled = false;
     let activeTask: any = null;
     let openedDoc: any = null;
+    setStatus("loading");
 
     // Read just the first bytes of a candidate and abort, so a server that ignores Range
     // never makes us download the whole book only to check its signature.
@@ -452,6 +598,7 @@ export default function ReaderPage() {
           openedDoc = doc;
           setPdf(doc);
           setPageCount(doc.numPages);
+          setStatus("ready");
           return; // success
         } catch (e) {
           if (cancelled) return;
@@ -463,6 +610,7 @@ export default function ReaderPage() {
       }
 
       console.error('[ReaderPage] No usable PDF source');
+      if (!cancelled) setStatus("error");
     };
     load();
     return () => {
@@ -472,14 +620,20 @@ export default function ReaderPage() {
       try { openedDoc?.destroy(); } catch {}
       setPdf(null);
     };
-  }, [pdfUrlParam, bookIdParam, BASE]);
+  }, [pdfUrlParam, bookIdParam, BASE, reloadKey]);
 
   const leftRenderTaskRef = useRef<any>(null);
   const rightRenderTaskRef = useRef<any>(null);
 
+  // Render the visible page(s) fitted to the stage, at device pixel density for crisp text.
+  // Each page is drawn off-screen first and copied in one step, so flipping never flashes a blank canvas.
   useEffect(() => {
-    if (!pdf) return;
+    if (!pdf || stageSize.w <= 0 || stageSize.h <= 0) return;
     let cancelled = false;
+    const cols = twoUp ? 2 : 1;
+    const availW = Math.max(120, (stageSize.w - (cols - 1) * PAGE_GAP) / cols);
+    const availH = Math.max(160, stageSize.h);
+    const dpr = Math.min(window.devicePixelRatio || 1, 3);
 
     const renderPage = async (pNum: number, canvas: HTMLCanvasElement | null, taskRef: React.MutableRefObject<any>) => {
       if (!canvas) return;
@@ -488,33 +642,50 @@ export default function ReaderPage() {
       try {
         const pageObj = await pdf.getPage(pNum);
         if (cancelled) return;
-        const viewport = pageObj.getViewport({ scale });
-        const context = canvas.getContext("2d");
-        canvas.width = Math.floor(viewport.width);
-        canvas.height = Math.floor(viewport.height);
-        if (!context) return;
-        const task = pageObj.render({ canvasContext: context, viewport } as any);
+        const base = pageObj.getViewport({ scale: 1 });
+        const fitW = availW / base.width;
+        const fit = fitMode === "width" ? fitW : Math.min(fitW, availH / base.height);
+        const cssScale = fit * scale;
+        // Cap the bitmap size so deep zoom on dense screens stays within canvas limits.
+        let ratio = dpr;
+        const pixels = base.width * base.height * (cssScale * ratio) ** 2;
+        const MAX_PIXELS = 16_000_000;
+        if (pixels > MAX_PIXELS) ratio *= Math.sqrt(MAX_PIXELS / pixels);
+        const viewport = pageObj.getViewport({ scale: cssScale * ratio });
+
+        const off = document.createElement("canvas");
+        off.width = Math.floor(viewport.width);
+        off.height = Math.floor(viewport.height);
+        const offCtx = off.getContext("2d");
+        if (!offCtx) return;
+        const task = pageObj.render({ canvasContext: offCtx, viewport } as any);
         taskRef.current = task;
         await task.promise;
-      } catch (e) {
+        if (cancelled) return;
+
+        canvas.width = off.width;
+        canvas.height = off.height;
+        canvas.style.width = `${Math.floor(viewport.width / ratio)}px`;
+        canvas.style.height = `${Math.floor(viewport.height / ratio)}px`;
+        canvas.getContext("2d")?.drawImage(off, 0, 0);
+        off.width = 0;
+        off.height = 0;
+      } catch {
         // ignore (including RenderingCancelledException)
       }
     };
 
-    // render left page (current)
-    renderPage(page, leftCanvasRef.current, leftRenderTaskRef);
-    // render right page (current+1) if twoPage and exists
-    if (twoPage && page + 1 <= pageCount) {
-      renderPage(page + 1, rightCanvasRef.current, rightRenderTaskRef);
-    } else if (rightCanvasRef.current) {
-      // clear right canvas
-      const c = rightCanvasRef.current.getContext("2d");
-      if (c && rightCanvasRef.current) {
-        c.clearRect(0, 0, rightCanvasRef.current.width, rightCanvasRef.current.height);
-      }
-    }
+    setRendering(true);
+    const jobs = [renderPage(page, leftCanvasRef.current, leftRenderTaskRef)];
+    if (twoUp && page + 1 <= pageCount) jobs.push(renderPage(page + 1, rightCanvasRef.current, rightRenderTaskRef));
+    Promise.all(jobs).finally(() => { if (!cancelled) setRendering(false); });
     return () => { cancelled = true; };
-  }, [pdf, page, scale, twoPage, pageCount]);
+  }, [pdf, page, scale, twoUp, pageCount, fitMode, stageSize]);
+
+  // A new page starts at its top.
+  useEffect(() => {
+    stageRef.current?.scrollTo({ top: 0 });
+  }, [page]);
 
   // Pages whose data (content streams, fonts, images) has been streamed in, keyed by page number.
   const loadedPagesRef = useRef<Map<number, any>>(new Map());
@@ -531,7 +702,7 @@ export default function ReaderPage() {
     let cancelled = false;
 
     const lo = Math.max(1, page - PREFETCH_RADIUS);
-    const hi = Math.min(pageCount, page + (twoPage ? 1 : 0) + PREFETCH_RADIUS);
+    const hi = Math.min(pageCount, page + (twoUp ? 1 : 0) + PREFETCH_RADIUS);
 
     // Drop pages that left the window so memory stays bounded while reading long books.
     for (const [pNum, pageObj] of loadedPagesRef.current) {
@@ -569,7 +740,7 @@ export default function ReaderPage() {
         order.push(n);
       };
       push(center);
-      if (twoPage) push(center + 1);
+      if (twoUp) push(center + 1);
       for (let i = 1; i <= PREFETCH_RADIUS; i += 1) {
         push(center + i);
         push(center - i);
@@ -588,20 +759,18 @@ export default function ReaderPage() {
     return () => {
       cancelled = true;
     };
-  }, [pdf, page, pageCount, twoPage]);
+  }, [pdf, page, pageCount, twoUp]);
 
-  const prevSpread = () => setPage((p) => Math.max(1, p - (twoPage ? 2 : 1)));
-  const nextSpread = () => setPage((p) => Math.min(pageCount, p + (twoPage ? 2 : 1)));
-
-  const zoomOut = () => setScale((s) => Math.max(0.5, +(s - 0.1).toFixed(2)));
-  const zoomIn = () => setScale((s) => Math.min(2.5, +(s + 0.1).toFixed(2)));
-
-  const onWheel = (e: React.WheelEvent) => {
-    // Only handle Ctrl+wheel for zoom. Do not flip pages on scroll.
-    if (!e.ctrlKey) return;
-    e.preventDefault();
-    if (e.deltaY < 0) zoomIn(); else zoomOut();
+  const step = twoUp ? 2 : 1;
+  const prevSpread = () => setPage((p) => Math.max(1, p - step));
+  const nextSpread = () => setPage((p) => (pageCount ? Math.min(pageCount, p + step) : p));
+  const goTo = (n: number) => {
+    if (!Number.isFinite(n) || pageCount <= 0) return;
+    setPage(Math.max(1, Math.min(pageCount, Math.round(n))));
   };
+
+  const zoomOut = () => setScale((s) => clampZoom(+(s - 0.1).toFixed(2)));
+  const zoomIn = () => setScale((s) => clampZoom(+(s + 0.1).toFixed(2)));
 
   const enterNativeFullscreen = async (el: HTMLElement): Promise<boolean> => {
     try {
@@ -610,9 +779,6 @@ export default function ReaderPage() {
       if (anyEl.webkitRequestFullscreen) { await anyEl.webkitRequestFullscreen(); return true; }
       if (anyEl.mozRequestFullScreen) { await anyEl.mozRequestFullScreen(); return true; }
       if (anyEl.msRequestFullscreen) { await anyEl.msRequestFullscreen(); return true; }
-      const root: any = document.documentElement as any;
-      if (root && root.requestFullscreen) { await root.requestFullscreen(); return true; }
-      if (root && root.webkitRequestFullscreen) { await root.webkitRequestFullscreen(); return true; }
     } catch (e) {
       try { console.warn('[ReaderPage] enterNativeFullscreen failed:', e); } catch {}
     }
@@ -622,6 +788,7 @@ export default function ReaderPage() {
   const exitNativeFullscreen = async (): Promise<boolean> => {
     try {
       const anyDoc: any = document as any;
+      if (!anyDoc.fullscreenElement && !anyDoc.webkitFullscreenElement) return false;
       if (anyDoc.exitFullscreen) { await anyDoc.exitFullscreen(); return true; }
       if (anyDoc.webkitExitFullscreen) { await anyDoc.webkitExitFullscreen(); return true; }
       if (anyDoc.mozCancelFullScreen) { await anyDoc.mozCancelFullScreen(); return true; }
@@ -632,11 +799,12 @@ export default function ReaderPage() {
     return false;
   };
 
+  const isFullscreen = nativeFullscreen || overlayFullscreen;
+
   const toggleFullscreen = async () => {
     const el = containerRef.current;
     if (!el) return;
-    const currentlyFs = nativeFullscreen || overlayFullscreen;
-    if (currentlyFs) {
+    if (isFullscreen) {
       // Try exit native first; then fallback to overlay exit
       const exited = await exitNativeFullscreen();
       if (!exited && overlayFullscreen) {
@@ -653,195 +821,391 @@ export default function ReaderPage() {
     try { document.documentElement.style.overflow = "hidden"; } catch {}
   };
 
+  // Latest handlers for the long-lived keyboard and gesture listeners below.
+  const live = useRef<any>({});
+  live.current = {
+    scale, pageCount, menuOpen, notesOpen, isWide, overlayFullscreen,
+    prev: prevSpread, next: nextSpread, zoomIn, zoomOut, toggleFullscreen,
+  };
+
+  // Keyboard: ← → / PageUp PageDown turn pages, Home/End jump, + − 0 zoom, F fullscreen, Esc closes overlays.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const a = live.current;
+      if (e.key === "Escape") {
+        if (a.menuOpen) setMenuOpen(false);
+        else if (a.notesOpen && !a.isWide) setNotesOpen(false);
+        else if (a.overlayFullscreen) a.toggleFullscreen();
+        return;
+      }
+      const target = e.target as HTMLElement | null;
+      if (target?.closest?.("input, textarea, select, [contenteditable='true']")) return;
+      if (e.altKey || e.metaKey || e.ctrlKey) return;
+      switch (e.key) {
+        case "ArrowRight": case "PageDown": a.next(); break;
+        case "ArrowLeft": case "PageUp": a.prev(); break;
+        case "Home": setPage(1); break;
+        case "End": if (a.pageCount) setPage(a.pageCount); break;
+        case "+": case "=": a.zoomIn(); break;
+        case "-": case "_": a.zoomOut(); break;
+        case "0": setScale(1); break;
+        case "f": case "F": a.toggleFullscreen(); break;
+        default: return;
+      }
+      e.preventDefault();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
+  // Close the view menu on an outside click.
+  useEffect(() => {
+    if (!menuOpen) return;
+    const onDown = (e: PointerEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuOpen(false);
+    };
+    document.addEventListener("pointerdown", onDown);
+    return () => document.removeEventListener("pointerdown", onDown);
+  }, [menuOpen]);
+
+  // Gestures on the stage: Ctrl/⌘ + wheel zoom, pinch zoom, horizontal swipe to turn pages.
+  // Native listeners are needed because React registers wheel/touch handlers as passive.
+  useEffect(() => {
+    const stage = stageRef.current;
+    if (!stage) return;
+    let pinchStart = 0;
+    let pinchRatio = 1;
+    let swipe: { x: number; y: number; t: number } | null = null;
+    const distance = (t: TouchList) => Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY);
+
+    const onWheel = (e: WheelEvent) => {
+      if (!e.ctrlKey && !e.metaKey) return;
+      e.preventDefault();
+      const factor = Math.exp(-e.deltaY * 0.0025);
+      setScale((s) => clampZoom(+(s * factor).toFixed(3)));
+    };
+    const onTouchStart = (e: TouchEvent) => {
+      if (e.touches.length === 2) {
+        pinchStart = distance(e.touches);
+        pinchRatio = 1;
+        swipe = null;
+      } else if (e.touches.length === 1) {
+        swipe = { x: e.touches[0].clientX, y: e.touches[0].clientY, t: Date.now() };
+      }
+    };
+    const onTouchMove = (e: TouchEvent) => {
+      if (e.touches.length !== 2 || !pinchStart) return;
+      e.preventDefault();
+      // Preview the pinch with a CSS transform; the page is re-rendered once the fingers lift.
+      const current = live.current.scale as number;
+      pinchRatio = clampZoom(current * (distance(e.touches) / pinchStart)) / current;
+      if (pagesRef.current) pagesRef.current.style.transform = `scale(${pinchRatio})`;
+    };
+    const onTouchEnd = (e: TouchEvent) => {
+      if (pinchStart && e.touches.length < 2) {
+        if (pagesRef.current) pagesRef.current.style.transform = "";
+        const ratio = pinchRatio;
+        pinchStart = 0;
+        pinchRatio = 1;
+        swipe = null;
+        if (Math.abs(ratio - 1) > 0.02) setScale((s) => clampZoom(+(s * ratio).toFixed(3)));
+        return;
+      }
+      if (swipe && e.touches.length === 0 && e.changedTouches.length) {
+        const touch = e.changedTouches[0];
+        const dx = touch.clientX - swipe.x;
+        const dy = touch.clientY - swipe.y;
+        const quick = Date.now() - swipe.t < 700;
+        const canPan = stage.scrollWidth > stage.clientWidth + 4;
+        if (!canPan && quick && Math.abs(dx) > 56 && Math.abs(dx) > Math.abs(dy) * 1.6) {
+          if (dx < 0) live.current.next(); else live.current.prev();
+        }
+        swipe = null;
+      }
+    };
+
+    stage.addEventListener("wheel", onWheel, { passive: false });
+    stage.addEventListener("touchstart", onTouchStart, { passive: true });
+    stage.addEventListener("touchmove", onTouchMove, { passive: false });
+    stage.addEventListener("touchend", onTouchEnd);
+    stage.addEventListener("touchcancel", onTouchEnd);
+    return () => {
+      stage.removeEventListener("wheel", onWheel);
+      stage.removeEventListener("touchstart", onTouchStart);
+      stage.removeEventListener("touchmove", onTouchMove);
+      stage.removeEventListener("touchend", onTouchEnd);
+      stage.removeEventListener("touchcancel", onTouchEnd);
+    };
+  }, []);
+
+  const authors = displayNamesFrom((bookMeta as any)?.authors);
+  const subtitle = [authors.join(", "), (bookMeta as any)?.year].filter(Boolean).join(" · ");
+  const title = bookMeta?.title || L.book;
+  const lastVisible = twoUp ? Math.min(page + 1, pageCount) : page;
+  const progress = pageCount ? Math.round((lastVisible / pageCount) * 100) : 0;
+  const pageLabel = twoUp && page + 1 <= pageCount ? `${page}–${page + 1}` : String(page);
+  const backHref = bookIdParam ? `/catalog/${encodeURIComponent(bookIdParam)}` : "/catalog";
+  const savingLabel = saving === "saving" ? L.saving : saving === "saved" ? L.saved : saving === "error" ? L.error : L.autosave;
+  const ready = status === "ready" && pageCount > 0;
+
+  const commitPageDraft = () => {
+    if (pageDraft != null) goTo(Number(pageDraft));
+    setPageDraft(null);
+  };
+  const commitScrub = () => {
+    if (scrub != null) goTo(scrub);
+    setScrub(null);
+  };
+
+  const containerClass = [
+    "rd",
+    overlayFullscreen ? "rd--overlay" : "",
+    isFullscreen ? "is-fullscreen" : "",
+    notesOpen ? "has-notes" : "",
+  ].filter(Boolean).join(" ");
+
   return (
-    <div className={`space-y-4 overflow-x-hidden ${isMobile ? "pb-24" : ""}`}>
+    <div className="reader-page">
       <DashboardHeader />
 
       <div
         ref={containerRef}
-        className={`bg-slate-800 ${overlayFullscreen ? 'fixed inset-0 z-50 p-0 sm:p-0 rounded-none' : 'p-3 sm:p-4 rounded-md'} overflow-hidden`}
-        style={overlayFullscreen ? { width: '100vw', height: '100vh' } : undefined}
+        className={containerClass}
+        data-theme={theme}
+        style={{ "--rd-top": `${topOffset}px` } as React.CSSProperties}
       >
-        <div className="bg-slate-700 text-white rounded-t-md px-3 sm:px-4 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-3 sm:gap-4">
-            <Link to="/" className="text-sm hover:underline flex items-center gap-1">
-              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                <path d="M15 6l-6 6 6 6" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-              <span>{t("common.back")}</span>
-            </Link>
-            <div>
-              <div className="text-sm font-semibold">{bookMeta?.title || t("reader.book")}</div>
-              <div className="text-xs opacity-80">
-                {(() => {
-                  const authors = displayNamesFrom((bookMeta as any)?.authors);
-                  const authorLine = authors.length ? authors.join(', ') : '';
-                  const year = (bookMeta as any)?.year || '';
-                  const sep = authorLine && year ? ' — ' : '';
-                  return `${authorLine}${sep}${year}` || '-';
-                })()}
-              </div>
-            </div>
-          </div>
-          <div className="hidden sm:flex items-center gap-2 sm:gap-3">
-            <button onClick={prevSpread} className="p-2.5 rounded-md hover:bg-slate-600"><svg className="w-4 h-4" viewBox="0 0 24 24" fill="none"><path d="M15 6l-6 6 6 6" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/></svg></button>
-            <div className="text-sm">{page}{twoPage ? ` & ${Math.min(page + 1, pageCount)}` : ''} {t("reader.of")} {pageCount}</div>
-            <button onClick={nextSpread} className="p-2.5 rounded-md hover:bg-slate-600"><svg className="w-4 h-4" viewBox="0 0 24 24" fill="none"><path d="M9 6l6 6-6 6" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/></svg></button>
+        <header className="rd-bar">
+          <Link to={backHref} className="rd-back" title={L.back}>
+            <Icon name="back" />
+            <span>{L.back}</span>
+          </Link>
 
-            <div className="flex items-center gap-1">
-              <button onClick={zoomOut} className="p-2.5 rounded-md hover:bg-slate-600">-</button>
-              <div className="text-sm">{Math.round(scale * 100)}%</div>
-              <button onClick={zoomIn} className="p-2.5 rounded-md hover:bg-slate-600">+</button>
-            </div>
-            <input type="range" min={0.5} max={2.5} step={0.05} value={scale} onChange={(e) => setScale(parseFloat(e.target.value))} className="w-32 sm:w-40" />
-
-
-            <button onClick={toggleFullscreen} className="p-2 rounded-md hover:bg-slate-600">{(nativeFullscreen || overlayFullscreen) ? t("reader.exit") : t("reader.full")}</button>
-
-            <button onClick={() => setTwoPage((v) => !v)} className="p-2 rounded-md hover:bg-slate-600">{twoPage ? t("reader.double") : t("reader.single")}</button>
-          </div>
-        </div>
-
-        <div
-          className="flex flex-col md:flex-row gap-3 sm:gap-4 bg-slate-800 p-3 sm:p-6 max-w-full overflow-x-auto"
-          onWheel={onWheel}
-          onTouchStart={(e) => {
-            if (e.touches.length === 2) {
-              const [a, b] = [e.touches[0], e.touches[1]];
-              const dx = a.clientX - b.clientX;
-              const dy = a.clientY - b.clientY;
-              pinchStartDistRef.current = Math.hypot(dx, dy);
-              pinchStartScaleRef.current = scale;
-            }
-          }}
-          onTouchMove={(e) => {
-            if (e.touches.length === 2 && pinchStartDistRef.current) {
-              e.preventDefault();
-              const [a, b] = [e.touches[0], e.touches[1]];
-              const dx = a.clientX - b.clientX;
-              const dy = a.clientY - b.clientY;
-              const dist = Math.hypot(dx, dy);
-              const ratio = dist / (pinchStartDistRef.current || 1);
-              const next = Math.max(0.5, Math.min(2.5, +(pinchStartScaleRef.current * ratio).toFixed(2)));
-              setScale(next);
-            }
-          }}
-          onTouchEnd={(e) => {
-            if (pinchStartDistRef.current && e.touches.length < 2) {
-              pinchStartDistRef.current = null;
-            }
-          }}
-        >
-          <div className="flex-1 min-w-0 flex items-start justify-center">
-            <div className="bg-slate-100 p-3 sm:p-4 rounded-md shadow-inner max-w-full overflow-x-auto mx-auto w-full sm:w-auto sm:max-w-full max-w-[420px]">
-              <div className="flex gap-3 sm:gap-4 flex-wrap md:flex-nowrap items-start justify-center">
-                <canvas ref={leftCanvasRef} className="bg-white max-w-full h-auto" />
-                {twoPage && <canvas ref={rightCanvasRef} className="bg-white max-w-full h-auto" />}
-              </div>
-            </div>
+          <div className="rd-title">
+            <strong title={title}>{title}</strong>
+            {subtitle ? <span title={subtitle}>{subtitle}</span> : null}
           </div>
 
-          {!isMobile && (<aside className="w-full md:w-72 shrink-0 bg-white rounded-md p-3 sm:p-4 flex flex-col">
-            <div className="mb-2 text-sm text-slate-500 flex items-center justify-between">
-              <span>{t("common.notes")}</span>
-              <span className={`text-[11px] ${saving==='saving'?'text-amber-600': saving==='saved'?'text-emerald-600': saving==='error'?'text-red-600':'text-slate-400'}`}>
-                {saving === 'saving' ? t("common.saving") : saving === 'saved' ? t("common.saved") : saving === 'error' ? t("common.error") : t("common.autosave")}
-              </span>
+          <div className="rd-tools">
+            <div className="rd-zoom" role="group" aria-label={L.zoom}>
+              <button type="button" className="rd-icon" onClick={zoomOut} disabled={scale <= ZOOM_MIN} aria-label={L.zoomOut} title={L.zoomOut}>
+                <Icon name="minus" />
+              </button>
+              <button type="button" className="rd-zoom__value" onClick={() => setScale(1)} title={L.resetZoom}>
+                {Math.round(scale * 100)}%
+              </button>
+              <button type="button" className="rd-icon" onClick={zoomIn} disabled={scale >= ZOOM_MAX} aria-label={L.zoomIn} title={L.zoomIn}>
+                <Icon name="plus" />
+              </button>
             </div>
-            <textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder={t("reader.notesPlaceholder")} className="flex-1 border rounded-md p-2 text-sm min-h-[8rem] md:min-h-0" />
-            <div className="text-xs text-slate-400 mt-2">{t("reader.savedPerPage", { book: bookIdParam || "-", page })}</div>
-          </aside>)}
-        </div>
 
-        <div className="hidden sm:flex bg-slate-700 text-white rounded-b-md px-3 sm:px-4 py-3 mt-0 items-center justify-between">
-          <div className="flex items-center gap-2 sm:gap-3">
-            <button onClick={prevSpread} className="p-2.5 rounded-md hover:bg-slate-600"><svg className="w-4 h-4" viewBox="0 0 24 24" fill="none"><path d="M15 6l-6 6 6 6" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/></svg></button>
-            <div className="text-sm">{page}{twoPage ? ` & ${Math.min(page + 1, pageCount)}` : ''} {t("reader.of")} {pageCount}</div>
-            <button onClick={nextSpread} className="p-2.5 rounded-md hover:bg-slate-600"><svg className="w-4 h-4" viewBox="0 0 24 24" fill="none"><path d="M9 6l6 6-6 6" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/></svg></button>
-          </div>
-          <div className="flex items-center gap-2">
-            <button onClick={zoomOut} className="p-2.5 rounded-md hover:bg-slate-600">-</button>
-            <input type="range" min={0.5} max={2.5} step={0.05} value={scale} onChange={(e) => setScale(parseFloat(e.target.value))} className="w-32 sm:w-40" />
-            <button onClick={zoomIn} className="p-2.5 rounded-md hover:bg-slate-600">+</button>
-            <button onClick={() => setTwoPage((v) => !v)} className="ml-2 p-2 rounded-md hover:bg-slate-600">{twoPage ? t("reader.double") : t("reader.single")}</button>
-          </div>
-        </div>
-
-        {isMobile && (
-          <>
-            <div className="fixed inset-x-0 bottom-0 z-50 bg-white/95 backdrop-blur border-t border-slate-200 pb-[env(safe-area-inset-bottom)]">
-              <div className="mx-auto max-w-lg px-3 py-2 flex items-center justify-between gap-2">
-                <button
-                  onClick={prevSpread}
-                  disabled={page <= 1}
-                  className="px-3 py-2 rounded-md border border-slate-200 text-slate-700 disabled:opacity-40 disabled:cursor-not-allowed"
-                  aria-label={t("common.prev")}
-                >
-                  <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M15 6l-6 6 6 6" />
-                  </svg>
-                </button>
-
-                <div className="text-xs text-slate-700 tabular-nums">
-                  {page} {t("reader.of")} {pageCount}
-                </div>
-
-                <button
-                  onClick={nextSpread}
-                  disabled={pageCount ? page >= pageCount : true}
-                  className="px-3 py-2 rounded-md border border-slate-200 text-slate-700 disabled:opacity-40 disabled:cursor-not-allowed"
-                  aria-label={t("common.next")}
-                >
-                  <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M9 6l6 6-6 6" />
-                  </svg>
-                </button>
-
-                <button
-                  aria-label={t("reader.openNotes")}
-                  onClick={() => setNotesOpen(true)}
-                  className="ml-auto px-3 py-2 rounded-md border border-slate-200 text-slate-700"
-                >
-                  <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6">
-                    <path d="M4 4h16v12H7l-3 3V4z" />
-                    <path d="M14 8l-4 4" />
-                    <path d="M10 8l4 4" />
-                  </svg>
-                </button>
-
-                <button
-                  aria-label={t("reader.toggleFullscreen")}
-                  title={t("reader.full")}
-                  onClick={toggleFullscreen}
-                  className="px-3 py-2 rounded-md border border-slate-200 text-slate-700"
-                >
-                  <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                    <path d="M15 3h6v6" />
-                    <path d="M21 3l-7 7" />
-                    <path d="M9 21H3v-6" />
-                    <path d="M3 21l7-7" />
-                  </svg>
-                </button>
-              </div>
-            </div>
-            {notesOpen && (
-              <div className="fixed inset-0 z-50">
-                <div className="absolute inset-0 bg-black/50" onClick={() => setNotesOpen(false)} />
-                <div className="absolute inset-x-4 top-16 bottom-16 bg-white rounded-lg shadow p-4 flex flex-col">
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="text-sm font-medium text-slate-700">{t("reader.notesPage", { page })}</div>
-                    <button onClick={() => setNotesOpen(false)} className="p-2 rounded hover:bg-slate-100" aria-label="Close">
-                      <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"><path d="M6 6l12 12M6 18L18 6"/></svg>
-                    </button>
+            <div className="rd-menu" ref={menuRef}>
+              <button
+                type="button"
+                className={`rd-icon ${menuOpen ? "is-active" : ""}`}
+                onClick={() => setMenuOpen((v) => !v)}
+                aria-expanded={menuOpen}
+                aria-haspopup="dialog"
+                aria-label={L.settings}
+                title={L.settings}
+              >
+                <Icon name="settings" />
+              </button>
+              {menuOpen ? (
+                <div className="rd-popover" role="dialog" aria-label={L.settings}>
+                  <div className="rd-popover__group">
+                    <span className="rd-popover__label">{L.theme}</span>
+                    <div className="rd-themes">
+                      {(["light", "sepia", "dark"] as Theme[]).map((key) => (
+                        <button
+                          key={key}
+                          type="button"
+                          className={`rd-theme rd-theme--${key} ${theme === key ? "is-active" : ""}`}
+                          aria-pressed={theme === key}
+                          onClick={() => setTheme(key)}
+                        >
+                          <i aria-hidden="true">Aa</i>
+                          <span>{L[key]}</span>
+                        </button>
+                      ))}
+                    </div>
                   </div>
-                  <div className="text-[11px] text-slate-500 mb-2">{saving === 'saving' ? t("common.saving") : saving === 'saved' ? t("common.saved") : saving === 'error' ? t("common.error") : t("common.autosave")}</div>
-                  <textarea value={notes} onChange={(e)=>setNotes(e.target.value)} className="flex-1 border rounded-md p-2 text-sm" placeholder={t("reader.notesPlaceholder")} />
-                  <div className="mt-2 text-xs text-slate-400">{t("reader.savedPerPage", { book: bookIdParam || "-", page })}</div>
+
+                  <div className="rd-popover__group">
+                    <span className="rd-popover__label">{L.fit}</span>
+                    <div className="rd-segment">
+                      {(["page", "width"] as FitMode[]).map((key) => (
+                        <button key={key} type="button" aria-pressed={fitMode === key} className={fitMode === key ? "is-active" : ""} onClick={() => { setFitMode(key); setScale(1); }}>
+                          {key === "page" ? L.fitPage : L.fitWidth}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {!isNarrow ? (
+                    <div className="rd-popover__group">
+                      <span className="rd-popover__label">{L.layout}</span>
+                      <div className="rd-segment">
+                        <button type="button" aria-pressed={!twoPage} className={!twoPage ? "is-active" : ""} onClick={() => setTwoPage(false)}>{L.single}</button>
+                        <button type="button" aria-pressed={twoPage} className={twoPage ? "is-active" : ""} onClick={() => setTwoPage(true)}>{L.double}</button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="rd-popover__group rd-popover__group--zoom">
+                      <span className="rd-popover__label">{L.zoom}</span>
+                      <div className="rd-zoom rd-zoom--wide">
+                        <button type="button" className="rd-icon" onClick={zoomOut} disabled={scale <= ZOOM_MIN} aria-label={L.zoomOut}><Icon name="minus" /></button>
+                        <button type="button" className="rd-zoom__value" onClick={() => setScale(1)} title={L.resetZoom}>{Math.round(scale * 100)}%</button>
+                        <button type="button" className="rd-icon" onClick={zoomIn} disabled={scale >= ZOOM_MAX} aria-label={L.zoomIn}><Icon name="plus" /></button>
+                      </div>
+                    </div>
+                  )}
+
+                  <p className="rd-popover__hint">{L.shortcuts}</p>
                 </div>
+              ) : null}
+            </div>
+
+            {bookIdParam ? (
+              <button
+                type="button"
+                className={`rd-icon ${notesOpen ? "is-active" : ""}`}
+                onClick={() => setNotesOpen((v) => !v)}
+                aria-pressed={notesOpen}
+                aria-label={L.notes}
+                title={L.notes}
+              >
+                <Icon name="notes" />
+              </button>
+            ) : null}
+
+            <button
+              type="button"
+              className="rd-icon"
+              onClick={toggleFullscreen}
+              aria-label={isFullscreen ? L.exitFullscreen : L.fullscreen}
+              title={isFullscreen ? L.exitFullscreen : L.fullscreen}
+            >
+              <Icon name={isFullscreen ? "shrink" : "expand"} />
+            </button>
+          </div>
+        </header>
+
+        <div className="rd-progress" aria-hidden="true">
+          <span style={{ width: `${progress}%` }} />
+        </div>
+
+        <div className="rd-body">
+          <div className="rd-viewport">
+            <div ref={stageRef} className="rd-stage">
+              <div ref={pagesRef} className={`rd-pages ${ready ? "" : "is-hidden"}`}>
+                <canvas ref={leftCanvasRef} className="rd-page" />
+                {twoUp && page + 1 <= pageCount ? <canvas ref={rightCanvasRef} className="rd-page" /> : null}
               </div>
-            )}
-          </>
-        )}
+            </div>
+
+            {status === "loading" ? (
+              <div className="rd-state" role="status">
+                <span className="rd-spinner" aria-hidden="true" />
+                <span>{L.loading}</span>
+              </div>
+            ) : status === "error" ? (
+              <div className="rd-state rd-state--error" role="alert">
+                <Icon name="alert" size={28} />
+                <strong>{L.failed}</strong>
+                <span>{L.failedHint}</span>
+                <button type="button" className="rd-btn" onClick={() => setReloadKey((k) => k + 1)}>{L.retry}</button>
+              </div>
+            ) : null}
+
+            {ready ? (
+              <>
+                <button type="button" className="rd-nav rd-nav--prev" onClick={prevSpread} disabled={page <= 1} aria-label={L.prev}>
+                  <Icon name="prev" size={22} />
+                </button>
+                <button type="button" className="rd-nav rd-nav--next" onClick={nextSpread} disabled={lastVisible >= pageCount} aria-label={L.next}>
+                  <Icon name="next" size={22} />
+                </button>
+                {rendering ? <span className="rd-busy" aria-hidden="true" /> : null}
+              </>
+            ) : null}
+          </div>
+
+          {bookIdParam && notesOpen ? (
+            <>
+              <div className="rd-scrim" onClick={() => setNotesOpen(false)} aria-hidden="true" />
+              <aside className="rd-notes" aria-label={L.notes}>
+                <div className="rd-notes__head">
+                  <div>
+                    <strong>{L.notesFor.replace("{page}", String(page))}</strong>
+                    <span className={`rd-save rd-save--${saving}`}>{savingLabel}</span>
+                  </div>
+                  <button type="button" className="rd-icon" onClick={() => setNotesOpen(false)} aria-label={L.closeNotes} title={L.closeNotes}>
+                    <Icon name="close" />
+                  </button>
+                </div>
+                <textarea
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  placeholder={L.notesPlaceholder}
+                  aria-label={L.notesFor.replace("{page}", String(page))}
+                />
+                <Link to={`/catalog/${encodeURIComponent(bookIdParam)}/notes`} className="rd-notes__all">
+                  {L.allNotes}
+                  <Icon name="next" size={16} />
+                </Link>
+              </aside>
+            </>
+          ) : null}
+        </div>
+
+        <footer className="rd-foot">
+          <button type="button" className="rd-icon rd-icon--lg" onClick={prevSpread} disabled={!ready || page <= 1} aria-label={L.prev} title={L.prev}>
+            <Icon name="prev" size={20} />
+          </button>
+
+          <label className="rd-pageno">
+            <span className="sr-only">{L.page}</span>
+            <input
+              type="text"
+              inputMode="numeric"
+              value={pageDraft ?? (scrub != null ? String(scrub) : pageLabel)}
+              onFocus={(e) => { setPageDraft(String(page)); requestAnimationFrame(() => e.target.select()); }}
+              onChange={(e) => setPageDraft(e.target.value.replace(/[^\d]/g, ""))}
+              onBlur={commitPageDraft}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") { commitPageDraft(); (e.target as HTMLInputElement).blur(); }
+                if (e.key === "Escape") { setPageDraft(null); (e.target as HTMLInputElement).blur(); }
+              }}
+              disabled={!ready}
+              aria-label={L.page}
+              style={{ width: `${Math.max(2, String(pageCount || 0).length, pageLabel.length) + 1.5}ch` }}
+            />
+            <span>{L.of} {pageCount || "—"}</span>
+          </label>
+
+          <input
+            type="range"
+            className="rd-scrub"
+            min={1}
+            max={Math.max(1, pageCount)}
+            step={1}
+            value={scrub ?? page}
+            disabled={!ready}
+            onChange={(e) => setScrub(Number(e.target.value))}
+            onPointerUp={commitScrub}
+            onTouchEnd={commitScrub}
+            onKeyUp={commitScrub}
+            onBlur={commitScrub}
+            aria-label={L.page}
+            style={{ "--rd-fill": `${pageCount > 1 ? (((scrub ?? page) - 1) / (pageCount - 1)) * 100 : 0}%` } as React.CSSProperties}
+          />
+
+          <span className="rd-percent">{progress}%</span>
+
+          <button type="button" className="rd-icon rd-icon--lg" onClick={nextSpread} disabled={!ready || lastVisible >= pageCount} aria-label={L.next} title={L.next}>
+            <Icon name="next" size={20} />
+          </button>
+        </footer>
       </div>
     </div>
   );
