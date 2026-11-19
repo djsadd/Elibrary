@@ -1,8 +1,11 @@
 import json
+import logging
 from typing import Any
 import clickhouse_connect
 
 from core.config import settings
+
+logger = logging.getLogger(__name__)
 
 
 def get_client(database: str | None = None):
@@ -95,6 +98,14 @@ def insert_event(row: dict[str, Any]) -> None:
         int(row.get("is_authenticated") or 0),
         meta_json,
     ]
+    try:
+        _insert(client, data)
+    except Exception:
+        # ClickHouse is only a secondary copy: never lose the Postgres event because of it.
+        logger.warning("ClickHouse insert failed", exc_info=True)
+
+
+def _insert(client, data: list) -> None:
     client.insert("events", [data], column_names=[
         "event_time",
         "event_date",

@@ -1,6 +1,7 @@
 import asyncio
 import hashlib
 import json
+import logging
 import time
 from datetime import timedelta
 from typing import Any, Iterable
@@ -14,6 +15,8 @@ from starlette.requests import Request
 from starlette.responses import Response
 
 from app.core.config import settings
+
+logger = logging.getLogger(__name__)
 
 
 class AnalyticsMiddleware(BaseHTTPMiddleware):
@@ -311,9 +314,20 @@ class AnalyticsMiddleware(BaseHTTPMiddleware):
         url = f"{self.endpoint}/analytics/events"
         try:
             async with httpx.AsyncClient(timeout=self.timeout_s) as client:
-                await client.post(url, json=payload, headers={"X-Service-Token": settings.INTERNAL_API_TOKEN})
-        except Exception:
+                resp = await client.post(url, json=payload, headers={"X-Service-Token": settings.INTERNAL_API_TOKEN})
+            if not resp.is_success:
+                self._warn_send_failure(f"HTTP {resp.status_code}: {resp.text[:200]}")
+        except Exception as exc:
+            self._warn_send_failure(repr(exc))
+
+    def _warn_send_failure(self, reason: str) -> None:
+        # Analytics must never break a request, but silently dropping every event hides
+        # misconfiguration (e.g. a missing INTERNAL_API_TOKEN) for weeks. Warn at most once a minute.
+        now = time.monotonic()
+        if now - getattr(self, "_last_send_warning", 0.0) < 60:
             return
+        self._last_send_warning = now
+        logger.warning("Analytics event was not recorded (%s)", reason)
 
     async def dispatch(self, request: Request, call_next):
         path = request.url.path
