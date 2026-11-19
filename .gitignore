@@ -203,3 +203,6 @@ uploads/
 *.key
 .taste-skill/
 .research/
+
+# Папка массового импорта книг
+/import/

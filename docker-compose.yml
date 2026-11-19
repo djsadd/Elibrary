@@ -111,6 +111,9 @@ services:
       - CATALOG_MAX_RAW_MB=200
     volumes:
       - filestorage_data:/app/storage
+      # Папка для массового импорта книг (python -m app.cli.import_books).
+      # Книги копируются отсюда в /app/storage; после импорта папку можно очистить.
+      - ${BOOKS_IMPORT_DIR:-./import}:/import
     depends_on:
       - postgres
     ports:

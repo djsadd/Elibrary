@@ -1,14 +1,17 @@
-"""Импорт книг из Excel (+ необязательный ZIP с файлами книг).
+"""Импорт книг из Excel (+ необязательный источник файлов: ZIP-архив или папка на сервере).
 
 Формат Excel (первая строка — заголовки, порядок колонок не важен):
-    №  |  Название  |  Автор  |  Жанры через запятую  |  Язык  |  Ссылка
+    №  |  Название  |  Автор  |  Жанры через запятую  |  Язык  |  Ссылка  |  Файл
 
-* «№» — идентификатор строки; файл книги в ZIP ищется по имени «<№>.pdf»
-  (также принимаются .epub / .djvu, папки внутри архива игнорируются).
+* «№» — идентификатор строки; файл книги ищется по имени «<№>.pdf»
+  (также принимаются .epub / .djvu, папки игнорируются, ведущие нули не важны: 7 = 007).
+* «Файл» (необязательно) — явное имя файла книги («Алгебра 9 класс.pdf») или путь
+  относительно корня архива/папки («Математика/Алгебра 9 класс.pdf»). Если колонка
+  заполнена, файл ищется по ней, а не по «№».
 * «Автор» — несколько авторов разделяются точкой с запятой («;»), т.к. запятая
   встречается внутри ФИО («Иванов, И. И.»).
 * «Жанры» — через запятую (или точку с запятой).
-* «Ссылка» — ссылка на книгу на внешнем сайте. Если файла в архиве нет, а ссылка
+* «Ссылка» — ссылка на книгу на внешнем сайте. Если файла нет, а ссылка
   есть — книга создаётся как «внешняя» (source = EXTERNAL).
 """
 from __future__ import annotations
@@ -19,7 +22,7 @@ import uuid
 import zipfile
 from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath
-from typing import BinaryIO, Optional
+from typing import BinaryIO, Callable, Optional
 
 from openpyxl import load_workbook
 from sqlalchemy.orm import Session
@@ -41,8 +44,9 @@ COLUMN_ALIASES: dict[str, tuple[str, ...]] = {
     "subjects": ("жанры через запятую", "жанры", "жанр", "категории", "genres", "genre", "subjects"),
     "lang": ("язык", "lang", "language", "тілі"),
     "link": ("ссылка", "link", "url", "сілтеме", "внешняя ссылка"),
+    "file": ("файл", "имя файла", "путь", "путь к файлу", "file", "filename", "file name", "path"),
 }
-COLUMN_ORDER = ("num", "title", "authors", "subjects", "lang", "link")
+COLUMN_ORDER = ("num", "title", "authors", "subjects", "lang", "link", "file")
 
 
 def _norm_header(value) -> str:
@@ -65,6 +69,16 @@ def _split(value: str, pattern: str) -> list[str]:
         if part and part.lower() not in {p.lower() for p in seen}:
             seen.append(part)
     return seen
+
+
+def _num_key(value: str) -> str:
+    """Ключ для сопоставления «№» с именем файла: без регистра, «007» == «7»."""
+    key = (value or "").strip().lower()
+    return str(int(key)) if key.isdigit() else key
+
+
+def _path_key(value: str) -> str:
+    return str(PurePosixPath((value or "").strip().replace("\\", "/").strip("/"))).lower()
 
 
 @dataclass
@@ -129,7 +143,7 @@ def _detect_columns(rows: list[tuple]) -> tuple[int, dict[str, int]]:
     return -1, {key: i for i, key in enumerate(COLUMN_ORDER)}
 
 
-def read_excel(fp: BinaryIO) -> list[tuple[int, dict[str, str]]]:
+def read_excel(fp: BinaryIO, max_rows: int = MAX_ROWS) -> list[tuple[int, dict[str, str]]]:
     try:
         wb = load_workbook(fp, read_only=True, data_only=True)
     except Exception as exc:  # noqa: BLE001 — openpyxl бросает разные исключения
@@ -139,8 +153,8 @@ def read_excel(fp: BinaryIO) -> list[tuple[int, dict[str, str]]]:
         raw = []
         for row in ws.iter_rows(values_only=True):
             raw.append(row)
-            if len(raw) > MAX_ROWS + 10:
-                raise ImportFormatError(f"Слишком много строк (максимум {MAX_ROWS})")
+            if len(raw) > max_rows + 10:
+                raise ImportFormatError(f"Слишком много строк (максимум {max_rows})")
     finally:
         wb.close()
 
@@ -158,50 +172,114 @@ def read_excel(fp: BinaryIO) -> list[tuple[int, dict[str, str]]]:
     return out
 
 
-# ---------- ZIP ----------
+# ---------- Источники файлов (ZIP / папка) ----------
 
-def index_zip(zf: zipfile.ZipFile) -> dict[str, zipfile.ZipInfo]:
-    """{"<№>": ZipInfo} — по имени файла без папок, предпочитая .pdf."""
+@dataclass
+class SourceFile:
+    path: str  # относительный путь (posix) внутри архива/папки — для отчёта и поиска
+    size: int
+    opener: Callable[[], BinaryIO]
+
+    @property
+    def name(self) -> str:
+        return PurePosixPath(self.path).name
+
+    @property
+    def ext(self) -> str:
+        return os.path.splitext(self.path)[1].lower()
+
+
+@dataclass
+class FileIndex:
+    by_num: dict[str, SourceFile] = field(default_factory=dict)   # «7» -> 7.pdf (лучшее расширение)
+    by_path: dict[str, SourceFile] = field(default_factory=dict)  # «папка/книга.pdf» -> файл
+    by_name: dict[str, SourceFile] = field(default_factory=dict)  # «книга.pdf» -> файл (если имя уникально)
+    ambiguous_names: set[str] = field(default_factory=set)
+
+    def add(self, f: SourceFile) -> None:
+        self.by_path[_path_key(f.path)] = f
+        name = f.name.lower()
+        if name in self.by_name or name in self.ambiguous_names:
+            self.by_name.pop(name, None)
+            self.ambiguous_names.add(name)
+        else:
+            self.by_name[name] = f
+        key = _num_key(os.path.splitext(f.name)[0])
+        prev = self.by_num.get(key)
+        if prev is None or BOOK_EXTENSIONS.index(f.ext) < BOOK_EXTENSIONS.index(prev.ext):
+            self.by_num[key] = f
+
+    def find_by_ref(self, ref: str) -> tuple[Optional[SourceFile], str]:
+        key = _path_key(ref)
+        f = self.by_path.get(key) or self.by_name.get(PurePosixPath(key).name)
+        if f is not None:
+            return f, ""
+        if PurePosixPath(key).name in self.ambiguous_names:
+            return None, f"файлов «{PurePosixPath(key).name}» несколько в разных папках — укажите путь с папкой"
+        return None, f"файл «{ref}» не найден"
+
+    def all_files(self) -> list[SourceFile]:
+        return list(self.by_path.values())
+
+
+def _is_book_name(path: str) -> bool:
+    name = PurePosixPath(path).name
+    if name.startswith((".", "~$")) or "__MACOSX" in path:
+        return False
+    return os.path.splitext(name)[1].lower() in BOOK_EXTENSIONS
+
+
+def index_zip(zf: zipfile.ZipFile) -> FileIndex:
     total = 0
-    found: dict[str, zipfile.ZipInfo] = {}
+    idx = FileIndex()
     for info in zf.infolist():
         if info.is_dir():
             continue
-        name = PurePosixPath(info.filename.replace("\\", "/")).name
-        if name.startswith((".", "__MACOSX")) or "__MACOSX/" in info.filename:
-            continue
-        stem, ext = os.path.splitext(name)
-        ext = ext.lower()
-        if ext not in BOOK_EXTENSIONS:
+        path = info.filename.replace("\\", "/")
+        if not _is_book_name(path):
             continue
         total += info.file_size
         if total > MAX_ZIP_TOTAL_SIZE:
             raise ImportFormatError("Архив слишком большой после распаковки")
-        key = stem.strip().lower()
-        prev = found.get(key)
-        if prev is None or BOOK_EXTENSIONS.index(ext) < BOOK_EXTENSIONS.index(os.path.splitext(prev.filename)[1].lower()):
-            found[key] = info
-    return found
+        idx.add(SourceFile(path=path, size=info.file_size, opener=lambda info=info: zf.open(info)))
+    return idx
 
 
-def _extract_book_file(zf: zipfile.ZipFile, info: zipfile.ZipInfo, media_root: Path) -> str:
-    if info.file_size > MAX_BOOK_FILE_SIZE:
-        raise ValueError(f"файл {info.filename} больше {MAX_BOOK_FILE_SIZE // (1024 * 1024)} МБ")
-    ext = os.path.splitext(info.filename)[1].lower()
-    file_id = f"{uuid.uuid4().hex}{ext}"
+def index_dir(root: Path) -> FileIndex:
+    """Рекурсивно индексирует книги в папке (симлинки за пределы папки игнорируются)."""
+    root = root.resolve()
+    if not root.is_dir():
+        raise ImportFormatError(f"Папка не найдена: {root}")
+    idx = FileIndex()
+    for p in sorted(root.rglob("*")):
+        if not p.is_file():
+            continue
+        rel = p.relative_to(root).as_posix()
+        if not _is_book_name(rel):
+            continue
+        if not p.resolve().is_relative_to(root):
+            continue
+        idx.add(SourceFile(path=rel, size=p.stat().st_size, opener=lambda p=p: p.open("rb")))
+    return idx
+
+
+def _copy_book_file(src_file: SourceFile, media_root: Path, max_size: int) -> str:
+    if src_file.size > max_size:
+        raise ValueError(f"файл {src_file.name} больше {max_size // (1024 * 1024)} МБ")
+    file_id = f"{uuid.uuid4().hex}{src_file.ext}"
     dest = media_root / file_id
     written = 0
     try:
-        with zf.open(info) as src, dest.open("xb") as out:
+        with src_file.opener() as src, dest.open("xb") as out:
             head = src.read(1024)
-            if ext == ".pdf" and b"%PDF" not in head:
-                raise ValueError(f"{info.filename} не является PDF")
+            if src_file.ext == ".pdf" and b"%PDF" not in head:
+                raise ValueError(f"{src_file.name} не является PDF")
             out.write(head)
             written = len(head)
             while chunk := src.read(1024 * 1024):
                 written += len(chunk)
-                if written > MAX_BOOK_FILE_SIZE:  # защита от поддельного размера в заголовке ZIP
-                    raise ValueError(f"файл {info.filename} слишком большой")
+                if written > max_size:  # защита от поддельного размера в заголовке ZIP
+                    raise ValueError(f"файл {src_file.name} слишком большой")
                 out.write(chunk)
     except BaseException:
         dest.unlink(missing_ok=True)
@@ -234,25 +312,44 @@ def import_books(
     zip_path: Optional[Path],
     media_root: Path,
     *,
+    files_dir: Optional[Path] = None,
     dry_run: bool = False,
     is_public: bool = True,
     skip_duplicates: bool = True,
+    max_rows: int = MAX_ROWS,
+    max_file_size: int = MAX_BOOK_FILE_SIZE,
+    commit_every: int = 0,
+    on_row: Optional[Callable[[ImportRowResult, int, int], None]] = None,
 ) -> ImportReport:
-    rows = read_excel(excel_fp)
+    """Импортирует книги. Файлы берутся из ZIP (zip_path) или папки (files_dir).
+
+    commit_every > 0 — коммитить каждые N созданных книг (для больших импортов: при падении
+    уже созданные книги останутся, а повторный запуск пропустит их как дубликаты).
+    """
+    rows = read_excel(excel_fp, max_rows=max_rows)
     report = ImportReport(dry_run=dry_run, total_rows=len(rows))
 
     zf: Optional[zipfile.ZipFile] = None
-    files: dict[str, zipfile.ZipInfo] = {}
+    files = FileIndex()
+    has_source = zip_path is not None or files_dir is not None
     if zip_path is not None:
         try:
             zf = zipfile.ZipFile(zip_path)
         except zipfile.BadZipFile as exc:
             raise ImportFormatError("Архив повреждён или это не ZIP") from exc
         files = index_zip(zf)
+    elif files_dir is not None:
+        files = index_dir(files_dir)
 
     used_files: set[str] = set()
     seen_nums: set[str] = set()
     existing = _existing_books_index(db) if skip_duplicates else {}
+
+    def _done(res: ImportRowResult) -> None:
+        report.add(res)
+        if on_row is not None:
+            on_row(res, len(report.rows), len(rows))
+
     try:
         for row_no, v in rows:
             num = v.get("num", "")
@@ -261,25 +358,25 @@ def import_books(
 
             if not title:
                 res.message = "пустое название"
-                report.add(res)
+                _done(res)
                 continue
             if len(title) > 512:
                 res.message = "название длиннее 512 символов"
-                report.add(res)
+                _done(res)
                 continue
-            if num and num.lower() in seen_nums:
+            if num and _num_key(num) in seen_nums:
                 res.message = f"№ {num} повторяется в таблице"
-                report.add(res)
+                _done(res)
                 continue
             if num:
-                seen_nums.add(num.lower())
+                seen_nums.add(_num_key(num))
 
             authors = _split(v.get("authors", ""), r"[;\n]")
             subjects = _split(v.get("subjects", ""), r"[,;\n]")
             lang = (v.get("lang") or "").strip()[:16] or None
             if any(len(x) > 256 for x in authors + subjects):
                 res.message = "имя автора или жанра длиннее 256 символов"
-                report.add(res)
+                _done(res)
                 continue
 
             link = v.get("link", "")
@@ -287,15 +384,33 @@ def import_books(
                 link = validate_external_url(link)
             except ValueError:
                 res.message = f"некорректная ссылка: {link[:100]}"
-                report.add(res)
+                _done(res)
                 continue
 
-            info = files.get(num.lower()) if num else None
+            file_ref = v.get("file", "")
+            info: Optional[SourceFile] = None
+            if file_ref:
+                if not has_source:
+                    res.message = "указан файл, но архив/папка с файлами не переданы"
+                    _done(res)
+                    continue
+                info, err = files.find_by_ref(file_ref)
+                if info is None:
+                    res.message = err
+                    _done(res)
+                    continue
+                if info.path in used_files:
+                    res.message = f"файл «{info.path}» уже привязан к другой строке"
+                    _done(res)
+                    continue
+            elif num:
+                info = files.by_num.get(_num_key(num))
+
             if info is None and not link:
                 res.message = (
-                    f"нет файла {num}.pdf в архиве и нет ссылки" if zf else "нет ссылки (архив с файлами не загружен)"
+                    f"нет файла {num}.pdf и нет ссылки" if has_source else "нет ссылки (архив с файлами не загружен)"
                 )
-                report.add(res)
+                _done(res)
                 continue
 
             key = _dup_key(title, authors)
@@ -306,25 +421,25 @@ def import_books(
                     res.book_id = dup_id or None
                     res.message = "такая книга уже есть в каталоге" if dup_id else "дубликат строки выше"
                     if info is not None:
-                        used_files.add(num.lower())
-                    report.add(res)
+                        used_files.add(info.path)
+                    _done(res)
                     continue
 
             res.kind = "file" if info is not None else "external"
             if dry_run:
                 res.status = "created"
-                res.message = "будет создана" + (f" (файл {PurePosixPath(info.filename).name})" if info else " (внешняя ссылка)")
+                res.message = "будет создана" + (f" (файл {info.path})" if info else " (внешняя ссылка)")
                 if info is not None:
-                    used_files.add(num.lower())
+                    used_files.add(info.path)
                 existing.setdefault(key, 0)
-                report.add(res)
+                _done(res)
                 continue
 
             file_id = None
             try:
                 if info is not None:
-                    file_id = _extract_book_file(zf, info, media_root)
-                    used_files.add(num.lower())
+                    file_id = _copy_book_file(info, media_root, max_file_size)
+                    used_files.add(info.path)
                 with db.begin_nested():
                     book = Book(
                         title=title,
@@ -352,11 +467,11 @@ def import_books(
                 res.status = "error"
                 res.kind = None
                 res.message = str(exc) if isinstance(exc, ValueError) else f"ошибка сохранения: {type(exc).__name__}"
-            report.add(res)
+            _done(res)
+            if commit_every > 0 and res.status == "created" and report.created % commit_every == 0:
+                db.commit()
 
-        report.unused_files = sorted(
-            PurePosixPath(info.filename).name for key, info in files.items() if key not in used_files
-        )
+        report.unused_files = sorted(f.path for f in files.all_files() if f.path not in used_files)
         return report
     finally:
         if zf is not None:
@@ -378,4 +493,3 @@ def spool_upload_to_disk(src: BinaryIO, dest_dir: Path, max_size: int) -> Path:
         dest.unlink(missing_ok=True)
         raise
     return dest
-
