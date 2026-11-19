@@ -218,6 +218,8 @@ services:
       - CLIENT_MAX_BODY_SIZE=200m
     ports:
       - "127.0.0.1:80:80"
+      # LAN address of the server: the domain's reverse proxy / DNS points here.
+      - "192.168.115.29:80:80"
     depends_on:
       - gateway
 
