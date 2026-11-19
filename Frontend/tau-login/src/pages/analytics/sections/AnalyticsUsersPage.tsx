@@ -4,7 +4,7 @@ import { api } from "@/shared/api/client";
 import { ChartCard, CohortGrid, ColumnChart, EmptyChart, Funnel, KpiTile, ShareBar, TrendChart } from "@/components/charts/Charts";
 import { CHART, fmtInt, fmtNum, pctDelta } from "@/components/charts/chartUtils";
 import { useAnalytics } from "../analyticsContext";
-import { fmtDateTime, fmtDay, fmtMinutes, ti, tl, useLangVersion } from "../../insights/shared";
+import { fmtDateTime, fmtDay, fmtMinutes, foldDailyToWeeks, ti, tl, useLangVersion } from "../../insights/shared";
 import { KpiGrid, SourceState } from "./common";
 
 type AuthUser = { id: number; email?: string | null; first_name?: string | null; last_name?: string | null };
@@ -42,6 +42,8 @@ export default function AnalyticsUsersPage() {
   const names = useUserNames(tr?.users.top.map((u) => u.user_id) ?? []);
   const weekdays = tl("common.weekdays");
   const months = tl("common.months");
+  const trDaily = tr ? foldDailyToWeeks(tr.daily, ["users"]) : [];
+  const trFolded = !!tr && trDaily.length < tr.daily.length;
 
   const fmtCohort = (iso: string) => {
     const [, m, d] = iso.split("-").map(Number);
@@ -70,9 +72,13 @@ export default function AnalyticsUsersPage() {
 
         {tr && (
           <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
-            <ChartCard title={ti("admin.overview.trend")} subtitle={ti("admin.overview.trendSub")} className="xl:col-span-2">
+            <ChartCard
+              title={ti("admin.overview.trend")}
+              subtitle={ti("admin.overview.trendSub") + (trFolded ? ` · ${ti("common.weeklyNote")}` : "")}
+              className="xl:col-span-2"
+            >
               <TrendChart
-                data={tr.daily}
+                data={trDaily}
                 xKey="day"
                 formatX={fmtDay}
                 series={[{ key: "users", label: ti("admin.overview.users"), color: CHART.s1 }]}

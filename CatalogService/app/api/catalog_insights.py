@@ -282,11 +282,18 @@ _YEAR_RE = re.compile(r"(1[5-9]\d{2}|20\d{2})")
 
 @router.get("/admin/insights", dependencies=[Depends(require_roles("admin", "librarian"))])
 def library_insights(
-    days: int = Query(30, ge=7, le=366),
+    days: int = Query(30, ge=1, le=366),
+    from_date: date | None = Query(None, alias="from"),
+    to_date: date | None = Query(None, alias="to"),
     db: Session = Depends(get_db),
 ):
     today = _today()
-    start = today - timedelta(days=days - 1)
+    # Either the last `days` days, or an explicit [from, to] range (inclusive, up to 366 days).
+    end = min(to_date or today, today)
+    start = from_date or (end - timedelta(days=days - 1))
+    if start > end or (end - start).days > 365:
+        raise HTTPException(422, "Date range must be ordered and no longer than 366 days")
+    days = (end - start).days + 1
     prev_start = start - timedelta(days=days)
 
     # ---- catalog composition ----
@@ -314,7 +321,7 @@ def library_insights(
     # ---- reading activity in window ----
     acts = (
         db.query(ReadingActivity.day, ReadingActivity.user_id, ReadingActivity.book_id, ReadingActivity.seconds, ReadingActivity.pages)
-        .filter(ReadingActivity.day >= prev_start)
+        .filter(ReadingActivity.day >= prev_start, ReadingActivity.day <= end)
         .all()
     )
     day_readers: dict[date, set[int]] = defaultdict(set)
@@ -348,7 +355,7 @@ def library_insights(
             "minutes": round(day_sec.get(d, 0) / 60, 1),
             "pages": day_pages.get(d, 0),
         }
-        for d in _date_range(start, today)
+        for d in _date_range(start, end)
     ]
 
     # ---- shelves / funnel ----
@@ -377,8 +384,9 @@ def library_insights(
         if u.started_at and (u.user_id not in first_start or u.started_at < first_start[u.user_id]):
             first_start[u.user_id] = u.started_at
     start_dt = datetime.combine(start, datetime.min.time())
-    new_readers = sum(1 for dt in first_start.values() if dt >= start_dt)
-    added_to_shelves = sum(1 for u in ubs if u.started_at and u.started_at >= start_dt)
+    end_dt = datetime.combine(end + timedelta(days=1), datetime.min.time())
+    new_readers = sum(1 for dt in first_start.values() if start_dt <= dt < end_dt)
+    added_to_shelves = sum(1 for u in ubs if u.started_at and start_dt <= u.started_at < end_dt)
 
     top_ids = sorted(per_book, key=lambda bid: (per_book[bid]["readers"], per_book[bid]["minutes"]), reverse=True)[:10]
     trending_ids = sorted(book_sec, key=lambda bid: book_sec[bid], reverse=True)[:10]
@@ -435,13 +443,13 @@ def library_insights(
     never_opened = sum(1 for bid in public_ids if bid not in opened_ids)
 
     notes_total = db.query(func.count(UserBookNote.id)).scalar() or 0
-    notes_window = db.query(func.count(UserBookNote.id)).filter(UserBookNote.created_at >= start_dt).scalar() or 0
+    notes_window = db.query(func.count(UserBookNote.id)).filter(UserBookNote.created_at >= start_dt, UserBookNote.created_at < end_dt).scalar() or 0
 
     def ranked(counter: Counter, limit: int | None = None) -> list[dict]:
         return [{"key": k, "count": c} for k, c in counter.most_common(limit)]
 
     return {
-        "range": {"from": start.isoformat(), "to": today.isoformat(), "days": days},
+        "range": {"from": start.isoformat(), "to": end.isoformat(), "days": days},
         "kpi": {
             "active_readers": len(cur_readers),
             "active_readers_prev": len(prev_readers),

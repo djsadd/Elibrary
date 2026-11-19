@@ -1,7 +1,7 @@
 import { ChartCard, EmptyChart, KpiTile, MatrixHeatmap, RankedBars, ShareBar, TrendChart } from "@/components/charts/Charts";
 import { CHART, fmtInt, fmtNum, pctDelta } from "@/components/charts/chartUtils";
 import { useAnalytics } from "../analyticsContext";
-import { fmtDay, fmtMinutes, fmtMinutesAxis, ti, tl, useLangVersion } from "../../insights/shared";
+import { fmtDay, fmtMinutes, fmtMinutesAxis, foldDailyToWeeks, ti, tl, useLangVersion } from "../../insights/shared";
 import { KpiGrid, SourceState } from "./common";
 
 export default function AnalyticsOverviewPage() {
@@ -10,6 +10,9 @@ export default function AnalyticsOverviewPage() {
   const tr = traffic.data;
   const lib = library.data;
   const weekdays = tl("common.weekdays");
+  const trDaily = tr ? foldDailyToWeeks(tr.daily, ["users", "guests"]) : [];
+  const libDaily = lib ? foldDailyToWeeks(lib.daily, ["minutes"]) : [];
+  const weekly = (folded: unknown[], raw?: unknown[]) => (raw && folded.length < raw.length ? ` · ${ti("common.weeklyNote")}` : "");
 
   const visitors = tr ? tr.current.users + tr.current.guests : 0;
   const visitorsPrev = tr ? tr.previous.users + tr.previous.guests : 0;
@@ -61,10 +64,10 @@ export default function AnalyticsOverviewPage() {
         </KpiGrid>
 
         <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-          <ChartCard title={ti("admin.overview.trend")} subtitle={ti("admin.overview.trendSub")}>
+          <ChartCard title={ti("admin.overview.trend")} subtitle={ti("admin.overview.trendSub") + weekly(trDaily, tr?.daily)}>
             {tr ? (
               <TrendChart
-                data={tr.daily}
+                data={trDaily}
                 xKey="day"
                 formatX={fmtDay}
                 series={[
@@ -77,10 +80,10 @@ export default function AnalyticsOverviewPage() {
               <EmptyChart text={traffic.error || ti("common.loading")} height={220} />
             )}
           </ChartCard>
-          <ChartCard title={ti("admin.overview.readingTrend")} subtitle={ti("admin.overview.readingTrendSub")}>
+          <ChartCard title={ti("admin.overview.readingTrend")} subtitle={ti("admin.overview.readingTrendSub") + weekly(libDaily, lib?.daily)}>
             {lib ? (
               <TrendChart
-                data={lib.daily}
+                data={libDaily}
                 xKey="day"
                 formatX={fmtDay}
                 format={(v) => fmtMinutes(v)}

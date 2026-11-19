@@ -52,6 +52,42 @@ export function rangeForDays(days: number): { from: string; to: string } {
   return { from: ymd(from), to: ymd(to) };
 }
 
+/** Inclusive number of days between two "YYYY-MM-DD" dates (0 if invalid or unordered). */
+export function daysBetween(from: string, to: string): number {
+  const a = Date.parse(`${from}T00:00:00Z`);
+  const b = Date.parse(`${to}T00:00:00Z`);
+  if (Number.isNaN(a) || Number.isNaN(b) || b < a) return 0;
+  return Math.round((b - a) / 86_400_000) + 1;
+}
+
+/**
+ * Long daily series (half a year, a year) are unreadable point by point: fold them into weeks
+ * (Monday-based), keeping the per-day average so the units and subtitles stay the same.
+ * The bucket is labelled by its first day. Short series are returned untouched.
+ */
+export function foldDailyToWeeks<T extends { day: string }>(rows: T[], keys: (keyof T)[], threshold = 120): T[] {
+  if (rows.length <= threshold) return rows;
+  const out: T[] = [];
+  let bucket: T[] = [];
+  const push = () => {
+    if (!bucket.length) return;
+    const row = { ...bucket[0] } as T;
+    for (const k of keys) {
+      const sum = bucket.reduce((acc, r) => acc + (Number(r[k]) || 0), 0);
+      (row as Record<keyof T, unknown>)[k] = Math.round((sum / bucket.length) * 10) / 10;
+    }
+    out.push(row);
+    bucket = [];
+  };
+  for (const r of rows) {
+    const dow = new Date(`${r.day}T00:00:00Z`).getUTCDay(); // 1 = Monday
+    if (dow === 1) push();
+    bucket.push(r);
+  }
+  push();
+  return out;
+}
+
 /** Re-render when the UI language changes. */
 export function useLangVersion(): number {
   const [v, setV] = useState(0);

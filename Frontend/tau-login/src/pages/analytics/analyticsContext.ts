@@ -3,6 +3,8 @@ import type { LibraryInsights, TrafficInsights } from "./types";
 
 export type AnalyticsContext = {
   days: number;
+  /** Inclusive "YYYY-MM-DD" range the data was requested for. */
+  range: { from: string; to: string };
   traffic: { data: TrafficInsights | null; error: string | null; loading: boolean };
   library: { data: LibraryInsights | null; error: string | null; loading: boolean };
   reload: () => void;
