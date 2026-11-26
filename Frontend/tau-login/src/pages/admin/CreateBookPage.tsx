@@ -150,9 +150,8 @@ export default function CreateBookPage() {
       const res = await fetch(uploadRawUrl, {
         method: "POST",
         headers: {
-          "Content-Type": "application/octet-stream",
-          // Backend expects underscore header name due to convert_underscores=False
-          "x_filename": safeName,
+          "Content-Type": file.type || "application/octet-stream",
+          "X-Filename": safeName,
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
         body: file,

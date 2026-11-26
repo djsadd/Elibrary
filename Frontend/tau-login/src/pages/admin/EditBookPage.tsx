@@ -151,8 +151,8 @@ export default function EditBookPage() {
         const res = await fetch(uploadRawUrl, {
           method: "POST",
           headers: {
-            "Content-Type": "application/octet-stream",
-            "x_filename": safeName,
+            "Content-Type": pdfFile.type || "application/octet-stream",
+            "X-Filename": safeName,
             ...(localStorage.getItem('token') ? { Authorization: `Bearer ${localStorage.getItem('token')}` } : {}),
           },
           body: pdfFile,

@@ -110,8 +110,8 @@ export default function QuickArticlePage() {
       const res = await fetch(uploadRawUrl, {
         method: "POST",
         headers: {
-          "Content-Type": "application/octet-stream",
-          "x_filename": safeName,
+          "Content-Type": file.type || "application/octet-stream",
+          "X-Filename": safeName,
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
         body: file,

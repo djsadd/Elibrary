@@ -250,7 +250,8 @@ def verify(req: VerifyCodeRequest, request: Request, db: Session = Depends(get_d
 
 
 def _twofa_required(u: User) -> bool:
-    return bool(settings.TWOFA_REQUIRED) or bool(getattr(u, "twofa_enabled", False))
+    # Two-factor authentication is disabled: login issues tokens right after password check.
+    return False
 
 
 @router.post("/login")
@@ -315,7 +316,7 @@ def login(req: LoginRequest, request: Request, db: Session = Depends(get_db)):
     step_up = should_step_up(user_id=int(u.id), email=str(u.email), ip=ip)
     clear_login_failures(email=str(u.email), ip=ip)
 
-    if _twofa_required(u) or step_up.required:
+    if _twofa_required(u):
         try:
             challenge_id, code, ttl = create_challenge(user_id=int(u.id), credential=credential_fingerprint(u.hashed_password))
             send_2fa_code_email(to_email=u.email, code=code, ttl_seconds=int(ttl))
@@ -607,7 +608,7 @@ def platonus_login(req: PlatonusLoginRequest, request: Request, db: Session = De
     step_up = should_step_up(user_id=int(u.id), email=str(u.email), ip=ip)
     clear_login_failures(email=str(u.email), ip=ip)
 
-    if _twofa_required(u) or step_up.required:
+    if _twofa_required(u):
         try:
             challenge_id, code, ttl = create_challenge(user_id=int(u.id))
             send_2fa_code_email(to_email=u.email, code=code, ttl_seconds=int(ttl))

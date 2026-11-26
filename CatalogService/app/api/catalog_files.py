@@ -2,6 +2,7 @@ from app.utils.authz import require_roles, get_current_user
 import os
 import uuid
 from typing import Optional
+from urllib.parse import unquote
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request
 from sqlalchemy import func, or_
@@ -21,6 +22,18 @@ MEDIA_ROOT = str(media_root())
 os.makedirs(MEDIA_ROOT, exist_ok=True)
 
 MAX_RAW_SIZE = 50 * 1024 * 1024
+
+_ALLOWED_EXTS = {".pdf", ".epub", ".djvu", ".txt", ".png", ".jpg", ".jpeg", ".webp"}
+_MIME_TO_EXT = {
+    "application/pdf": ".pdf",
+    "application/epub+zip": ".epub",
+    "image/vnd.djvu": ".djvu",
+    "image/x-djvu": ".djvu",
+    "text/plain": ".txt",
+    "image/png": ".png",
+    "image/jpeg": ".jpg",
+    "image/webp": ".webp",
+}
 
 
 def _public_download_url(file_id: str) -> str:
@@ -43,14 +56,19 @@ async def upload_raw(
         except ValueError:
             raise HTTPException(400, "Invalid Content-Length")
 
+    # Proxies (nginx etc.) drop headers with underscores by default, so accept "X-Filename" too.
     x_filename = x_filename or request.headers.get("x-filename")
     ext = ""
-    if x_filename and "." in x_filename:
-        base = x_filename.split("/")[-1].split("\\")[-1]
+    if x_filename:
+        base = unquote(x_filename).strip().split("/")[-1].split("\\")[-1]
         _, ext = os.path.splitext(base)
-    if ext.lower() not in {".pdf", ".epub", ".djvu", ".txt", ".png", ".jpg", ".jpeg", ".webp"}:
+    ext = ext.lower()
+    if not ext:
+        mime = (content_type or "").split(";")[0].strip().lower()
+        ext = _MIME_TO_EXT.get(mime, "")
+    if ext not in _ALLOWED_EXTS:
         raise HTTPException(415, "Unsupported file extension")
-    file_id = f"{uuid.uuid4().hex}{ext.lower()}"
+    file_id = f"{uuid.uuid4().hex}{ext}"
 
     try:
         await _save_raw_stream(request, file_id)

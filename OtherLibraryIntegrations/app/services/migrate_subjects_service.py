@@ -64,7 +64,7 @@ async def upload_file_to_raw_service(
 
         data = await download_pdf(file_url)
 
-    headers = {"x_filename": filename or "file.pdf", "Authorization": f"Bearer {token}"}
+    headers = {"X-Filename": filename or "file.pdf", "Authorization": f"Bearer {token}"}
 
     async with aiohttp.ClientSession() as session:
         async with session.post(
