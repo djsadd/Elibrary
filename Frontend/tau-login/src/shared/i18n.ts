@@ -2699,6 +2699,148 @@ dict.kk.admin.createBook = {
   addOption: '«{{value}}» қосу', noResults: 'Нәтиже табылмады', remove: 'Жою',
 };
 
+// Create book: sections, hints, upload zones and the built-in guide
+Object.assign(dict.ru.admin.createBook, {
+  required: 'обязательно',
+  sections: {
+    main: { title: 'Основное', desc: 'Как книга будет называться в каталоге и кто её автор.' },
+    publication: { title: 'Выходные данные', desc: 'Помогают читателям найти и правильно процитировать книгу.' },
+    classification: { title: 'Темы и форматы', desc: 'Определяют, в каких разделах каталога появится книга.' },
+    access: { title: 'Источник и доступ', desc: 'Откуда книга и кто может её видеть.' },
+  },
+  hints: {
+    authors: 'Выберите из списка или введите новое имя и нажмите «Добавить».',
+    subjects: 'Можно выбрать несколько тем.',
+    formats: 'EBOOK — электронная, HARDCOPY — печатная, AUDIOBOOK — аудио, ARTICLE — статья.',
+    copies: 'Для печатных экземпляров на полке.',
+    publiclyVisible: 'Если выключить, книгу увидят только сотрудники библиотеки.',
+    users: 'Необязательно: пользователи, связанные с книгой.',
+  },
+  upload: {
+    drop: 'Перетащите файл сюда или нажмите, чтобы выбрать',
+    coverHint: 'JPG, PNG или WebP. Лучше вертикальная, 3:4.',
+    fileHint: 'PDF, EPUB или DjVu, до 50 МБ.',
+    change: 'Заменить',
+    remove: 'Убрать',
+    wrongType: 'Этот тип файла не подходит.',
+  },
+  status: {
+    title: 'Готовность',
+    titleOk: 'Название указано',
+    authors: 'Есть автор',
+    cover: 'Есть обложка',
+    content: 'Прикреплён файл или ссылка',
+    note: 'Обязательно только название — остальное можно дополнить позже.',
+  },
+  saving: 'Сохранение…',
+  uploadingFile: 'Загрузка файла…',
+  guide: {
+    title: 'Как добавить книгу',
+    show: 'Показать инструкцию',
+    hide: 'Скрыть',
+    step1: { title: 'Заполните основное', text: 'Обязательно только название. Авторов выберите из списка или впишите нового и нажмите «Добавить».' },
+    step2: { title: 'Укажите выходные данные', text: 'Год, издательство, ISBN, издание и число страниц — по титульному листу книги.' },
+    step3: { title: 'Выберите темы и формат', text: 'Темы определяют раздел каталога. Для электронной книги отметьте формат EBOOK.' },
+    step4: { title: 'Прикрепите файлы', text: 'Обложка — JPG/PNG/WebP. Файл книги — PDF, EPUB или DjVu до 50 МБ. Файл можно просто перетащить.' },
+    step5: { title: 'Настройте доступ', text: 'Нет файла — вставьте внешнюю ссылку. Снимите «Доступна всем», чтобы скрыть книгу от читателей.' },
+    step6: { title: 'Сохраните', text: 'Нажмите «Сохранить книгу» и дождитесь сообщения об успехе — не закрывайте страницу, пока идёт загрузка.' },
+  },
+});
+
+Object.assign(dict.kk.admin.createBook, {
+  required: 'міндетті',
+  sections: {
+    main: { title: 'Негізгі', desc: 'Кітаптың каталогтағы атауы және авторы.' },
+    publication: { title: 'Шығу деректері', desc: 'Оқырманларға кітапты табуға және дұрыс сілтеме жасауға көмектеседі.' },
+    classification: { title: 'Тақырыптар мен форматтар', desc: 'Кітаптың каталогтың қай бөлімінде шығатынын анықтайды.' },
+    access: { title: 'Дереккөз және қолжетімділік', desc: 'Кітап қайдан алынды және оны кім көре алады.' },
+  },
+  hints: {
+    authors: 'Тізімнен таңдаңыз немесе жаңа атын жазып, «Қосу» басыңыз.',
+    subjects: 'Бірнеше тақырып таңдауға болады.',
+    formats: 'EBOOK — электронды, HARDCOPY — баспа, AUDIOBOOK — аудио, ARTICLE — мақала.',
+    copies: 'Сөредегі баспа даналары үшін.',
+    publiclyVisible: 'Өшірсеңіз, кітапты тек кітапхана қызметкерлері көреді.',
+    users: 'Міндетті емес: кітапқа байланысты пайдаланушылар.',
+  },
+  upload: {
+    drop: 'Файлды осында сүйреңіз немесе таңдау үшін басыңыз',
+    coverHint: 'JPG, PNG немесе WebP. Тік, 3:4 болғаны жақсы.',
+    fileHint: 'PDF, EPUB немесе DjVu, 50 МБ дейін.',
+    change: 'Ауыстыру',
+    remove: 'Алып тастау',
+    wrongType: 'Бұл файл түрі сәйкес келмейді.',
+  },
+  status: {
+    title: 'Дайындық',
+    titleOk: 'Атауы көрсетілген',
+    authors: 'Автор бар',
+    cover: 'Мұқаба бар',
+    content: 'Файл немесе сілтеме тіркелген',
+    note: 'Тек атауы міндетті — қалғанын кейін толықтыруға болады.',
+  },
+  saving: 'Сақталуда…',
+  uploadingFile: 'Файл жүктелуде…',
+  guide: {
+    title: 'Кітапты қалай қосуға болады',
+    show: 'Нұсқаулықты көрсету',
+    hide: 'Жасыру',
+    step1: { title: 'Негізгісін толтырыңыз', text: 'Тек атауы міндетті. Авторды тізімнен таңдаңыз немесе жаңасын жазып, «Қосу» басыңыз.' },
+    step2: { title: 'Шығу деректерін көрсетіңіз', text: 'Жылы, баспасы, ISBN, басылымы және бет саны — кітаптың титул бетінен.' },
+    step3: { title: 'Тақырып пен форматты таңдаңыз', text: 'Тақырыптар каталог бөлімін анықтайды. Электронды кітап үшін EBOOK форматын белгілеңіз.' },
+    step4: { title: 'Файлдарды тіркеңіз', text: 'Мұқаба — JPG/PNG/WebP. Кітап файлы — PDF, EPUB немесе DjVu, 50 МБ дейін. Файлды сүйреп әкелуге болады.' },
+    step5: { title: 'Қолжетімділікті баптаңыз', text: 'Файл жоқ болса — сыртқы сілтемені қойыңыз. Кітапты оқырмандардан жасыру үшін «Барлығына қолжетімді» белгісін алыңыз.' },
+    step6: { title: 'Сақтаңыз', text: '«Кітапты сақтау» басып, сәтті хабарламаны күтіңіз — жүктеу кезінде бетті жаппаңыз.' },
+  },
+});
+
+Object.assign(dict.en.admin.createBook, {
+  required: 'required',
+  sections: {
+    main: { title: 'Basics', desc: 'How the book is named in the catalogue and who wrote it.' },
+    publication: { title: 'Publication details', desc: 'Help readers find and cite the book correctly.' },
+    classification: { title: 'Subjects and formats', desc: 'Decide which catalogue sections show the book.' },
+    access: { title: 'Source and access', desc: 'Where the book comes from and who can see it.' },
+  },
+  hints: {
+    authors: 'Pick from the list, or type a new name and press “Add”.',
+    subjects: 'You can pick several subjects.',
+    formats: 'EBOOK — digital, HARDCOPY — print, AUDIOBOOK — audio, ARTICLE — article.',
+    copies: 'For printed copies on the shelf.',
+    publiclyVisible: 'When off, only library staff can see the book.',
+    users: 'Optional: users linked to this book.',
+  },
+  upload: {
+    drop: 'Drag a file here or click to choose',
+    coverHint: 'JPG, PNG or WebP. Portrait 3:4 works best.',
+    fileHint: 'PDF, EPUB or DjVu, up to 50 MB.',
+    change: 'Replace',
+    remove: 'Remove',
+    wrongType: 'This file type is not supported.',
+  },
+  status: {
+    title: 'Checklist',
+    titleOk: 'Title entered',
+    authors: 'Author added',
+    cover: 'Cover added',
+    content: 'File or link attached',
+    note: 'Only the title is required — you can fill in the rest later.',
+  },
+  saving: 'Saving…',
+  uploadingFile: 'Uploading file…',
+  guide: {
+    title: 'How to add a book',
+    show: 'Show guide',
+    hide: 'Hide',
+    step1: { title: 'Fill in the basics', text: 'Only the title is required. Pick authors from the list, or type a new one and press “Add”.' },
+    step2: { title: 'Add publication details', text: 'Year, publisher, ISBN, edition and page count — from the book’s title page.' },
+    step3: { title: 'Choose subjects and format', text: 'Subjects decide the catalogue section. For a digital book, tick the EBOOK format.' },
+    step4: { title: 'Attach files', text: 'Cover — JPG/PNG/WebP. Book file — PDF, EPUB or DjVu up to 50 MB. You can drag files in.' },
+    step5: { title: 'Set access', text: 'No file? Paste an external link. Untick “Publicly visible” to hide the book from readers.' },
+    step6: { title: 'Save', text: 'Press “Save Book” and wait for the success message — keep the page open while uploading.' },
+  },
+});
+
 // Book import from Excel + external books
 dict.en.bookImport = {
   nav: 'Import from Excel',

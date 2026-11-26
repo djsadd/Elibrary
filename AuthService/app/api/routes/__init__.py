@@ -471,16 +471,38 @@ def platonus_login(req: PlatonusLoginRequest, request: Request, db: Session = De
             or info.get("lastname")
             or info.get("last_name")
         )
-    missing_fields = []
     if not iin:
-        missing_fields.append("iin")
+        raise HTTPException(status_code=400, detail="Account sign-in missing fields: iin")
+
     if not corporate_email:
-        missing_fields.append("email")
-    if missing_fields:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Account sign-in missing fields: {', '.join(missing_fields)}",
-        )
+        # Platonus has no email for this person: reuse the one already stored for this IIN,
+        # otherwise ask the user to enter an email and confirm it with a code.
+        known = db.query(User).filter_by(iin=iin).first()
+        if known and known.email:
+            corporate_email = known.email
+        else:
+            challenge_id, ttl = create_email_change_challenge(
+                payload={
+                    "iin": iin,
+                    "role": desired_role or "student",
+                    "first_name": first_name,
+                    "last_name": last_name,
+                    "orig_email": None,
+                }
+            )
+            audit_event(
+                "auth.platonus_email_missing",
+                request,
+                success=False,
+                reason="no_email_in_platonus",
+                extra={"ip": ip, "challenge_id": challenge_id, "ttl": ttl},
+            )
+            msg = {
+                "en": "Your Platonus profile has no email. Enter your email and confirm it with the code we send.",
+                "ru": "В Platonus не указана ваша почта. Введите свою почту и подтвердите её кодом из письма.",
+                "kk": "Platonus профиліңізде email көрсетілмеген. Email енгізіп, хаттағы кодпен растаңыз.",
+            }.get(get_lang(request), "Your Platonus profile has no email. Enter your email and confirm it with the code we send.")
+            return PlatonusEmailRequiredResponse(challenge_id=challenge_id, message=msg)
 
     u_by_iin = db.query(User).filter_by(iin=iin).first()
     existing_by_email = db.query(User).filter_by(email=corporate_email).first()
