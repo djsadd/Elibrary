@@ -56,6 +56,9 @@ class Settings(BaseSettings):
     AUTH_STEPUP_ON_NEW_IP: bool = True
     AUTH_KNOWN_IP_TTL_SECONDS: int = 7_776_000  # 90 days
 
+    # Platonus users without a usable email get "<IIN>@<this domain>" (reserved, never delivered)
+    PLATONUS_PLACEHOLDER_EMAIL_DOMAIN: str = "no-email.example.com"
+
     # 2FA (email OTP)
     TWOFA_REQUIRED: bool = False  # if True, require 2FA for all active users
     TWOFA_CODE_LENGTH: int = 6

@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 from sqlalchemy import or_, func
 from typing import Optional
+from pydantic import EmailStr, TypeAdapter
 import logging
 import json
 import secrets
@@ -249,6 +250,33 @@ def verify(req: VerifyCodeRequest, request: Request, db: Session = Depends(get_d
     raise HTTPException(410, "Account activation is managed by administrators")
 
 
+_EMAIL_ADAPTER = TypeAdapter(EmailStr)
+
+
+def _is_placeholder_email(email: str | None) -> bool:
+    domain = str(settings.PLATONUS_PLACEHOLDER_EMAIL_DOMAIN).strip().lower()
+    return str(email or "").strip().lower().endswith("@" + domain)
+
+
+def _platonus_account_email(db: Session, *, iin: str, corporate_email: str | None) -> str:
+    """Email for a Platonus account: the Platonus email if it is valid and free, otherwise a
+    non-deliverable placeholder built from the IIN (the users.email column is required and unique)."""
+    candidate = str(corporate_email or "").strip().lower()
+    if candidate:
+        try:
+            _EMAIL_ADAPTER.validate_python(candidate)
+            owner = db.query(User).filter_by(email=candidate).first()
+            if not owner or (owner.iin or "") == iin:
+                return candidate
+        except ValueError:
+            pass
+    domain = str(settings.PLATONUS_PLACEHOLDER_EMAIL_DOMAIN).strip().lower()
+    placeholder = f"{iin}@{domain}"
+    if db.query(User).filter_by(email=placeholder).first():
+        placeholder = f"{iin}.{secrets.token_hex(3)}@{domain}"
+    return placeholder
+
+
 def _twofa_required(u: User) -> bool:
     # Two-factor authentication is disabled: login issues tokens right after password check.
     return False
@@ -474,126 +502,12 @@ def platonus_login(req: PlatonusLoginRequest, request: Request, db: Session = De
     if not iin:
         raise HTTPException(status_code=400, detail="Account sign-in missing fields: iin")
 
-    if not corporate_email:
-        # Platonus has no email for this person: reuse the one already stored for this IIN,
-        # otherwise ask the user to enter an email and confirm it with a code.
-        known = db.query(User).filter_by(iin=iin).first()
-        if known and known.email:
-            corporate_email = known.email
-        else:
-            challenge_id, ttl = create_email_change_challenge(
-                payload={
-                    "iin": iin,
-                    "role": desired_role or "student",
-                    "first_name": first_name,
-                    "last_name": last_name,
-                    "orig_email": None,
-                }
-            )
-            audit_event(
-                "auth.platonus_email_missing",
-                request,
-                success=False,
-                reason="no_email_in_platonus",
-                extra={"ip": ip, "challenge_id": challenge_id, "ttl": ttl},
-            )
-            msg = {
-                "en": "Your Platonus profile has no email. Enter your email and confirm it with the code we send.",
-                "ru": "В Platonus не указана ваша почта. Введите свою почту и подтвердите её кодом из письма.",
-                "kk": "Platonus профиліңізде email көрсетілмеген. Email енгізіп, хаттағы кодпен растаңыз.",
-            }.get(get_lang(request), "Your Platonus profile has no email. Enter your email and confirm it with the code we send.")
-            return PlatonusEmailRequiredResponse(challenge_id=challenge_id, message=msg)
-
-    u_by_iin = db.query(User).filter_by(iin=iin).first()
-    existing_by_email = db.query(User).filter_by(email=corporate_email).first()
-    if existing_by_email and (existing_by_email.iin or "") != (iin or ""):
-        lang = get_lang(request)
-        def _looks_like_email(value: str) -> bool:
-            v = str(value or "").strip()
-            if "@" not in v:
-                return False
-            local, domain = v.rsplit("@", 1)
-            domain = domain.strip()
-            return bool(local.strip()) and bool(domain) and "." in domain and not domain.startswith(".") and not domain.endswith(".")
-
-        if (
-            u_by_iin
-            and u_by_iin.email
-            and str(u_by_iin.email).strip().lower() != str(corporate_email).strip().lower()
-            and _looks_like_email(str(u_by_iin.email))
-        ):
-            payload = {
-                "iin": iin,
-                "role": desired_role or "student",
-                "first_name": first_name,
-                "last_name": last_name,
-                "orig_email": corporate_email,
-            }
-            bound_email = str(u_by_iin.email).strip().lower()
-            challenge_id, ttl = create_email_change_challenge(payload=payload)
-            try:
-                code, code_ttl = request_email_change_code(challenge_id=challenge_id, email=bound_email)
-                send_activation_code_email(to_email=bound_email, code=code, ttl_seconds=int(code_ttl))
-            except PermissionError as e:
-                try:
-                    retry_after = int(str(e))
-                except Exception:
-                    retry_after = int(settings.TWOFA_RESEND_COOLDOWN_SECONDS)
-                raise HTTPException(status_code=429, detail="Too many requests", headers={"Retry-After": str(retry_after)})
-            except Exception as e:
-                raise HTTPException(status_code=503, detail="Email delivery unavailable")
-
-            audit_event(
-                "auth.platonus_email_code_sent",
-                request,
-                success=True,
-                extra={"ip": ip, "challenge_id": challenge_id, "email": bound_email, "ttl": ttl},
-            )
-            msg_code_sent = {
-                "en": "We sent a verification code to your linked email.",
-                "ru": "Мы отправили код подтверждения на вашу привязанную почту.",
-                "kk": "Байланыстырылған поштаңызға растау коды жіберілді.",
-            }.get(lang, "We sent a verification code to your linked email.")
-            return PlatonusEmailRequiredResponse(
-                challenge_id=challenge_id,
-                existing_email=corporate_email,
-                bound_email=bound_email,
-                code_sent=True,
-                expires_in=int(code_ttl),
-                message=msg_code_sent,
-            )
-        msg = {
-            "en": "Email already registered. Please enter another email and verify it with a code.",
-            "ru": "Эта почта уже зарегистрирована. Введите другую почту и подтвердите её кодом из письма.",
-            "kk": "Бұл email бұрын тіркелген. Басқа email енгізіп, хаттағы кодпен растаңыз.",
-        }.get(lang, "Email already registered. Please enter another email and verify it with a code.")
-        challenge_id, ttl = create_email_change_challenge(
-            payload={
-                "iin": iin,
-                "role": desired_role or "student",
-                "first_name": first_name,
-                "last_name": last_name,
-                "orig_email": corporate_email,
-            }
-        )
-        audit_event(
-            "auth.platonus_email_conflict",
-            request,
-            success=False,
-            reason="email_taken",
-            extra={"ip": ip, "existing_email": corporate_email, "challenge_id": challenge_id, "ttl": ttl},
-        )
-        return PlatonusEmailRequiredResponse(
-            challenge_id=challenge_id,
-            existing_email=corporate_email,
-            message=msg,
-        )
-
+    # Platonus has already verified the person (login + password + IIN), so we never ask for an email.
     u = db.query(User).filter_by(iin=iin).first()
     if not u:
-
+        email = _platonus_account_email(db, iin=iin, corporate_email=corporate_email)
         u = User(
-            email=corporate_email,
+            email=email,
             hashed_password=hash_password(req.password),
             iin=iin,
             is_active=True,
@@ -606,6 +520,13 @@ def platonus_login(req: PlatonusLoginRequest, request: Request, db: Session = De
         db.refresh(u)
     elif not u.is_active:
         raise HTTPException(403, "Account disabled")
+    elif _is_placeholder_email(u.email) and corporate_email:
+        # Platonus now has a real email for this person: replace the placeholder if it is free.
+        better = _platonus_account_email(db, iin=iin, corporate_email=corporate_email)
+        if not _is_placeholder_email(better):
+            u.email = better
+            db.commit()
+            db.refresh(u)
     if desired_role:
         current_role = (u.role or "").strip().lower()
         if not current_role or current_role == "student" or (current_role == "teacher" and desired_role == "librarian"):
